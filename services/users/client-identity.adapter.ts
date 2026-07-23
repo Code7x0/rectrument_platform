@@ -128,13 +128,24 @@ function mapAccountManagerRecord(record: {
     asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments]),
   );
   const hasPendingInvite = Boolean(invite?.token) && status === "inactive";
+  // Env Super Admin / Admin must never be blocked by an inactive AM row.
+  if (elevated) {
+    return {
+      ...syntheticElevatedUser(email, elevated),
+      id: record.id,
+      accountManagerId: record.id,
+      fullName:
+        asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.name]) ?? email,
+      phone: asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]),
+    };
+  }
   return {
     id: record.id,
     clerkUserId: null,
     email,
     fullName:
       asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.name]) ?? email,
-    role: elevated ?? "account_manager",
+    role: "account_manager",
     status: hasPendingInvite ? "inactive" : status,
     registrationStatus: hasPendingInvite
       ? "invitation_pending"
@@ -256,14 +267,35 @@ async function listPartnerUsers(): Promise<User[]> {
 function mergeElevatedEnvUsers(users: User[]): User[] {
   const byEmail = new Map(users.map((user) => [user.email.toLowerCase(), user]));
   for (const email of getSuperAdminEmails()) {
-    if (!byEmail.has(email)) {
-      byEmail.set(email, syntheticElevatedUser(email, "super_admin"));
-    }
+    const existing = byEmail.get(email);
+    byEmail.set(
+      email,
+      existing
+        ? {
+            ...existing,
+            role: "super_admin",
+            status: "active",
+            registrationStatus: "active",
+          }
+        : syntheticElevatedUser(email, "super_admin"),
+    );
   }
   for (const email of getAdminEmails()) {
-    if (!byEmail.has(email)) {
-      byEmail.set(email, syntheticElevatedUser(email, "admin"));
+    if (byEmail.get(email)?.role === "super_admin") {
+      continue;
     }
+    const existing = byEmail.get(email);
+    byEmail.set(
+      email,
+      existing
+        ? {
+            ...existing,
+            role: "admin",
+            status: "active",
+            registrationStatus: "active",
+          }
+        : syntheticElevatedUser(email, "admin"),
+    );
   }
   return [...byEmail.values()];
 }
@@ -272,9 +304,28 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
   const normalized = email.trim().toLowerCase();
   const elevated = resolveElevatedRole(normalized);
   if (elevated) {
-    const existing = await clientListUsers({});
-    const match = existing.find((user) => user.email.toLowerCase() === normalized);
-    return match ?? syntheticElevatedUser(normalized, elevated);
+    // Env allow-list is authoritative: never block login on Airtable status/outage.
+    // Still prefer a matching AM/Partner row for display name / linked ids when present.
+    try {
+      const existing = await clientListUsers({});
+      const match = existing.find(
+        (user) => user.email.toLowerCase() === normalized,
+      );
+      if (match) {
+        return {
+          ...match,
+          role: elevated,
+          status: "active",
+          registrationStatus: "active",
+        };
+      }
+    } catch (error) {
+      console.error(
+        "[client-identity] Elevated email enrich failed; using synthetic user",
+        error,
+      );
+    }
+    return syntheticElevatedUser(normalized, elevated);
   }
 
   const amRecords = await getRecords(accountManagersTable(), {

@@ -13,7 +13,12 @@ interface NavigationItemProps {
 }
 
 function isNavItemActive(pathname: string, href: string): boolean {
-  const dashboardRoots = ["/admin", "/account-manager", "/partner"];
+  const dashboardRoots = [
+    "/super-admin",
+    "/admin",
+    "/account-manager",
+    "/partner",
+  ];
 
   if (dashboardRoots.includes(href)) {
     return pathname === href;

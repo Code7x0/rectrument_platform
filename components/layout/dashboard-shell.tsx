@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Navbar } from "@/components/layout/navbar";
 import { Sidebar } from "@/components/layout/sidebar";
+import { ClientErrorBoundary } from "@/components/providers/client-error-boundary";
 import type { Notification } from "@/features/notifications/types";
 import { SearchProvider } from "@/features/search/components/search-provider";
 import { getNavigationForRole } from "@/lib/navigation";
@@ -55,7 +56,9 @@ export function DashboardShell({
         />
         <div className="flex flex-1">
           <Sidebar items={navItems} collapsed={collapsed} />
-          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+            <ClientErrorBoundary>{children}</ClientErrorBoundary>
+          </main>
         </div>
       </div>
     </SearchProvider>

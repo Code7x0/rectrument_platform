@@ -23,6 +23,9 @@ const SearchContext = createContext<SearchContextValue | null>(null);
 
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  // Keep the dialog out of the tree until first open — avoids Radix portal
+  // teardown races with React 19 during dashboard route transitions.
+  const [hasOpened, setHasOpened] = useState(false);
 
   const openSearch = useCallback(() => setOpen(true), []);
   const closeSearch = useCallback(() => setOpen(false), []);
@@ -52,6 +55,12 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [toggleSearch]);
 
+  useEffect(() => {
+    if (open) {
+      setHasOpened(true);
+    }
+  }, [open]);
+
   const value = useMemo(
     () => ({ open, openSearch, closeSearch, toggleSearch }),
     [open, openSearch, closeSearch, toggleSearch],
@@ -60,7 +69,9 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   return (
     <SearchContext.Provider value={value}>
       {children}
-      <SearchModal open={open} onOpenChange={setOpen} />
+      {hasOpened ? (
+        <SearchModal open={open} onOpenChange={setOpen} />
+      ) : null}
     </SearchContext.Provider>
   );
 }

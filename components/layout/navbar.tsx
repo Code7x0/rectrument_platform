@@ -1,8 +1,9 @@
 "use client";
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 
+import { ClientUserButton } from "@/components/auth/client-clerk-auth";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ export function Navbar({
           </div>
         ) : null}
 
-        <UserButton
+        <ClientUserButton
           appearance={{
             elements: {
               avatarBox: "h-9 w-9",
