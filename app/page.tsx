@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SignInButton } from "@clerk/nextjs";
 import { auth } from "@clerk/nextjs/server";
 
+import { ClientSignInButton } from "@/components/auth/client-clerk-auth";
 import { Button } from "@/components/ui/button";
 import { getAppSession, getDashboardRouteForRole } from "@/lib/auth";
 import { rethrowNextControlFlow } from "@/lib/actions/errors";
@@ -41,9 +41,12 @@ export default async function HomePage() {
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <SignInButton mode="redirect" forceRedirectUrl={ROUTES.authCallback}>
+          <ClientSignInButton
+            mode="redirect"
+            forceRedirectUrl={ROUTES.authCallback}
+          >
             <Button size="lg">Sign in</Button>
-          </SignInButton>
+          </ClientSignInButton>
           <Button asChild size="lg" variant="outline">
             <Link href={ROUTES.register}>Become a Talent Partner</Link>
           </Button>

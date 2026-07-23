@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { auth } from "@clerk/nextjs/server";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import { getAppSession } from "@/lib/auth";
@@ -25,12 +26,17 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Only resolve Airtable identity when Clerk has a user — avoids
+  // unnecessary CRM calls (and failure modes) on public/sign-in pages.
+  const { userId } = await auth();
   let session = null;
 
-  try {
-    session = await getAppSession();
-  } catch {
-    session = null;
+  if (userId) {
+    try {
+      session = await getAppSession();
+    } catch {
+      session = null;
+    }
   }
 
   return (

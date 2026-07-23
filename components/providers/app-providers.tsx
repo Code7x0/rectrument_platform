@@ -16,7 +16,13 @@ export function AppProviders({
   session = null,
 }: AppProvidersProps) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-in"
+      signInFallbackRedirectUrl="/auth/callback"
+      signUpFallbackRedirectUrl="/sign-in"
+    >
       <QueryProvider>
         <CurrentUserProvider session={session}>
           {children}

@@ -1,5 +1,4 @@
-import { SignIn } from "@clerk/nextjs";
-
+import { ClientSignIn } from "@/components/auth/client-clerk-auth";
 import { AuthPageShell } from "@/components/shared/auth-message";
 import { APP_NAME } from "@/lib/constants";
 
@@ -13,11 +12,11 @@ export default function SignInPage() {
         </p>
       </div>
       <div className="flex justify-center">
-        <SignIn
+        <ClientSignIn
           routing="path"
           path="/sign-in"
           fallbackRedirectUrl="/auth/callback"
-          forceRedirectUrl="/auth/callback"
+          signUpUrl="/sign-in"
         />
       </div>
     </AuthPageShell>
