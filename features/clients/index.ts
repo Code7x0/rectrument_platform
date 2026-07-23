@@ -10,6 +10,7 @@ export { CLIENT_STATUS_LABELS } from "./types";
 export {
   archiveClient,
   createClient,
+  deleteClient,
   getClientById,
   getClientWorkspaceStats,
   listClients,

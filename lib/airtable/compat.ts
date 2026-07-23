@@ -96,6 +96,67 @@ export function asSelectList(value: unknown): string | null {
   return asString(value);
 }
 
+/**
+ * Locked Partners.Specialization choices on the client base.
+ * Unknown free-text (e.g. "hr") must map to an existing option — Airtable
+ * rejects creating new select options via the API.
+ */
+export const PARTNER_SPECIALIZATION_CHOICES = [
+  "IT",
+  "Finance",
+  "Healthcare",
+  "Admin",
+  "Sales",
+  "Other",
+  "Renewable Energy",
+  "Consulting",
+  "Construction",
+  "Urban Planning",
+  "Outreach",
+  "EdTech",
+  "Training",
+  "Agriculture",
+  "Supply Chain",
+  "Data Analytics",
+  "Research",
+  "Solar Energy",
+  "Engineering",
+  "Medical Supplies",
+  "Logistics",
+  "Environmental Services",
+  "Compliance",
+  "IT Services",
+  "Cloud Solutions",
+  "Marketing",
+  "Digital Media",
+  "Transportation",
+  "Water Management",
+  "Nonprofit",
+  "Education",
+  "Content Creation",
+] as const;
+
+export function toPartnerSpecializationChoices(value: string): string[] {
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return ["Other"];
+  }
+
+  const mapped = parts.map((part) => {
+    const exact = PARTNER_SPECIALIZATION_CHOICES.find(
+      (choice) => choice.toLowerCase() === part.toLowerCase(),
+    );
+    return exact ?? "Other";
+  });
+
+  return [...new Set(mapped)];
+}
+
+/** @deprecated Prefer toPartnerSpecializationChoices for Partners writes. */
 export function toSelectWriteValue(value: string): string | string[] {
   if (value.includes(",")) {
     return value

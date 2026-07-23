@@ -8,6 +8,7 @@ import { requirePermission, requireRole } from "@/lib/auth";
 import {
   archivePartner,
   createPartner,
+  getPartnerById,
   updatePartner,
 } from "@/features/partners/services";
 import {
@@ -18,6 +19,9 @@ import {
   partnerSelfProfileSchema,
   type PartnerSelfProfileValues,
 } from "@/features/partners/schemas/partner-self-profile.schema";
+import {
+  mergeNotesPreservingMarkers,
+} from "@/lib/airtable/field-markers";
 
 export type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -145,13 +149,21 @@ export async function updateOwnPartnerProfileAction(
       };
     }
 
+    const existing = await getPartnerById(session.partnerId);
+    if (!existing) {
+      return { success: false, message: "Partner not found" };
+    }
+
     const partner = await updatePartner(session.partnerId, {
       companyName: parsed.data.companyName,
       contactName: parsed.data.contactName || undefined,
       email: parsed.data.email || undefined,
       phone: parsed.data.phone || undefined,
       specialization: parsed.data.specialization || undefined,
-      notes: parsed.data.notes || undefined,
+      notes: mergeNotesPreservingMarkers(
+        existing.notes,
+        parsed.data.notes || "",
+      ),
     });
 
     revalidatePath("/partner/profile");

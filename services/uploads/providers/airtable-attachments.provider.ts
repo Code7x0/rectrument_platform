@@ -24,6 +24,10 @@ const staged = new Map<
 >();
 
 async function resolveAttachmentFieldId(fieldName: string): Promise<string> {
+  if (fieldName === "Partners.Resume") {
+    return resolveAirtableFieldId("partnersTable", "Resume");
+  }
+
   if (
     fieldName === CANDIDATES_TABLE_FIELDS.resume ||
     fieldName === "Resume"
@@ -79,6 +83,9 @@ export class AirtableAttachmentUploadService implements UploadService {
       );
     }
 
+    // Allow callers to override the stored filename (typed doc prefixes).
+    const filename = upload.filename || payload.filename;
+
     const apiKey = getRequiredEnv("AIRTABLE_API_KEY");
     const baseId = getRequiredEnv("AIRTABLE_BASE_ID");
     const fieldId = await resolveAttachmentFieldId(target.fieldName);
@@ -94,7 +101,7 @@ export class AirtableAttachmentUploadService implements UploadService {
         body: JSON.stringify({
           contentType: payload.contentType,
           file: payload.data.toString("base64"),
-          filename: payload.filename,
+          filename,
         }),
       },
     );
@@ -115,7 +122,7 @@ export class AirtableAttachmentUploadService implements UploadService {
 
     return {
       url: json.url ?? "",
-      filename: json.filename ?? upload.filename,
+      filename: json.filename ?? filename,
       contentType: upload.contentType,
       size: upload.size,
       provider: "airtable",

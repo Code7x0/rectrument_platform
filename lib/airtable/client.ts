@@ -25,14 +25,32 @@ function getTable(tableName: string) {
   return getBase()(tableName);
 }
 
+function airtableErrorDetail(error: unknown): string {
+  if (error && typeof error === "object") {
+    const e = error as {
+      error?: string;
+      message?: string;
+      statusCode?: number;
+    };
+    const parts = [e.error, e.message].filter(
+      (part): part is string => typeof part === "string" && part.trim().length > 0,
+    );
+    if (parts.length > 0) {
+      return parts.join(": ");
+    }
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return "Unknown Airtable error";
+}
+
 function wrapAirtableError(
   operation: string,
   tableName: string,
   error: unknown,
 ): never {
-  const detail =
-    error instanceof Error ? error.message : "Unknown Airtable error";
-  const sanitized = detail
+  const sanitized = airtableErrorDetail(error)
     .replace(/\n[\s\S]*$/, "")
     .replace(/^Error:\s*/i, "")
     .slice(0, 240);

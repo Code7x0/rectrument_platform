@@ -6,7 +6,6 @@ import {
   listNotificationsForUser,
 } from "@/features/notifications/services";
 import { requireRole } from "@/lib/auth";
-import { getNavigationForRole } from "@/lib/navigation";
 import type { UserRole } from "@/types";
 
 interface RoleLayoutProps {
@@ -20,7 +19,6 @@ interface RoleLayoutProps {
  */
 export async function RoleLayout({ children, role }: RoleLayoutProps) {
   const session = await requireRole(role);
-  const navItems = getNavigationForRole(session.role);
 
   const [unreadCount, recent] = await Promise.all([
     getUnreadNotificationCount(session.userId),
@@ -34,7 +32,7 @@ export async function RoleLayout({ children, role }: RoleLayoutProps) {
 
   return (
     <DashboardShell
-      navItems={navItems}
+      role={session.role}
       notificationUnreadCount={unreadCount}
       recentNotifications={recent.items}
     >

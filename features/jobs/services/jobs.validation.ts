@@ -14,9 +14,15 @@ export function buildJobsFilterFormula(filters: JobListFilters = {}): string {
   const clauses: string[] = [];
 
   if (!filters.includeArchived && (!filters.status || filters.status === "all")) {
-    clauses.push(
-      `NOT({${JOBS_TABLE_FIELDS.status}} = '${DOMAIN_JOB_STATUS_TO_AIRTABLE.archived}')`,
-    );
+    // Locked client Jobs has no "Archived" choice. Domain `archived` maps to
+    // "Closed" for writes — do not treat Closed as archive or we hide real jobs.
+    const archivedLabel = DOMAIN_JOB_STATUS_TO_AIRTABLE.archived;
+    const closedLabel = DOMAIN_JOB_STATUS_TO_AIRTABLE.closed;
+    if (archivedLabel !== closedLabel) {
+      clauses.push(
+        `NOT({${JOBS_TABLE_FIELDS.status}} = '${archivedLabel}')`,
+      );
+    }
   }
 
   if (filters.status && filters.status !== "all") {

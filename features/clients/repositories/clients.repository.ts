@@ -1,5 +1,6 @@
 import {
   createRecord,
+  deleteRecord,
   findRecord,
   getRecords,
   updateRecord,
@@ -57,4 +58,8 @@ export async function patchClient(
     id: record.id,
     fields: record.fields as AirtableFields,
   });
+}
+
+export async function destroyClient(recordId: string): Promise<void> {
+  await deleteRecord(getTableName(), recordId);
 }

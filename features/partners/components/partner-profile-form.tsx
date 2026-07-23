@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  stripSystemMarkers,
+} from "@/lib/airtable/field-markers";
 import { updateOwnPartnerProfileAction } from "@/features/partners/actions/partners.actions";
 import {
   partnerSelfProfileSchema,
@@ -32,7 +35,7 @@ function toDefaults(partner: Partner): PartnerSelfProfileValues {
     email: partner.email ?? "",
     phone: partner.phone ?? "",
     specialization: partner.specialization ?? "",
-    notes: partner.notes ?? "",
+    notes: stripSystemMarkers(partner.notes),
   };
 }
 

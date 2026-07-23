@@ -21,8 +21,7 @@ async function loadJobsPageData() {
   }
 
   const canManage = roleHasPermission(session.role, "manage_jobs");
-  // Admin never allocates — Account Managers only.
-  const canAllocate = false;
+  const canAllocate = roleHasPermission(session.role, "manage_allocations");
 
   const [jobs, clients, accountManagers, partners, locations] =
     await Promise.all([

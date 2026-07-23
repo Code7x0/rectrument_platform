@@ -16,6 +16,9 @@ export default async function AdminAllocationsPage() {
     redirect("/forbidden");
   }
 
+  const canManage = roleHasPermission(session.role, "manage_allocations");
+  const canArchive = roleHasPermission(session.role, "archive_allocations");
+
   const [allocations, partners] = await Promise.all([
     listAllocations({
       includeArchived: true,
@@ -28,8 +31,8 @@ export default async function AdminAllocationsPage() {
     <AllocationsPageClient
       initialAllocations={allocations}
       partners={partners}
-      canManage={false}
-      canArchive={false}
+      canManage={canManage}
+      canArchive={canArchive}
       breadcrumbs={[
         { label: "Admin", href: "/admin" },
         { label: "Allocations" },

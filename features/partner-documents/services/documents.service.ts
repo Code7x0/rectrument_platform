@@ -1,9 +1,15 @@
 import { findRecord, type AirtableFields } from "@/lib/airtable/client";
+import { upsertDocMarker } from "@/lib/airtable/field-markers";
+import { asString } from "@/lib/airtable/compat";
 import {
   DOCUMENTS_TABLE_FIELDS,
+  PARTNERS_TABLE_FIELDS,
   USERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
-import { getAirtableTableName } from "@/lib/airtable/tables";
+import {
+  getAirtableTableName,
+  getOptionalAirtableTableName,
+} from "@/lib/airtable/tables";
 import { listPartnerOptions } from "@/services/lookups";
 import { getUploadService, type UploadedFile } from "@/services/uploads";
 import {
@@ -22,6 +28,9 @@ import {
   toAirtableCreateFields,
   toAirtableUpdateFields,
 } from "@/features/partner-documents/services/documents.mapper";
+import {
+  deriveDocumentsFromPartnerResumes,
+} from "@/features/partner-documents/services/documents.derived";
 import type {
   DocumentVerificationStatus,
   PartnerDocument,
@@ -40,6 +49,71 @@ import type { PartnerVerificationStatus } from "@/features/shared/entities";
 import { recordActivity } from "@/features/workflows/services/activity.service";
 
 export { buildDocumentSlots, summarizeDocuments } from "@/features/partner-documents/lib/document-slots";
+
+function typedDocumentFilename(
+  documentType: PartnerDocumentType,
+  filename: string,
+): string {
+  const lower = filename.toLowerCase();
+  if (lower.includes(documentType)) {
+    return filename;
+  }
+  return `${documentType}_${filename}`;
+}
+
+/**
+ * Locked client base: store KYC/docs on Partners.Resume with typed filenames
+ * and verification markers in Performance Notes.
+ */
+async function uploadPartnerDocumentToResume(input: {
+  partnerId: string;
+  documentType: PartnerDocumentType;
+  upload: UploadedFile;
+}): Promise<PartnerDocument> {
+  const filename = typedDocumentFilename(
+    input.documentType,
+    input.upload.filename,
+  );
+  const uploader = getUploadService();
+  await uploader.bindToEntity(
+    { ...input.upload, filename },
+    {
+      entityId: input.partnerId,
+      fieldName: "Partners.Resume",
+    },
+  );
+
+  const partnersTable = getAirtableTableName("partnersTable");
+  const partner = await findRecord(partnersTable, input.partnerId);
+  const existingNotes = asString(
+    partner.fields[PARTNERS_TABLE_FIELDS.notes],
+  );
+  const nextNotes = upsertDocMarker(existingNotes, {
+    filename,
+    status: "pending",
+    reason: null,
+    at: new Date().toISOString(),
+  });
+  await patchPartner(input.partnerId, toPartnerUpdateFields({ notes: nextNotes }));
+
+  const docs = await deriveDocumentsFromPartnerResumes();
+  const attached =
+    docs.find(
+      (doc) =>
+        doc.partnerId === input.partnerId &&
+        doc.documentType === input.documentType &&
+        doc.fileName?.toLowerCase().includes(input.documentType),
+    ) ??
+    docs
+      .filter((doc) => doc.partnerId === input.partnerId)
+      .at(-1);
+
+  if (!attached) {
+    throw new Error("Document uploaded but could not be resolved from Resume");
+  }
+
+  return attached;
+}
 
 async function resolveUserName(userId: string): Promise<string | null> {
   try {
@@ -150,12 +224,34 @@ export async function stageDocumentFile(file: {
 /**
  * Upload or replace a partner document of a given type.
  * Replace resets verification to Pending.
+ * On the locked client base (no Documents table), files go to Partners.Resume.
  */
 export async function uploadPartnerDocument(input: {
   partnerId: string;
   documentType: PartnerDocumentType;
   upload: UploadedFile;
 }): Promise<PartnerDocument> {
+  if (!getOptionalAirtableTableName("documentsTable")) {
+    const attached = await uploadPartnerDocumentToResume(input);
+    try {
+      const { notifyDocumentUploaded } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      const { DOCUMENT_TYPE_LABELS } = await import(
+        "@/features/partner-documents/types"
+      );
+      await notifyDocumentUploaded({
+        partnerId: input.partnerId,
+        partnerLabel: attached.partnerName ?? input.partnerId,
+        documentType: DOCUMENT_TYPE_LABELS[input.documentType],
+        documentId: attached.id,
+      });
+    } catch (error) {
+      console.error("Failed to publish document upload notification", error);
+    }
+    return attached;
+  }
+
   const existing = await listDocuments({
     partnerId: input.partnerId,
     documentType: input.documentType,

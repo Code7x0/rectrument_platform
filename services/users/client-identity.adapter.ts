@@ -14,6 +14,7 @@ import {
 import {
   asSelectList,
   asString,
+  toPartnerSpecializationChoices,
 } from "@/lib/airtable/compat";
 import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
@@ -536,10 +537,28 @@ export async function clientCreateUserRecord(
 ): Promise<User> {
   const existing = await clientFindUserByEmail(fields.email);
   if (existing) {
-    throw new Error("A user with this email already exists");
+    // Registration creates the Partners row first, then binds identity to it.
+    if (
+      fields.role === "partner" &&
+      fields.partnerId &&
+      (existing.id === fields.partnerId ||
+        existing.partnerId === fields.partnerId)
+    ) {
+      return existing;
+    }
+    throw new Error("An account with this email already exists");
   }
 
   if (fields.role === "partner") {
+    // Registration already created the Partners row — bind identity to it.
+    if (fields.partnerId) {
+      const user = await clientGetUserById(fields.partnerId);
+      if (!user) {
+        throw new Error("Partner record not found for identity binding");
+      }
+      return user;
+    }
+
     const nameParts = fields.fullName.trim().split(/\s+/);
     const first = nameParts[0]?.[0] ?? "X";
     const last = nameParts[nameParts.length - 1]?.[0] ?? "X";
@@ -566,10 +585,8 @@ export async function clientCreateUserRecord(
       payload[PARTNERS_TABLE_FIELDS.city] = fields.city;
     }
     if (fields.skills) {
-      payload[PARTNERS_TABLE_FIELDS.specialization] = fields.skills
-        .split(",")
-        .map((part) => part.trim())
-        .filter(Boolean);
+      payload[PARTNERS_TABLE_FIELDS.specialization] =
+        toPartnerSpecializationChoices(fields.skills);
     }
     const created = await createRecord(partnersTable(), payload);
     const user = mapPartnerAsUser({

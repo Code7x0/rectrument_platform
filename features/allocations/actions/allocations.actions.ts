@@ -21,8 +21,6 @@ export type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; message: string; errors?: string[] };
 
-export type { UpdateAllocationFormValues };
-
 function revalidateAllocationPaths() {
   revalidatePath("/admin/allocations");
   revalidatePath("/account-manager/allocations");
@@ -39,7 +37,7 @@ export async function allocatePartnerAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_allocations");
-    await requireRole(["account_manager"]);
+    await requireRole(["admin", "super_admin", "account_manager"]);
 
     const parsed = allocatePartnerFormSchema.safeParse(raw);
 
@@ -81,7 +79,7 @@ export async function updateAllocationAction(
 ): Promise<ActionResult> {
   try {
     await requirePermission("manage_allocations");
-    await requireRole(["account_manager"]);
+    await requireRole(["admin", "super_admin", "account_manager"]);
     const parsed = updateAllocationFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -124,7 +122,7 @@ export async function archiveAllocationAction(
 ): Promise<ActionResult> {
   try {
     await requirePermission("archive_allocations");
-    await requireRole(["account_manager"]);
+    await requireRole(["admin", "super_admin", "account_manager"]);
     const allocation = await archiveAllocation(allocationId);
 
     revalidateAllocationPaths();
@@ -140,5 +138,5 @@ export async function archiveAllocationAction(
 }
 
 export async function assertCanViewAllocations() {
-  return requireRole(["admin", "account_manager"]);
+  return requireRole(["admin", "super_admin", "account_manager"]);
 }

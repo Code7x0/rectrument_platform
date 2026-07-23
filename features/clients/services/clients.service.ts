@@ -6,6 +6,7 @@ import {
   findClients,
   insertClient,
   patchClient,
+  destroyClient,
 } from "@/features/clients/repositories/clients.repository";
 import {
   buildClientsFilterFormula,
@@ -98,6 +99,15 @@ export async function updateClient(
 
 export async function archiveClient(clientId: string): Promise<Client> {
   return updateClient(clientId, { status: "archived" });
+}
+
+/** Permanently remove the client record from Airtable. */
+export async function deleteClient(clientId: string): Promise<void> {
+  const existing = await findClientById(clientId);
+  if (!existing) {
+    throw new Error("Client not found");
+  }
+  await destroyClient(clientId);
 }
 
 /**

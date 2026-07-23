@@ -1,6 +1,7 @@
 export {
   archiveClient,
   createClient,
+  deleteClient,
   getClientById,
   getClientWorkspaceStats,
   listClients,

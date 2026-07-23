@@ -50,7 +50,7 @@ export function AllocationActions({
           size="icon"
           variant="ghost"
           onClick={() => onArchive(allocation)}
-          aria-label="Archive allocation"
+          aria-label="Unassign partner"
         >
           <Archive className="h-4 w-4" />
         </Button>

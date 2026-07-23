@@ -38,13 +38,16 @@ export function mapSubmissionRecord(record: {
   const fields = record.fields;
   const mode = getSubmissionsMode();
 
-  const jobId = asLinkedId(fields[SUBMISSIONS_TABLE_FIELDS.job]);
+  // Locked client data often has Role populated and Job empty (same Jobs table).
+  const jobId =
+    asLinkedId(fields[SUBMISSIONS_TABLE_FIELDS.job]) ??
+    asLinkedId(fields[SUBMISSIONS_TABLE_FIELDS.role]);
   const partnerId = asLinkedId(fields[SUBMISSIONS_TABLE_FIELDS.partner]);
 
   if (mode === "candidates") {
     if (!jobId || !partnerId) {
       throw new Error(
-        `Submission ${record.id} is missing Job or Submitted By (Partner)`,
+        `Submission ${record.id} is missing Job/Role or Submitted By (Partner)`,
       );
     }
     return {
@@ -102,7 +105,9 @@ export function toAirtableCreateFields(
   if (getSubmissionsMode() === "candidates") {
     const fields: AirtableFields = {
       [SUBMISSION_PATCH_CANDIDATE_ID]: input.candidateId,
+      // Write both Job and Role — Role is the populated link on the locked base.
       [SUBMISSIONS_TABLE_FIELDS.job]: [input.jobId],
+      [SUBMISSIONS_TABLE_FIELDS.role]: [input.jobId],
       [SUBMISSIONS_TABLE_FIELDS.partner]: [input.partnerId],
       [SUBMISSIONS_TABLE_FIELDS.submissionDate]:
         input.submissionDate ?? new Date().toISOString(),
@@ -152,7 +157,7 @@ export function buildSubmissionsFilterFormula(filters: {
   }
   if (filters.jobId) {
     clauses.push(
-      `FIND('${escapeFormulaValue(filters.jobId)}', ARRAYJOIN({${SUBMISSIONS_TABLE_FIELDS.job}}))`,
+      `OR(FIND('${escapeFormulaValue(filters.jobId)}', ARRAYJOIN({${SUBMISSIONS_TABLE_FIELDS.job}})),FIND('${escapeFormulaValue(filters.jobId)}', ARRAYJOIN({${SUBMISSIONS_TABLE_FIELDS.role}})))`,
     );
   }
   if (filters.allocationId && mode === "table") {

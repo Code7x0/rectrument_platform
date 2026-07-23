@@ -24,6 +24,7 @@ interface ClientsPageClientProps {
   canCreate: boolean;
   canUpdate: boolean;
   canArchive: boolean;
+  canDelete?: boolean;
   basePath: "/admin/clients" | "/account-manager/clients";
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
@@ -66,6 +67,7 @@ export function ClientsPageClient({
   canCreate,
   canUpdate,
   canArchive,
+  canDelete = false,
   basePath,
   breadcrumbs,
 }: ClientsPageClientProps) {
@@ -173,6 +175,7 @@ export function ClientsPageClient({
         mode="edit"
         client={editClient}
         accountManagers={accountManagers}
+        canDelete={canDelete}
         onOpenChange={(open) => {
           if (!open) {
             setEditClient(null);

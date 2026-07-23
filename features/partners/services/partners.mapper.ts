@@ -3,7 +3,7 @@ import {
   asSelectList,
   asString,
   isClientCompatMode,
-  toSelectWriteValue,
+  toPartnerSpecializationChoices,
 } from "@/lib/airtable/compat";
 import {
   AIRTABLE_IDENTITY_VISIBILITY,
@@ -138,7 +138,7 @@ export function toAirtableCreateFields(
   }
   if (input.specialization) {
     fields[PARTNERS_TABLE_FIELDS.specialization] = clientMode
-      ? toSelectWriteValue(input.specialization)
+      ? toPartnerSpecializationChoices(input.specialization)
       : input.specialization;
   }
   if (input.revenueShare) {
@@ -190,7 +190,7 @@ export function toAirtableUpdateFields(
   if (input.specialization !== undefined) {
     fields[PARTNERS_TABLE_FIELDS.specialization] = input.specialization
       ? clientMode
-        ? toSelectWriteValue(input.specialization)
+        ? toPartnerSpecializationChoices(input.specialization)
         : input.specialization
       : [];
   }

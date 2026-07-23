@@ -103,6 +103,17 @@ export async function submitPartnerRegistration(
   }
 
   const fullName = `${input.firstName} ${input.lastName}`.trim();
+  const registrationNotes = [
+    `Self-registered Talent Partner.`,
+    `Experience: ${input.experience}`,
+    input.state ? `State: ${input.state}` : null,
+    input.skills ? `Skills: ${input.skills}` : null,
+    input.bankDetails ? `Bank: ${input.bankDetails}` : null,
+    `Identity visibility preference: ${input.identityVisibility}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const partner = await createPartner({
     companyName: fullName,
     contactName: fullName,
@@ -117,7 +128,7 @@ export async function submitPartnerRegistration(
     skills: input.skills,
     experience: input.experience,
     bankDetails: input.bankDetails || undefined,
-    notes: `Self-registered Talent Partner. Experience: ${input.experience}`,
+    notes: registrationNotes,
   });
 
   const user = await createUserRecord({

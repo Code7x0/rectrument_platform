@@ -2,9 +2,12 @@ import { redirect } from "next/navigation";
 
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { ReviewQueuePageClient } from "@/features/tasks/components";
-import { listReviewQueueSubmissions } from "@/features/submissions/services";
+import { listSubmissions } from "@/features/submissions/services";
 
-/** Admin read-only review pipeline. */
+/**
+ * Admin Candidates — full pipeline from Airtable Candidates
+ * (including rejected / joined), not only the open review queue.
+ */
 export default async function AdminCandidatesPage() {
   const session = await getAppSession();
 
@@ -16,12 +19,14 @@ export default async function AdminCandidatesPage() {
     redirect("/forbidden");
   }
 
-  const submissions = await listReviewQueueSubmissions();
+  const submissions = await listSubmissions();
 
   return (
     <ReviewQueuePageClient
       initialSubmissions={submissions}
       canTransition={false}
+      emptyTitle="No candidates found"
+      emptyDescription="Candidates linked to a Job (Role) and Talent Partner appear here from Airtable."
       breadcrumbs={[
         { label: "Admin", href: "/admin" },
         { label: "Candidates" },

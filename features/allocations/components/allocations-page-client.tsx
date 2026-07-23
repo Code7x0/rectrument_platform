@@ -113,7 +113,7 @@ export function AllocationsPageClient({
         return;
       }
 
-      toast.success("Allocation archived");
+      toast.success("Partner unassigned from job");
       setArchiveTarget(null);
       refresh();
     } finally {
@@ -175,10 +175,10 @@ export function AllocationsPageClient({
         }}
         entityName={
           archiveTarget
-            ? `${archiveTarget.allocationCode ?? "Allocation"} (${archiveTarget.partnerName ?? archiveTarget.partnerCode ?? "talent partner"})`
-            : "this allocation"
+            ? `${archiveTarget.partnerName ?? archiveTarget.partnerCode ?? "talent partner"} from ${archiveTarget.jobTitle ?? "job"}`
+            : "this partner"
         }
-        entityLabel="allocation"
+        entityLabel="assignment"
         loading={archiving}
         onConfirm={confirmArchive}
       />

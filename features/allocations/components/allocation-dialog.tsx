@@ -4,11 +4,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { FormDialog } from "@/components/shared/form-dialog";
-import {
-  updateAllocationAction,
-  type UpdateAllocationFormValues,
-} from "@/features/allocations/actions/allocations.actions";
+import { updateAllocationAction } from "@/features/allocations/actions/allocations.actions";
 import { AllocationEditForm } from "@/features/allocations/components/allocation-edit-form";
+import type { UpdateAllocationFormValues } from "@/features/allocations/schemas/allocation.schema";
 import type { Allocation } from "@/features/allocations/types";
 
 interface AllocationDialogProps {

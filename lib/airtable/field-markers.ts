@@ -123,3 +123,45 @@ export function upsertDocMarker(
   lines.push(buildDocMarker(marker));
   return lines.join("\n");
 }
+
+/** Strip [RP_DOC] / [RP_PAYOUT] lines for human-editable notes display. */
+export function stripSystemMarkers(
+  text: string | null | undefined,
+): string {
+  if (!text?.trim()) {
+    return "";
+  }
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter(
+      (line) =>
+        !line.startsWith(DOC_MARKER_PREFIX) &&
+        !line.startsWith(PAYOUT_MARKER_PREFIX),
+    )
+    .join("\n");
+}
+
+/**
+ * Keep system markers when writing user notes into the same Airtable field.
+ */
+export function mergeNotesPreservingMarkers(
+  existing: string | null | undefined,
+  userNotes: string | null | undefined,
+): string {
+  const markerLines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter(
+      (line) =>
+        line.startsWith(DOC_MARKER_PREFIX) ||
+        line.startsWith(PAYOUT_MARKER_PREFIX),
+    );
+  const notes = (userNotes ?? "").trim();
+  if (!notes) {
+    return markerLines.join("\n");
+  }
+  return [...markerLines, notes].join("\n");
+}

@@ -6,24 +6,27 @@ import { Navbar } from "@/components/layout/navbar";
 import { Sidebar } from "@/components/layout/sidebar";
 import type { Notification } from "@/features/notifications/types";
 import { SearchProvider } from "@/features/search/components/search-provider";
-import type { AppNavItem } from "@/lib/navigation";
+import { getNavigationForRole } from "@/lib/navigation";
+import type { UserRole } from "@/types";
 
 const COLLAPSE_STORAGE_KEY = "rpms.sidebar.collapsed";
 
 interface DashboardShellProps {
   children: ReactNode;
-  navItems: AppNavItem[];
+  /** Resolve nav icons on the client — icon components cannot cross the RSC boundary. */
+  role: UserRole;
   notificationUnreadCount?: number;
   recentNotifications?: Notification[];
 }
 
 export function DashboardShell({
   children,
-  navItems,
+  role,
   notificationUnreadCount = 0,
   recentNotifications = [],
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const navItems = getNavigationForRole(role);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);

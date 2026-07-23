@@ -96,7 +96,7 @@ export function SubmitCandidateDialog({
       resetDuplicateState();
       onOpenChange(false);
       onCompleted?.();
-      router.push("/partner");
+      router.push("/partner/candidates");
       router.refresh();
     } finally {
       setSubmitting(false);

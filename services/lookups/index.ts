@@ -15,6 +15,7 @@ export const listAccountManagerOptions = cache(fetchAccountManagers);
 
 export type { LookupOption, LookupOptionsResult } from "./types";
 export type { PartnerLookupMode } from "./partners.lookup";
+export type { ClientLookupOption } from "./clients.lookup";
 
 export const lookupQueryKeys = {
   clients: ["lookups", "clients"] as const,

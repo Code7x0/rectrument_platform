@@ -32,6 +32,8 @@ interface ReviewQueuePageClientProps {
   initialSubmissions: Submission[];
   canTransition: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 function Detail({
@@ -55,6 +57,8 @@ export function ReviewQueuePageClient({
   initialSubmissions,
   canTransition,
   breadcrumbs,
+  emptyTitle = "No submissions to review",
+  emptyDescription = "New partner submissions will appear here.",
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Submission | null>(null);
@@ -192,8 +196,8 @@ export function ReviewQueuePageClient({
         columns={columns}
         data={initialSubmissions}
         getRowId={(row) => row.id}
-        emptyTitle="No submissions to review"
-        emptyDescription="New partner submissions will appear here."
+        emptyTitle={emptyTitle}
+        emptyDescription={emptyDescription}
       />
 
       <DetailDrawer

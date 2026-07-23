@@ -39,7 +39,7 @@ async function listBaseTables(): Promise<MetaTable[]> {
  * Required by Content API attachment uploads.
  */
 export async function resolveAirtableFieldId(
-  tableEnvKey: "candidatesTable" | "documentsTable",
+  tableEnvKey: "candidatesTable" | "documentsTable" | "partnersTable",
   fieldName: string,
 ): Promise<string> {
   const tableName = getAirtableTableName(tableEnvKey);

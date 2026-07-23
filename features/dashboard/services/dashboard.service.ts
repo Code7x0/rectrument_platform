@@ -216,13 +216,17 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     submissions,
     activity,
   ] = await Promise.all([
-    listClients({ status: "active" }),
-    listJobs({ includeArchived: false }),
-    listPartners({ status: "active", includeArchived: false }),
+    settledSource("clients", listClients({ status: "active" }), []),
+    settledSource("jobs", listJobs({ includeArchived: false }), []),
+    settledSource(
+      "partners",
+      listPartners({ status: "active", includeArchived: false }),
+      [],
+    ),
     settledSource("documents", listDocuments(), []),
-    listReviewQueueSubmissions(),
+    settledSource("reviewQueue", listReviewQueueSubmissions(), []),
     settledSource("payouts", listPayouts({ includePartnerIdentity: true }), []),
-    listSubmissions(),
+    settledSource("submissions", listSubmissions(), []),
     settledSource(
       "activities",
       listRecentActivities(10, {
@@ -528,17 +532,10 @@ export async function getPartnerDashboardData(
   partnerId: string,
   partnerName: string,
 ): Promise<PartnerDashboardData> {
-  const [tasks, submissions, payouts, activity] = await Promise.all([
+  const [tasks, submissions, payouts] = await Promise.all([
     listPartnerWorkTasks(partnerId),
     listPartnerSubmissions(partnerId),
     settledSource("payouts", listPayoutsForPartner(partnerId), []),
-    settledSource(
-      "activities",
-      listRecentActivities(10, {
-        entityTypes: ["submission", "payout", "partner_document"],
-      }),
-      [],
-    ),
   ]);
 
   const earnings = summarizePartnerEarnings(payouts);
@@ -640,15 +637,14 @@ export async function getPartnerDashboardData(
       badge: SUBMISSION_STATUS_LABELS[row.status],
       href: "/partner/candidates",
     })),
-    recentActivity: mapActivitiesToFeed(activity).map((item) => {
-      if (item.href?.includes("/documents")) {
-        return { ...item, href: "/partner/documents" };
-      }
-      if (item.href?.includes("/payouts")) {
-        return { ...item, href: "/partner/payments" };
-      }
-      return { ...item, href: "/partner/candidates" };
-    }),
+    // Own submissions only — never the global activity feed.
+    recentActivity: submissions.slice(0, 8).map((row) => ({
+      id: `sub_${row.id}`,
+      title: row.candidateName ?? "Candidate",
+      subtitle: `${row.jobTitle ?? "Job"} · ${SUBMISSION_STATUS_LABELS[row.status]}`,
+      timestamp: row.submissionDate ?? new Date().toISOString(),
+      href: "/partner/candidates",
+    })),
     quickActions: [
       {
         id: "jobs",
@@ -660,7 +656,7 @@ export async function getPartnerDashboardData(
         id: "submit",
         label: "Submit Candidate",
         description: "From your work queue",
-        href: "/partner",
+        href: "/partner/jobs",
       },
       {
         id: "earnings",

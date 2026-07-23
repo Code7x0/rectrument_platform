@@ -6,7 +6,6 @@ import {
   listNotificationsForUser,
 } from "@/features/notifications/services";
 import { requireAuth } from "@/lib/auth";
-import { getNavigationForRole } from "@/lib/navigation";
 
 export default async function ActivitiesLayout({
   children,
@@ -14,7 +13,6 @@ export default async function ActivitiesLayout({
   children: ReactNode;
 }) {
   const session = await requireAuth();
-  const navItems = getNavigationForRole(session.role);
 
   const [unreadCount, recent] = await Promise.all([
     getUnreadNotificationCount(session.userId),
@@ -28,7 +26,7 @@ export default async function ActivitiesLayout({
 
   return (
     <DashboardShell
-      navItems={navItems}
+      role={session.role}
       notificationUnreadCount={unreadCount}
       recentNotifications={recent.items}
     >

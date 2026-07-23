@@ -25,6 +25,7 @@ async function loadClientsPage() {
     canCreate: isAdmin(session),
     canUpdate: roleHasPermission(session.role, "manage_clients"),
     canArchive: roleHasPermission(session.role, "archive_clients"),
+    canDelete: isAdmin(session),
   };
 }
 
@@ -38,6 +39,7 @@ export default async function AdminClientsPage() {
       canCreate={data.canCreate}
       canUpdate={data.canUpdate}
       canArchive={data.canArchive}
+      canDelete={data.canDelete}
       basePath="/admin/clients"
       breadcrumbs={[
         { label: "Admin", href: "/admin" },

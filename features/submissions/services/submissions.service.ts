@@ -234,6 +234,23 @@ export async function submitCandidateForAllocation(
       throw new Error("Resume is required for new candidates");
     }
 
+    // Locked Candidates schema has no Company / Experience / Skills columns —
+    // fold them into Screening Matrix Notes so partner input is not lost.
+    const foldedNotes = [
+      payload.form.remarks?.trim() || null,
+      payload.form.currentCompany?.trim()
+        ? `Company: ${payload.form.currentCompany.trim()}`
+        : null,
+      payload.form.experience?.trim()
+        ? `Experience: ${payload.form.experience.trim()}`
+        : null,
+      payload.form.skills?.trim()
+        ? `Skills: ${payload.form.skills.trim()}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
     candidate = await createCandidate({
       fullName: payload.form.fullName,
       email: payload.form.email,
@@ -245,7 +262,7 @@ export async function submitCandidateForAllocation(
       expectedCtc: payload.form.expectedCtc || undefined,
       noticePeriod: payload.form.noticePeriod || undefined,
       skills: parseSkillsInput(payload.form.skills),
-      remarks: payload.form.remarks || undefined,
+      remarks: foldedNotes || undefined,
     });
 
     if (payload.resumeUpload) {
@@ -268,6 +285,21 @@ export async function submitCandidateForAllocation(
     throw new Error("This candidate was already submitted for this allocation");
   }
 
+  const submissionRemarks = [
+    payload.form.remarks?.trim() || null,
+    payload.form.currentCompany?.trim()
+      ? `Company: ${payload.form.currentCompany.trim()}`
+      : null,
+    payload.form.experience?.trim()
+      ? `Experience: ${payload.form.experience.trim()}`
+      : null,
+    payload.form.skills?.trim()
+      ? `Skills: ${payload.form.skills.trim()}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const submission = await insertSubmission(
     toAirtableCreateFields({
       candidateId: candidate.id,
@@ -275,7 +307,7 @@ export async function submitCandidateForAllocation(
       allocationId: payload.allocationId,
       partnerId: payload.partnerId,
       status: "submitted",
-      remarks: payload.form.remarks || undefined,
+      remarks: submissionRemarks || undefined,
     }),
   );
 

@@ -2,8 +2,11 @@ import {
   DOMAIN_EMPLOYMENT_TYPE_TO_AIRTABLE,
   DOMAIN_JOB_PRIORITY_TO_AIRTABLE,
   DOMAIN_JOB_STATUS_TO_AIRTABLE,
+  CLIENTS_TABLE_FIELDS,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { isClientCompatMode } from "@/lib/airtable/compat";
+import { patchClient } from "@/features/clients/repositories/clients.repository";
 import {
   listAccountManagerOptions,
   listClientOptions,
@@ -42,18 +45,26 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
     listClientOptions(),
     listAccountManagerOptions(),
   ]);
-  const clientMap = new Map(clients.map((client) => [client.id, client.label]));
+  const clientMap = new Map(clients.map((client) => [client.id, client]));
   const amMap = new Map(
     accountManagers.map((am) => [am.id, am.label]),
   );
 
-  return jobs.map((job) => ({
-    ...job,
-    clientName: job.clientId ? (clientMap.get(job.clientId) ?? null) : null,
-    accountManagerName: job.accountManagerId
-      ? (amMap.get(job.accountManagerId) ?? null)
-      : null,
-  }));
+  return jobs.map((job) => {
+    const client = job.clientId ? clientMap.get(job.clientId) : undefined;
+    // Locked client schema: AM lives on Clients.Account Owner, not Jobs.
+    const accountManagerId =
+      job.accountManagerId ?? client?.accountManagerId ?? null;
+
+    return {
+      ...job,
+      clientName: client?.label ?? null,
+      accountManagerId,
+      accountManagerName: accountManagerId
+        ? (amMap.get(accountManagerId) ?? null)
+        : null,
+    };
+  });
 }
 
 function applySearchFilter(jobs: Job[], search?: string): Job[] {
@@ -71,10 +82,29 @@ function applySearchFilter(jobs: Job[], search?: string): Job[] {
   );
 }
 
+/**
+ * On the locked client base, "assign job → AM" means setting the Client's
+ * Account Owner (Jobs has no Assigned Account Manager column).
+ */
+async function syncClientAccountOwner(
+  clientId: string,
+  accountManagerId: string,
+): Promise<void> {
+  if (!isClientCompatMode()) {
+    return;
+  }
+  await patchClient(clientId, {
+    [CLIENTS_TABLE_FIELDS.accountManager]: [accountManagerId],
+  });
+}
+
 export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
-  const { search, ...airtableFilters } = filters;
+  const { search, accountManagerId, ...rest } = filters;
+
+  // Client mode: do not query the missing Jobs.Assigned Account Manager field.
   const formula = buildJobsFilterFormula({
-    ...airtableFilters,
+    ...rest,
+    accountManagerId: isClientCompatMode() ? undefined : accountManagerId,
     search: undefined,
   });
 
@@ -83,7 +113,19 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
     sort: [{ field: JOBS_TABLE_FIELDS.createdAt, direction: "desc" }],
   });
 
-  return applySearchFilter(await withEnrichment(jobs), search);
+  let enriched = await withEnrichment(jobs);
+
+  if (
+    isClientCompatMode() &&
+    accountManagerId &&
+    accountManagerId !== "all"
+  ) {
+    enriched = enriched.filter(
+      (job) => job.accountManagerId === accountManagerId,
+    );
+  }
+
+  return applySearchFilter(enriched, search);
 }
 
 export async function getJobById(jobId: string): Promise<Job | null> {
@@ -102,6 +144,8 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
   }
 
   const created = await insertJob(toAirtableCreateFields(input, valueMaps));
+  await syncClientAccountOwner(input.clientId, input.accountManagerId);
+
   const [job] = await withEnrichment([created]);
 
   if (!job) {
@@ -123,6 +167,14 @@ export async function updateJob(
     jobId,
     toAirtableUpdateFields(input, valueMaps),
   );
+
+  if (input.accountManagerId) {
+    const clientId = input.clientId ?? updated.clientId;
+    if (clientId) {
+      await syncClientAccountOwner(clientId, input.accountManagerId);
+    }
+  }
+
   const [job] = await withEnrichment([updated]);
 
   if (!job) {

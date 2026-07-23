@@ -123,6 +123,10 @@ export function JobForm({
               </option>
             ))}
           </Select>
+          <p className="text-xs text-[#64748B]">
+            Assigns this job&apos;s client to the Account Manager (Clients →
+            Account Owner).
+          </p>
           {errors.accountManagerId ? (
             <p className="text-xs text-[#EF4444]">
               {errors.accountManagerId.message}

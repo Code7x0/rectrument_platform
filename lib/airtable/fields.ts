@@ -150,7 +150,11 @@ export const JOBS_TABLE_FIELDS = {
   department: "Department",
   submissionDeadline: "Submission Deadline",
   createdBy: "Created By",
-  createdAt: "Created At",
+  /**
+   * Locked client Jobs schema has no "Created At".
+   * Use Posted Date for chronology (may be empty on older rows).
+   */
+  createdAt: "Posted Date",
   /** Client multi-link used as allocation source in job_partners mode. */
   partners: "Partners",
   candidates: "Candidates",
@@ -310,6 +314,11 @@ export const CANDIDATES_TABLE_FIELDS = {
   linkedIn: "LinkedIn Profile",
   workLocation: "Work Location",
   job: "Job",
+  /**
+   * Locked client base historically linked candidates via Role (→ Jobs).
+   * Job is the same linked table but often empty; Role is the populated link.
+   */
+  role: "Role",
   partner: "Submitted By (Partner)",
   submissionStatus: "Submission Status",
   interviewStage: "Interview Stage",
@@ -326,6 +335,8 @@ export const SUBMISSIONS_TABLE_FIELDS = {
   submissionId: "Candidate ID",
   candidate: "Candidate",
   job: "Job",
+  /** Alias of Job on locked client base — prefer when Job is empty. */
+  role: "Role",
   allocation: "Allocation",
   partner: "Submitted By (Partner)",
   submissionDate: "Submission Date",

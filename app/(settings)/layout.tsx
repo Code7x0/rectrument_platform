@@ -8,7 +8,6 @@ import {
 } from "@/features/notifications/services";
 import { canAccessSettings } from "@/features/settings/services";
 import { requireAuth } from "@/lib/auth";
-import { getNavigationForRole } from "@/lib/navigation";
 
 export default async function SettingsLayout({
   children,
@@ -20,7 +19,6 @@ export default async function SettingsLayout({
     redirect("/forbidden");
   }
 
-  const navItems = getNavigationForRole(session.role);
   const [unreadCount, recent] = await Promise.all([
     getUnreadNotificationCount(session.userId),
     listNotificationsForUser({
@@ -33,7 +31,7 @@ export default async function SettingsLayout({
 
   return (
     <DashboardShell
-      navItems={navItems}
+      role={session.role}
       notificationUnreadCount={unreadCount}
       recentNotifications={recent.items}
     >

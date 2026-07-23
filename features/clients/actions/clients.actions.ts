@@ -8,6 +8,7 @@ import { requirePermission, requireRole } from "@/lib/auth";
 import {
   archiveClient,
   createClient,
+  deleteClient,
   updateClient,
 } from "@/features/clients/services";
 import {
@@ -109,6 +110,26 @@ export async function archiveClientAction(
       success: false,
       message:
         actionErrorMessage(error, "Unable to archive client"),
+    };
+  }
+}
+
+/**
+ * Hard-delete a client from Airtable. Admin / Super Admin only.
+ */
+export async function deleteClientAction(
+  clientId: string,
+): Promise<ActionResult> {
+  try {
+    await requirePermission("manage_clients");
+    await requireRole(["admin", "super_admin"]);
+    await deleteClient(clientId);
+    revalidateClientPaths(clientId);
+    return { success: true, data: { id: clientId } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to delete client"),
     };
   }
 }
