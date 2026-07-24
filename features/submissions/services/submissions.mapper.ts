@@ -57,15 +57,18 @@ export function mapSubmissionRecord(record: {
         if (typeof raw === "number") {
           return String(raw);
         }
-        return asString(raw) ?? record.id.replace(/^rec/, "SUB-");
+        // Keep Airtable autoNumber when present; never invent SUB-rec… codes.
+        return asString(raw);
       })(),
       candidateId: record.id,
       candidateName: asString(fields[SUBMISSIONS_TABLE_FIELDS.candidateName]),
       jobId,
       jobTitle: null,
+      jobCode: null,
       allocationId: buildJobPartnerAllocationId(jobId, partnerId),
       partnerId,
       partnerName: null,
+      partnerCode: null,
       submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
       status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
       remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),
@@ -82,16 +85,16 @@ export function mapSubmissionRecord(record: {
 
   return {
     id: record.id,
-    submissionCode:
-      asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionId]) ??
-      record.id.replace(/^rec/, "SUB-"),
+    submissionCode: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionId]),
     candidateId,
     candidateName: null,
     jobId,
     jobTitle: null,
+    jobCode: null,
     allocationId,
     partnerId,
     partnerName: null,
+    partnerCode: null,
     submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
     status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
     remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),

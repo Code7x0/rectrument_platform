@@ -610,11 +610,13 @@ export async function clientCreateUserRecord(
       return user;
     }
 
-    const nameParts = fields.fullName.trim().split(/\s+/);
-    const first = nameParts[0]?.[0] ?? "X";
-    const last = nameParts[nameParts.length - 1]?.[0] ?? "X";
-    const digits = (fields.phone ?? "00").replace(/\D/g, "").slice(-2) || "00";
-    const partnerCode = `${first}${last}_${digits}`.toUpperCase();
+    const { allocatePartnerCodeForPerson } = await import(
+      "@/features/shared/services/business-ids.service"
+    );
+    const partnerCode = await allocatePartnerCodeForPerson({
+      fullName: fields.fullName,
+      phone: fields.phone,
+    });
 
     const payload: AirtableFields = {
       [PARTNERS_TABLE_FIELDS.partnerId]: partnerCode,

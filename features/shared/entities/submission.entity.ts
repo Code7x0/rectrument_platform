@@ -18,16 +18,21 @@ export type SubmissionStatus =
 
 export interface SubmissionEntity {
   id: string;
+  /** Airtable Candidate ID autoNumber when present — not a separate business code. */
   submissionCode: string | null;
   candidateId: string;
   candidateName: string | null;
   jobId: string;
   jobTitle: string | null;
+  /** Business Job ID (AB_001) — enriched. */
+  jobCode: string | null;
   /** Job priority for review queue sorting (enriched). */
   jobPriority: JobPriority | null;
   allocationId: string;
   partnerId: string;
   partnerName: string | null;
+  /** Business Partner Code (HN_254) — enriched. */
+  partnerCode: string | null;
   submissionDate: string | null;
   status: SubmissionStatus;
   remarks: string | null;

@@ -276,7 +276,7 @@ async function searchPartners(
         ]);
         return makeResult({
           id: partner.id,
-          title: partner.partnerCode ?? partner.id,
+          title: partner.partnerCode || partner.companyName || "Partner",
           subtitle: "Assigned partner",
           entityType: "partner",
           status: partner.status,
@@ -467,13 +467,14 @@ async function searchSubmissionsAndCandidates(
       const match = matchScore(query, [
         { value: row.candidateName, field: "candidate" },
         { value: row.jobTitle, field: "job" },
-        { value: row.submissionCode, field: "code" },
+        { value: row.jobCode, field: "jobCode" },
+        { value: row.partnerCode, field: "partnerCode" },
         { value: row.partnerName, field: "partner" },
       ]);
       return makeResult({
         id: row.id,
         title: row.candidateName ?? "Submission",
-        subtitle: row.jobTitle ?? row.submissionCode,
+        subtitle: [row.jobCode, row.jobTitle].filter(Boolean).join(" · ") || "Job",
         entityType: "submission",
         status: row.status,
         score: match.score,

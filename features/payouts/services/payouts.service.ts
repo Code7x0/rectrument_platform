@@ -1,5 +1,6 @@
 import { getRecords, type AirtableFields } from "@/lib/airtable/client";
 import { PARTNERS_TABLE_FIELDS, PAYOUTS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import { displayBusinessId, isValidPartnerCode } from "@/lib/business-ids";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import {
   listAccountManagerOptions,
@@ -69,9 +70,10 @@ async function loadPartnerMeta(
 
   for (const record of records) {
     const fields = record.fields as AirtableFields;
-    const partnerCode =
-      asString(fields[PARTNERS_TABLE_FIELDS.partnerId]) ??
-      record.id.replace(/^rec/, "TP-");
+    const rawCode = asString(fields[PARTNERS_TABLE_FIELDS.partnerId]);
+    const partnerCode = isValidPartnerCode(rawCode)
+      ? rawCode!.trim().toUpperCase()
+      : displayBusinessId(rawCode);
     const company = asString(fields[PARTNERS_TABLE_FIELDS.companyName]);
     const contact = asString(fields[PARTNERS_TABLE_FIELDS.name]);
     const visibilityRaw = asString(
@@ -140,7 +142,7 @@ async function withEnrichment(
 
     return {
       ...payout,
-      partnerCode: meta?.partnerCode ?? payout.partnerId.replace(/^rec/, "TP-"),
+      partnerCode: meta?.partnerCode ?? displayBusinessId(null),
       partnerName: showIdentity ? (meta?.identityLabel ?? null) : null,
       jobTitle: job?.title ?? submission?.jobTitle ?? null,
       candidateName: candidate?.fullName ?? submission?.candidateName ?? null,

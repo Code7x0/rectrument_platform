@@ -52,7 +52,8 @@ export function PartnerSubmissionsPageClient({
                     {row.candidateName ?? "Candidate"}
                   </h3>
                   <p className="text-sm text-[#64748B]">
-                    {row.jobTitle ?? "Job"} · {row.submissionCode}
+                    {row.jobCode ? `${row.jobCode} · ` : ""}
+                    {row.jobTitle ?? "Job"}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

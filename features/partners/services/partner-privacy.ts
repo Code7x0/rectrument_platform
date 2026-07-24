@@ -3,10 +3,11 @@ import type {
   PartnerStatus,
   PartnerVerificationStatus,
 } from "@/features/partners/types";
+import { displayBusinessId } from "@/lib/business-ids";
 
 /**
  * Operational partner view for Account Managers.
- * PUBLIC partners expose name; PRIVATE partners expose Partner ID only.
+ * PUBLIC partners expose name; PRIVATE partners expose Partner Code only.
  */
 export interface OperationalPartnerView {
   id: string;
@@ -27,7 +28,7 @@ export interface OperationalPartnerView {
 export function toOperationalPartnerView(
   partner: Partner,
 ): OperationalPartnerView {
-  const partnerCode = partner.partnerCode ?? partner.id.replace(/^rec/, "TP-");
+  const partnerCode = displayBusinessId(partner.partnerCode, "—");
   const isPublic = partner.identityVisibility === "public";
 
   return {
@@ -46,7 +47,7 @@ export function toOperationalPartnerView(
 
 /**
  * Display label safe for Account Managers.
- * PUBLIC → name; PRIVATE → Partner ID (+ specialization).
+ * PUBLIC → name; PRIVATE → Partner Code (+ specialization).
  */
 export function operationalPartnerLabel(partner: {
   partnerCode: string | null;
@@ -60,12 +61,11 @@ export function operationalPartnerLabel(partner: {
     return (
       partner.contactName?.trim() ||
       partner.companyName?.trim() ||
-      partner.partnerCode ||
-      partner.id.replace(/^rec/, "TP-")
+      displayBusinessId(partner.partnerCode)
     );
   }
 
-  const code = partner.partnerCode ?? partner.id.replace(/^rec/, "TP-");
+  const code = displayBusinessId(partner.partnerCode);
   if (partner.specialization?.trim()) {
     return `${code} · ${partner.specialization.trim()}`;
   }

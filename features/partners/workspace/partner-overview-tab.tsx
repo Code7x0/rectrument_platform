@@ -10,6 +10,7 @@ import type {
   Partner,
   PartnerPerformanceStats,
 } from "@/features/partners/types";
+import { displayBusinessId } from "@/lib/business-ids";
 
 function Detail({
   label,
@@ -46,7 +47,7 @@ export function PartnerOverviewTab({
         <PartnerStatusBadge status={partner.status} />
         <PartnerVerificationBadge status={partner.verificationStatus} />
         <span className="text-sm text-[#64748B]">
-          {partner.partnerCode ?? partner.id.replace(/^rec/, "TP-")}
+          {displayBusinessId(partner.partnerCode)}
         </span>
       </div>
 
@@ -79,8 +80,8 @@ export function PartnerOverviewTab({
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <Detail
-            label="Partner ID"
-            value={partner.partnerCode ?? partner.id.replace(/^rec/, "TP-")}
+            label="Partner Code"
+            value={displayBusinessId(partner.partnerCode)}
           />
           {showIdentity ? (
             <>

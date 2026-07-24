@@ -18,6 +18,8 @@ import type {
 
 export interface CreatePartnerInput {
   companyName: string;
+  /** Business Partner Code (HN_254). Written to Airtable Partner Code. */
+  partnerCode?: string;
   contactName?: string;
   email?: string;
   phone?: string;

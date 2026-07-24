@@ -11,6 +11,12 @@ import {
   AIRTABLE_JOB_STATUS,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import {
+  isValidJobCode,
+  parseJobIdMarker,
+  stripJobIdMarker,
+  upsertJobIdMarker,
+} from "@/lib/business-ids";
 import type {
   CreateJobInput,
   EmploymentType,
@@ -56,7 +62,7 @@ function mapEnum<T extends string>(
 }
 
 function descriptionFromFields(fields: AirtableFields): string | null {
-  const notes = asString(fields[JOBS_TABLE_FIELDS.notes]);
+  const notes = stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes]));
   if (notes) {
     return notes;
   }
@@ -70,15 +76,26 @@ function descriptionFromFields(fields: AirtableFields): string | null {
   return asString(raw);
 }
 
+function resolveJobCode(fields: AirtableFields): string {
+  const fromField = asString(fields[JOBS_TABLE_FIELDS.jobId]);
+  if (isValidJobCode(fromField)) {
+    return fromField!.trim().toUpperCase();
+  }
+  const fromMarker = parseJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes]));
+  if (fromMarker) {
+    return fromMarker;
+  }
+  // No synthetic JOB-rec… fallback — migrate or create assigns a business ID.
+  return "";
+}
+
 export function mapJobRecord(record: {
   id: string;
   fields: AirtableFields;
 }): Job {
   const fields = record.fields;
   const title = asString(fields[JOBS_TABLE_FIELDS.title]) ?? "Untitled Job";
-  const jobCode =
-    asString(fields[JOBS_TABLE_FIELDS.jobId]) ??
-    record.id.replace(/^rec/, "JOB-");
+  const jobCode = resolveJobCode(fields);
 
   return {
     id: record.id,
@@ -102,7 +119,7 @@ export function mapJobRecord(record: {
     skills: asStringArray(fields[JOBS_TABLE_FIELDS.skills]),
     status:
       mapEnum(fields[JOBS_TABLE_FIELDS.status], AIRTABLE_JOB_STATUS) ?? "open",
-    notes: asString(fields[JOBS_TABLE_FIELDS.notes]),
+    notes: stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes])),
     department: asString(fields[JOBS_TABLE_FIELDS.department]),
     createdById: asLinkedId(fields[JOBS_TABLE_FIELDS.createdBy]),
     createdAt: asString(fields[JOBS_TABLE_FIELDS.createdAt]),
@@ -121,6 +138,7 @@ export function toAirtableCreateFields(
     priority: Record<JobPriority, string>;
     employmentType: Record<EmploymentType, string>;
   },
+  options?: { jobCode?: string },
 ): AirtableFields {
   const clientMode = isClientCompatMode();
   const fields: AirtableFields = {
@@ -137,9 +155,21 @@ export function toAirtableCreateFields(
   if (input.hiringManager) {
     fields[JOBS_TABLE_FIELDS.hiringManager] = input.hiringManager;
   }
+  let commentsText = "";
   if (input.description) {
     // Client Job Description is attachments — persist text on Comments.
-    fields[JOBS_TABLE_FIELDS.notes] = input.description;
+    commentsText = input.description;
+  } else if (input.notes) {
+    commentsText = input.notes;
+  }
+  if (options?.jobCode) {
+    commentsText = upsertJobIdMarker(commentsText, options.jobCode);
+    if (!clientMode) {
+      fields[JOBS_TABLE_FIELDS.jobId] = options.jobCode;
+    }
+  }
+  if (commentsText) {
+    fields[JOBS_TABLE_FIELDS.notes] = commentsText;
   }
   if (input.location) {
     fields[JOBS_TABLE_FIELDS.location] = input.location;
@@ -159,9 +189,6 @@ export function toAirtableCreateFields(
   }
   if (!clientMode && input.skills && input.skills.length > 0) {
     fields[JOBS_TABLE_FIELDS.skills] = input.skills.join(", ");
-  }
-  if (input.notes && !input.description) {
-    fields[JOBS_TABLE_FIELDS.notes] = input.notes;
   }
   if (input.department) {
     fields[JOBS_TABLE_FIELDS.department] = input.department;
@@ -197,7 +224,11 @@ export function toAirtableUpdateFields(
     fields[JOBS_TABLE_FIELDS.hiringManager] = input.hiringManager || "";
   }
   if (input.description !== undefined) {
+    // Preserve [RP_JOBID] marker when rewriting Comments.
     fields[JOBS_TABLE_FIELDS.notes] = input.description || "";
+  }
+  if (input.notes !== undefined && input.description === undefined) {
+    fields[JOBS_TABLE_FIELDS.notes] = input.notes || "";
   }
   if (input.location !== undefined) {
     fields[JOBS_TABLE_FIELDS.location] = input.location || "";
@@ -227,9 +258,6 @@ export function toAirtableUpdateFields(
   }
   if (input.status !== undefined) {
     fields[JOBS_TABLE_FIELDS.status] = maps.status[input.status];
-  }
-  if (input.notes !== undefined && input.description === undefined) {
-    fields[JOBS_TABLE_FIELDS.notes] = input.notes || "";
   }
   if (input.department !== undefined) {
     fields[JOBS_TABLE_FIELDS.department] = input.department || "";

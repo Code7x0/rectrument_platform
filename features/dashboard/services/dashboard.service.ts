@@ -435,8 +435,8 @@ export async function getAccountManagerDashboardData(
 
   const recentPartnerActivity = myAllocations.slice(0, 6).map((row) => ({
     id: row.id,
-    title: row.partnerCode ?? row.partnerId,
-    subtitle: row.jobTitle ?? "Job",
+    title: row.partnerCode || "Partner",
+    subtitle: [row.jobCode, row.jobTitle].filter(Boolean).join(" · ") || "Job",
     badge: row.status,
     href: "/account-manager/allocations",
   }));

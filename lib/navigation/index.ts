@@ -31,6 +31,8 @@ const SUPER_ADMIN_NAV: AppNavItem[] = [
   { title: "Clients", href: "/admin/clients", icon: Building2 },
   { title: "Jobs", href: "/admin/jobs", icon: Briefcase },
   { title: "Talent Partners", href: "/admin/partners", icon: Users },
+  { title: "Candidates", href: "/admin/candidates", icon: ClipboardList },
+  { title: "Allocations", href: "/admin/allocations", icon: FolderKanban },
   { title: "Documents", href: "/admin/documents", icon: FileText },
   { title: "Payouts", href: "/admin/payouts", icon: Wallet },
   { title: "Activity", href: "/activities", icon: History },

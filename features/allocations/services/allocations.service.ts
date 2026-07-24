@@ -4,6 +4,7 @@ import {
   ALLOCATIONS_TABLE_FIELDS,
   PARTNERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { displayBusinessId, isValidPartnerCode } from "@/lib/business-ids";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { getClientById } from "@/features/clients/services";
 import { getJobById, listJobs } from "@/features/jobs/services";
@@ -55,9 +56,10 @@ async function loadPartnerMetaMap(
 
   for (const record of records) {
     const fields = record.fields as AirtableFields;
-    const partnerCode =
-      asString(fields[PARTNERS_TABLE_FIELDS.partnerId]) ??
-      record.id.replace(/^rec/, "TP-");
+    const rawCode = asString(fields[PARTNERS_TABLE_FIELDS.partnerId]);
+    const partnerCode = isValidPartnerCode(rawCode)
+      ? rawCode!.trim().toUpperCase()
+      : displayBusinessId(rawCode);
     const company = asString(fields[PARTNERS_TABLE_FIELDS.companyName]);
     const contact = asString(fields[PARTNERS_TABLE_FIELDS.name]);
     const specialization = asSelectList(
@@ -103,7 +105,7 @@ async function withEnrichment(
     const job = jobMap.get(allocation.jobId);
     const meta = partnerMeta.get(allocation.partnerId);
     const partnerCode =
-      meta?.partnerCode ?? allocation.partnerId.replace(/^rec/, "TP-");
+      meta?.partnerCode ?? displayBusinessId(null);
     const showIdentity =
       includePartnerIdentity || meta?.identityVisibility === "public";
 

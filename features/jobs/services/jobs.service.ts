@@ -7,6 +7,7 @@ import {
 } from "@/lib/airtable/fields";
 import { isClientCompatMode } from "@/lib/airtable/compat";
 import { patchClient } from "@/features/clients/repositories/clients.repository";
+import { allocateNextJobCodeForClient } from "@/features/shared/services/business-ids.service";
 import {
   listAccountManagerOptions,
   listClientOptions,
@@ -143,7 +144,10 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
     throw new Error("Assigned Account Manager is required");
   }
 
-  const created = await insertJob(toAirtableCreateFields(input, valueMaps));
+  const { jobCode } = await allocateNextJobCodeForClient(input.clientId);
+  const created = await insertJob(
+    toAirtableCreateFields(input, valueMaps, { jobCode }),
+  );
   await syncClientAccountOwner(input.clientId, input.accountManagerId);
 
   const [job] = await withEnrichment([created]);
@@ -163,10 +167,26 @@ export async function updateJob(
     throw new Error("Assigned Account Manager is required");
   }
 
-  const updated = await patchJob(
-    jobId,
-    toAirtableUpdateFields(input, valueMaps),
-  );
+  const existing = await findJobById(jobId);
+  const fields = toAirtableUpdateFields(input, valueMaps);
+
+  // Preserve business Job ID marker in Comments when notes/description are rewritten.
+  if (
+    existing?.jobCode &&
+    (input.description !== undefined || input.notes !== undefined)
+  ) {
+    const { upsertJobIdMarker } = await import("@/lib/business-ids");
+    const nextNotes =
+      typeof fields[JOBS_TABLE_FIELDS.notes] === "string"
+        ? (fields[JOBS_TABLE_FIELDS.notes] as string)
+        : (existing.notes ?? "");
+    fields[JOBS_TABLE_FIELDS.notes] = upsertJobIdMarker(
+      nextNotes,
+      existing.jobCode,
+    );
+  }
+
+  const updated = await patchJob(jobId, fields);
 
   if (input.accountManagerId) {
     const clientId = input.clientId ?? updated.clientId;

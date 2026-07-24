@@ -42,7 +42,9 @@ export function JobTable({
         id: "jobCode",
         header: "Job ID",
         cell: (job) => (
-          <span className="font-medium text-[#0F172A]">{job.jobCode}</span>
+          <span className="font-medium text-[#0F172A]">
+            {job.jobCode || "—"}
+          </span>
         ),
       },
       {

@@ -14,6 +14,7 @@ import {
   DOMAIN_PARTNER_VERIFICATION_TO_AIRTABLE,
   PARTNERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { isValidPartnerCode } from "@/lib/business-ids";
 import type {
   CreatePartnerInput,
   IdentityVisibility,
@@ -74,11 +75,13 @@ export function mapPartnerRecord(record: {
   fields: AirtableFields;
 }): Partner {
   const fields = record.fields;
+  const rawCode = asString(fields[PARTNERS_TABLE_FIELDS.partnerId]);
   return {
     id: record.id,
-    partnerCode:
-      asString(fields[PARTNERS_TABLE_FIELDS.partnerId]) ??
-      record.id.replace(/^rec/, "PRT-"),
+    // Never invent PRT-/TP-rec… codes — only Airtable Partner Code.
+    partnerCode: isValidPartnerCode(rawCode)
+      ? rawCode!.trim().toUpperCase()
+      : rawCode,
     companyName:
       asString(fields[PARTNERS_TABLE_FIELDS.companyName]) ??
       "Untitled Partner",
@@ -115,6 +118,10 @@ export function toAirtableCreateFields(
     [PARTNERS_TABLE_FIELDS.companyName]: input.companyName,
     [PARTNERS_TABLE_FIELDS.status]: DOMAIN_PARTNER_STATUS_TO_AIRTABLE[status],
   };
+
+  if (input.partnerCode) {
+    fields[PARTNERS_TABLE_FIELDS.partnerId] = input.partnerCode.trim().toUpperCase();
+  }
 
   if (!clientMode) {
     fields[PARTNERS_TABLE_FIELDS.verificationStatus] =
@@ -177,6 +184,11 @@ export function toAirtableUpdateFields(
 
   if (input.companyName !== undefined) {
     fields[PARTNERS_TABLE_FIELDS.companyName] = input.companyName;
+  }
+  if (input.partnerCode !== undefined) {
+    fields[PARTNERS_TABLE_FIELDS.partnerId] = input.partnerCode
+      ? input.partnerCode.trim().toUpperCase()
+      : "";
   }
   if (input.contactName !== undefined) {
     fields[PARTNERS_TABLE_FIELDS.name] = input.contactName || "";

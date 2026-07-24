@@ -128,10 +128,22 @@ export function ReviewQueuePageClient({
         ),
       },
       {
+        id: "jobCode",
+        header: "Job ID",
+        className: "text-[#64748B]",
+        cell: (row) => row.jobCode || "—",
+      },
+      {
         id: "job",
         header: "Job",
         className: "text-[#64748B]",
         cell: (row) => row.jobTitle ?? "—",
+      },
+      {
+        id: "partnerCode",
+        header: "Partner Code",
+        className: "text-[#64748B]",
+        cell: (row) => row.partnerCode || "—",
       },
       {
         id: "partner",
@@ -271,11 +283,23 @@ export function ReviewQueuePageClient({
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Detail
+                      label="Job ID"
+                      value={job?.jobCode || selected.jobCode}
+                    />
+                    <Detail
                       label="Job"
                       value={job?.title ?? selected.jobTitle}
                     />
+                    <Detail
+                      label="Partner Code"
+                      value={selected.partnerCode}
+                    />
                     <Detail label="Client" value={job?.clientName} />
                     <Detail label="Location" value={job?.location} />
+                    <Detail
+                      label="Partner"
+                      value={selected.partnerName}
+                    />
                     <Detail
                       label="Priority"
                       value={

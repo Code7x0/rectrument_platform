@@ -53,7 +53,9 @@ export function JobDrawer({
         <div className="space-y-5">
           <div className="flex items-center gap-2">
             <JobStatusBadge status={job.status} />
-            <span className="text-sm text-[#64748B]">{job.jobCode}</span>
+            <span className="text-sm text-[#64748B]">
+              {job.jobCode || "—"}
+            </span>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

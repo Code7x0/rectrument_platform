@@ -253,7 +253,19 @@ export async function approvePartnerApplication(
   });
 
   if (user.partnerId) {
-    await updatePartner(user.partnerId, { status: "active" });
+    const partner = await findPartnerById(user.partnerId);
+    if (partner) {
+      const { ensurePartnerHasBusinessCode } = await import(
+        "@/features/shared/services/business-ids.service"
+      );
+      const partnerCode = await ensurePartnerHasBusinessCode(partner);
+      await updatePartner(user.partnerId, {
+        status: "active",
+        ...(partnerCode ? { partnerCode } : {}),
+      });
+    } else {
+      await updatePartner(user.partnerId, { status: "active" });
+    }
   }
 
   await safeActivity({

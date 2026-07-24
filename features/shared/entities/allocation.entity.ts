@@ -16,7 +16,7 @@ export interface AllocationEntity {
   jobTitle: string | null;
   jobCode: string | null;
   partnerId: string;
-  /** Partner ID code (e.g. TP-0042) — always safe for Account Managers. */
+  /** Partner Code (e.g. HN_254) — always safe for Account Managers. */
   partnerCode: string | null;
   /**
    * Partner company/contact — Admin only.

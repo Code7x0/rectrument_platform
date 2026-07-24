@@ -11,6 +11,7 @@ function asString(value: unknown): string | null {
 
 export type ClientLookupOption = LookupOption & {
   accountManagerId: string | null;
+  clientCode: string | null;
 };
 
 /**
@@ -29,13 +30,17 @@ export async function listClientOptions(): Promise<ClientLookupOption[]> {
       if (!label) {
         return null;
       }
-      return {
+      const clientCode = asString(record.fields[CLIENTS_TABLE_FIELDS.clientId]);
+      const option: ClientLookupOption = {
         id: record.id,
-        label,
+        label: clientCode ? `${clientCode} — ${label}` : label,
+        code: clientCode,
+        clientCode,
         accountManagerId: asLinkedId(
           record.fields[CLIENTS_TABLE_FIELDS.accountManager],
         ),
       };
+      return option;
     })
     .filter((option): option is ClientLookupOption => option !== null);
 }

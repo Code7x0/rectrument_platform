@@ -5,6 +5,7 @@ import {
   CLIENTS_TABLE_FIELDS,
   DOMAIN_CLIENT_STATUS_TO_AIRTABLE,
 } from "@/lib/airtable/fields";
+import { isValidClientCode } from "@/lib/business-ids";
 import type {
   Client,
   ClientStatus,
@@ -28,11 +29,11 @@ export function mapClientRecord(record: {
   fields: AirtableFields;
 }): Client {
   const fields = record.fields;
+  const rawCode = asString(fields[CLIENTS_TABLE_FIELDS.clientId]);
   return {
     id: record.id,
-    clientCode:
-      asString(fields[CLIENTS_TABLE_FIELDS.clientId]) ??
-      record.id.replace(/^rec/, "CLI-"),
+    // Never invent CLI-rec… codes — only Airtable Client ID.
+    clientCode: isValidClientCode(rawCode) ? rawCode!.trim().toUpperCase() : rawCode,
     name: asString(fields[CLIENTS_TABLE_FIELDS.name]) ?? "Untitled Client",
     industry: asString(fields[CLIENTS_TABLE_FIELDS.industry]),
     website: asString(fields[CLIENTS_TABLE_FIELDS.website]),

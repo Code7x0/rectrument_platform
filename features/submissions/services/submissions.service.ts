@@ -62,17 +62,22 @@ async function withEnrichment(
   const jobMap = new Map(
     jobs.filter((j): j is NonNullable<typeof j> => Boolean(j)).map((j) => [j.id, j]),
   );
-  const partnerMap = new Map(partners.map((p) => [p.id, p.label]));
+  const partnerMap = new Map(
+    partners.map((p) => [p.id, { label: p.label, code: p.code ?? null }]),
+  );
 
   return submissions.map((row) => {
     const candidate = candidateMap.get(row.candidateId);
     const job = jobMap.get(row.jobId);
+    const partner = partnerMap.get(row.partnerId);
     return {
       ...row,
       candidateName: candidate?.fullName ?? null,
       jobTitle: job?.title ?? null,
+      jobCode: job?.jobCode || null,
       jobPriority: job?.priority ?? null,
-      partnerName: partnerMap.get(row.partnerId) ?? null,
+      partnerName: partner?.label ?? null,
+      partnerCode: partner?.code ?? null,
     };
   });
 }

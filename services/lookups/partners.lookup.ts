@@ -4,6 +4,7 @@ import {
   AIRTABLE_IDENTITY_VISIBILITY,
   PARTNERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { displayBusinessId, isValidPartnerCode } from "@/lib/business-ids";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 
 import type { LookupOption } from "./types";
@@ -17,7 +18,7 @@ export type PartnerLookupMode = "identity" | "operational";
 /**
  * Active talent partners for dropdowns.
  * - identity: company/contact (Admin / Super Admin)
- * - operational: Partner ID, or name when PUBLIC (Account Managers)
+ * - operational: Partner Code, or name when PUBLIC (Account Managers)
  */
 export async function listPartnerOptions(
   mode: PartnerLookupMode = "identity",
@@ -40,10 +41,11 @@ export async function listPartnerOptions(
   });
 
   return records
-    .map((record) => {
-      const partnerCode =
-        asString(record.fields[PARTNERS_TABLE_FIELDS.partnerId]) ??
-        record.id.replace(/^rec/, "TP-");
+    .map((record): LookupOption | null => {
+      const rawCode = asString(record.fields[PARTNERS_TABLE_FIELDS.partnerId]);
+      const partnerCode = isValidPartnerCode(rawCode)
+        ? rawCode!.trim().toUpperCase()
+        : null;
 
       const visibilityRaw = asString(
         record.fields[PARTNERS_TABLE_FIELDS.identityVisibility],
@@ -61,18 +63,19 @@ export async function listPartnerOptions(
             asString(record.fields[PARTNERS_TABLE_FIELDS.companyName]);
           return {
             id: record.id,
-            label: name ?? partnerCode,
+            label: name ?? displayBusinessId(partnerCode, "Partner"),
+            code: partnerCode,
           };
         }
 
         const specialization = asSelectList(
           record.fields[PARTNERS_TABLE_FIELDS.specialization],
         );
+        const codeLabel = displayBusinessId(partnerCode, "Partner");
         return {
           id: record.id,
-          label: specialization
-            ? `${partnerCode} · ${specialization}`
-            : partnerCode,
+          label: specialization ? `${codeLabel} · ${specialization}` : codeLabel,
+          code: partnerCode,
         };
       }
 
@@ -85,6 +88,7 @@ export async function listPartnerOptions(
       return {
         id: record.id,
         label: contact && company ? `${company} — ${contact}` : label,
+        code: partnerCode,
       };
     })
     .filter((option): option is LookupOption => option !== null);

@@ -34,7 +34,7 @@ export function PartnerTable({
     () => [
       {
         id: "code",
-        header: "Partner ID",
+        header: "Partner Code",
         cell: (row) => (
           <span className="font-medium text-[#0F172A]">
             {row.partnerCode ?? "—"}
