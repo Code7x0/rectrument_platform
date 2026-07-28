@@ -171,10 +171,24 @@ export async function submitPartnerRegistration(
   }
 
   if (files.resume) {
-    await updatePartner(partner.id, {
-      notes:
-        `${partner.notes ?? ""}\nResume on file: ${files.resume.filename}`.trim(),
-    }).catch(() => undefined);
+    try {
+      const { getUploadService } = await import("@/services/uploads");
+      const upload = await stageDocumentFile(files.resume);
+      const safeName = files.resume.filename.replace(/[^\w.\-]+/g, "_");
+      await getUploadService().bindToEntity(
+        { ...upload, filename: `resume_${safeName}` },
+        {
+          entityId: partner.id,
+          fieldName: "Partners.Resume",
+        },
+      );
+    } catch (error) {
+      console.error("[registration] Resume upload failed (non-blocking)", error);
+      await updatePartner(partner.id, {
+        notes:
+          `${partner.notes ?? ""}\nResume upload pending: ${files.resume.filename}`.trim(),
+      }).catch(() => undefined);
+    }
   }
 
   await safeActivity({
@@ -317,6 +331,7 @@ export async function approvePartnerApplication(
     partnerRecord?.companyName?.trim() ||
     user.fullName;
 
+  const loginUrl = `${appBaseUrl()}/sign-in`;
   if (recipientEmail) {
     await sendEmailSafe({
       to: recipientEmail,
@@ -324,6 +339,7 @@ export async function approvePartnerApplication(
       data: {
         partnerName,
         name: partnerName,
+        loginUrl,
       },
     });
   } else {
@@ -333,7 +349,6 @@ export async function approvePartnerApplication(
     );
   }
 
-  const loginUrl = `${appBaseUrl()}/sign-in`;
   const { notifyPartnerApproved } = await import(
     "@/features/notifications/services/notification-events"
   );

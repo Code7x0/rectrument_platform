@@ -30,12 +30,15 @@ export function renderBody(
         "Congratulations! Your TalentSocio Partner account has been approved.",
         "",
         "You can now sign in to the Recruiting Partner Platform using your registered email address.",
+        data.loginUrl ? `Sign in: ${data.loginUrl}` : "",
         "",
         "If you experience any issues accessing your account, please contact the TalentSocio team.",
         "",
         "Best regards,",
         "TalentSocio Team",
-      ].join("\n");
+      ]
+        .filter(Boolean)
+        .join("\n");
     }
     case "rejection":
       return [

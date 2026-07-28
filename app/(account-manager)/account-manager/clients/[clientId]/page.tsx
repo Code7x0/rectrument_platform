@@ -16,7 +16,6 @@ import {
 } from "@/features/clients/services";
 import { listJobs } from "@/features/jobs/services";
 import {
-  listAccountManagerOptions,
   listClientOptions,
   listPartnerOptions,
 } from "@/services/lookups";
@@ -77,9 +76,7 @@ export default async function AccountManagerClientWorkspacePage({
       includeArchived: true,
       accountManagerId,
     }),
-    listAccountManagerOptions().then((rows) =>
-      rows.filter((row) => row.id === accountManagerId),
-    ),
+    Promise.resolve([{ id: accountManagerId, label: "You" }]),
     listClientOptions().then((rows) =>
       rows.filter((row) => row.accountManagerId === accountManagerId),
     ),
@@ -87,7 +84,7 @@ export default async function AccountManagerClientWorkspacePage({
   ]);
 
   const [{ allocations, submissions }, activityTimeline] = await Promise.all([
-    loadClientWorkspacePipeline(jobs),
+    loadClientWorkspacePipeline(jobs, { includePartnerIdentity: false }),
     import("@/features/activity/services").then(({ getEntityTimeline }) =>
       getEntityTimeline(
         session,

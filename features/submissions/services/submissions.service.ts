@@ -40,6 +40,7 @@ import { listPartnerOptions } from "@/services/lookups";
 
 async function withEnrichment(
   submissions: Submission[],
+  includePartnerIdentity = false,
 ): Promise<Submission[]> {
   if (submissions.length === 0) {
     return submissions;
@@ -51,7 +52,7 @@ async function withEnrichment(
   const [candidates, jobs, partners] = await Promise.all([
     Promise.all(uniqueCandidateIds.map((id) => getCandidateById(id))),
     Promise.all(uniqueJobIds.map((id) => getJobById(id))),
-    listPartnerOptions(),
+    listPartnerOptions(includePartnerIdentity ? "identity" : "operational"),
   ]);
 
   const candidateMap = new Map(
@@ -110,10 +111,11 @@ export type SubmitCandidateResult =
 export async function listSubmissions(
   filters: SubmissionListFilters = {},
 ): Promise<Submission[]> {
+  const { includePartnerIdentity = false, ...listFilters } = filters;
   const formula = buildSubmissionsFilterFormula({
-    partnerId: filters.partnerId,
-    jobId: filters.jobId,
-    allocationId: filters.allocationId,
+    partnerId: listFilters.partnerId,
+    jobId: listFilters.jobId,
+    allocationId: listFilters.allocationId,
   });
 
   const rows = await findSubmissions({
@@ -123,7 +125,7 @@ export async function listSubmissions(
     ],
   });
 
-  return withEnrichment(rows);
+  return withEnrichment(rows, includePartnerIdentity);
 }
 
 export async function listPartnerSubmissions(
@@ -232,6 +234,17 @@ export async function submitCandidateForAllocation(
     if (!existing) {
       throw new Error("Existing candidate not found");
     }
+
+    const prior = await listSubmissions({ partnerId: payload.partnerId });
+    const ownsCandidate = prior.some(
+      (row) => row.candidateId === existing.id,
+    );
+    if (!ownsCandidate) {
+      throw new Error(
+        "You can only reuse candidates you previously submitted",
+      );
+    }
+
     candidate = existing;
     reusedCandidate = true;
 
@@ -247,29 +260,36 @@ export async function submitCandidateForAllocation(
       phone: payload.form.phone,
     });
 
-    if (duplicates.length > 0) {
-      return { ok: false, reason: "duplicate", duplicates };
+    const prior = await listSubmissions({ partnerId: payload.partnerId });
+    const ownedIds = new Set(prior.map((row) => row.candidateId));
+    const ownedDuplicates = duplicates.filter((row) => ownedIds.has(row.id));
+
+    if (ownedDuplicates.length > 0) {
+      return { ok: false, reason: "duplicate", duplicates: ownedDuplicates };
     }
 
     if (payload.resumeRequired !== false && !payload.resumeUpload) {
       throw new Error("Resume is required for new candidates");
     }
 
-    // Write native Candidates columns (exist on locked base). Keep Screening
-    // Matrix Notes for free-text partner remarks only.
-    candidate = await createCandidate({
-      fullName: payload.form.fullName,
-      email: payload.form.email,
-      phone: payload.form.phone,
-      currentCompany: payload.form.currentCompany || undefined,
-      currentLocation: payload.form.currentLocation || undefined,
-      experience: payload.form.experience || undefined,
-      currentCtc: payload.form.currentCtc || undefined,
-      expectedCtc: payload.form.expectedCtc || undefined,
-      noticePeriod: payload.form.noticePeriod || undefined,
-      skills: parseSkillsInput(payload.form.skills),
-      remarks: payload.form.remarks?.trim() || undefined,
-    });
+    // Foreign duplicates must not leak PII. Create a partner-owned person row
+    // when email/phone already exists under another partner's submissions.
+    candidate = await createCandidate(
+      {
+        fullName: payload.form.fullName,
+        email: payload.form.email,
+        phone: payload.form.phone,
+        currentCompany: payload.form.currentCompany || undefined,
+        currentLocation: payload.form.currentLocation || undefined,
+        experience: payload.form.experience || undefined,
+        currentCtc: payload.form.currentCtc || undefined,
+        expectedCtc: payload.form.expectedCtc || undefined,
+        noticePeriod: payload.form.noticePeriod || undefined,
+        skills: parseSkillsInput(payload.form.skills),
+        remarks: payload.form.remarks?.trim() || undefined,
+      },
+      { skipDuplicateCheck: duplicates.length > 0 },
+    );
 
     if (payload.resumeUpload) {
       candidate = await attachResumeToCandidate(

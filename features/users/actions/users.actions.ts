@@ -36,7 +36,7 @@ function revalidateUserPaths() {
   revalidatePath("/admin/partners");
   revalidatePath("/super-admin");
   revalidatePath("/super-admin/users");
-  revalidatePath("/super-admin/invitations");
+  revalidatePath("/super-admin/users");
 }
 
 async function fileFromForm(

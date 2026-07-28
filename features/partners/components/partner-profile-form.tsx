@@ -32,7 +32,6 @@ function toDefaults(partner: Partner): PartnerSelfProfileValues {
   return {
     companyName: partner.companyName,
     contactName: partner.contactName ?? "",
-    email: partner.email ?? "",
     phone: partner.phone ?? "",
     specialization: partner.specialization ?? "",
     notes: stripSystemMarkers(partner.notes),
@@ -121,10 +120,17 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" {...register("email")} />
-            {errors.email ? (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
-            ) : null}
+            <Input
+              id="email"
+              type="email"
+              value={partner.email ?? ""}
+              disabled
+              readOnly
+            />
+            <p className="text-xs text-[#64748B]">
+              Login email cannot be changed here. Contact TalentSocio support if
+              it needs updating.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>

@@ -88,7 +88,11 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
       listRecentActivities(10, { entityTypes: ["user"] }),
       [],
     ),
-    settledSource("submissions", listSubmissions(), []),
+    settledSource(
+      "submissions",
+      listSubmissions({ includePartnerIdentity: true }),
+      [],
+    ),
     settledSource(
       "accountManagers",
       listAccountManagersDirectory(),
@@ -310,7 +314,11 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     settledSource("documents", listDocuments(), []),
     settledSource("reviewQueue", listReviewQueueSubmissions(), []),
     settledSource("payouts", listPayouts({ includePartnerIdentity: true }), []),
-    settledSource("submissions", listSubmissions(), []),
+    settledSource(
+      "submissions",
+      listSubmissions({ includePartnerIdentity: true }),
+      [],
+    ),
     settledSource(
       "activities",
       listRecentActivities(10, {
@@ -556,9 +564,7 @@ export async function getAccountManagerDashboardData(
   const submissionIds = new Set(mySubmissions.map((s) => s.id));
   const scopedActivity = activity.filter(
     (row) =>
-      (row.entityType === "submission" && submissionIds.has(row.entityId)) ||
-      (row.entityType === "payout" &&
-        mySubmissions.some((s) => s.id === row.entityId)),
+      row.entityType === "submission" && submissionIds.has(row.entityId),
   );
 
   return {
@@ -577,11 +583,10 @@ export async function getAccountManagerDashboardData(
         tone: myReviews.length > 0 ? "attention" : "default",
       },
       {
-        id: "awaiting",
-        label: "Candidates Awaiting Action",
-        value: myReviews.length,
+        id: "submissions",
+        label: "Submissions",
+        value: mySubmissions.length,
         href: "/account-manager/candidates",
-        tone: myReviews.length > 0 ? "attention" : "default",
       },
       {
         id: "allocations",

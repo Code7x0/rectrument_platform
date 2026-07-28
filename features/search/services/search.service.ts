@@ -5,6 +5,7 @@ import { listJobs } from "@/features/jobs/services";
 import { listDocuments } from "@/features/partner-documents/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { listPartners } from "@/features/partners/services";
+import { toOperationalPartnerView } from "@/features/partners/services/partner-privacy";
 import { listPayouts } from "@/features/payouts/services";
 import {
   matchScore,
@@ -263,14 +264,19 @@ async function searchPartners(
     return partners
       .filter((partner) => partnerIds.has(partner.id))
       .map((partner) => {
+        const view = toOperationalPartnerView(partner);
         const match = matchScore(query, [
-          { value: partner.companyName, field: "company" },
-          { value: partner.contactName, field: "contact" },
-          { value: partner.partnerCode, field: "code" },
+          { value: view.partnerCode, field: "code" },
+          ...(view.displayName
+            ? [{ value: view.displayName, field: "name" }]
+            : []),
+          ...(view.specialization
+            ? [{ value: view.specialization, field: "specialization" }]
+            : []),
         ]);
         return makeResult({
           id: partner.id,
-          title: partner.partnerCode || partner.companyName || "Partner",
+          title: view.displayName || view.partnerCode || "Partner",
           subtitle: "Assigned partner",
           entityType: "partner",
           status: partner.status,

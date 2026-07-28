@@ -14,4 +14,6 @@ export interface SubmissionListFilters {
   allocationId?: string;
   status?: import("@/features/shared/entities").SubmissionStatus | "all";
   search?: string;
+  /** Admin/SA only — AM/partner paths must leave this false. */
+  includePartnerIdentity?: boolean;
 }

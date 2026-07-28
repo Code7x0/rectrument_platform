@@ -1,14 +1,30 @@
 import { NextResponse } from "next/server";
 
+import { getAppSession } from "@/lib/auth";
 import { validateStartupConfiguration } from "@/lib/airtable/startup-validation";
 
 /**
- * Production health + configuration diagnostics.
- * Uses Airtable Meta REST + env — never MCP.
+ * Production health check.
+ * Unauthenticated callers only receive a coarse status (no schema/env leak).
+ * Admin / Super Admin receive full diagnostics.
  */
 export async function GET() {
   try {
     const validation = await validateStartupConfiguration();
+    const session = await getAppSession();
+    const elevated =
+      session?.role === "super_admin" || session?.role === "admin";
+
+    if (!elevated) {
+      return NextResponse.json(
+        {
+          status: validation.ok ? "ok" : "degraded",
+          timestamp: validation.checkedAt,
+        },
+        { status: validation.ok ? 200 : 503 },
+      );
+    }
+
     return NextResponse.json(
       {
         status: validation.ok ? "ok" : "degraded",
@@ -18,15 +34,12 @@ export async function GET() {
       },
       { status: validation.ok ? 200 : 503 },
     );
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         status: "error",
         timestamp: new Date().toISOString(),
-        message:
-          error instanceof Error
-            ? error.message
-            : "Health check failed unexpectedly",
+        message: "Health check failed",
       },
       { status: 503 },
     );

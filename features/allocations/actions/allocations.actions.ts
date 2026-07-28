@@ -67,9 +67,8 @@ export async function allocatePartnerAction(
       await assertAccountManagerOwnsJob(session, data.jobId);
     }
 
-    const accountManagerId =
-      resolveAccountManagerScopeId(session) ?? session.userId;
-
+    // Super Admin must not stamp their user id as the job's AM — keep the
+    // job/client Account Owner. Only AMs set accountManagerId from session.
     const allocation = await allocatePartner({
       jobId: data.jobId,
       partnerId: data.partnerId,
@@ -78,7 +77,12 @@ export async function allocatePartnerAction(
       notes: data.notes || undefined,
       status: data.status === "archived" ? "assigned" : data.status,
       assignedById: session.userId,
-      accountManagerId,
+      ...(session.role === "account_manager"
+        ? {
+            accountManagerId:
+              resolveAccountManagerScopeId(session) ?? session.userId,
+          }
+        : {}),
     });
 
     revalidateAllocationPaths();
@@ -203,7 +207,8 @@ export async function listJobPartnerAllocationsAction(
     const rows = await listAllocations({
       jobId,
       includeArchived: false,
-      includePartnerIdentity: true,
+      includePartnerIdentity:
+        session.role === "admin" || session.role === "super_admin",
     });
     return { success: true, data: rows };
   } catch (error) {

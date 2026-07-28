@@ -178,7 +178,6 @@ export async function updateOwnPartnerProfileAction(
     const partner = await updatePartner(session.partnerId, {
       companyName: parsed.data.companyName,
       contactName: parsed.data.contactName || undefined,
-      email: parsed.data.email || undefined,
       phone: parsed.data.phone || undefined,
       specialization: parsed.data.specialization || undefined,
       notes: mergeNotesPreservingMarkers(

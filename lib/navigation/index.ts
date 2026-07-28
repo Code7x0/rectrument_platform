@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import {
+  Bell,
   Briefcase,
   Building2,
   ClipboardCheck,
@@ -37,6 +38,7 @@ const SUPER_ADMIN_NAV: AppNavItem[] = [
   { title: "Documents", href: "/admin/documents", icon: FileText },
   { title: "Payouts", href: "/admin/payouts", icon: Wallet },
   { title: "Activity", href: "/activities", icon: History },
+  { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -56,6 +58,7 @@ const ADMIN_NAV: AppNavItem[] = [
   },
   { title: "Payouts", href: "/admin/payouts", icon: Wallet },
   { title: "Activity", href: "/activities", icon: History },
+  { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -79,7 +82,8 @@ const ACCOUNT_MANAGER_NAV: AppNavItem[] = [
   },
   { title: "Payouts", href: "/account-manager/payouts", icon: Wallet },
   { title: "Activity", href: "/activities", icon: History },
-  { title: "Notifications", href: "/account-manager/settings", icon: Settings },
+  { title: "Notifications", href: "/notifications", icon: Bell },
+  { title: "Settings", href: "/account-manager/settings", icon: Settings },
 ];
 
 const PARTNER_NAV: AppNavItem[] = [
@@ -93,6 +97,7 @@ const PARTNER_NAV: AppNavItem[] = [
   { title: "Documents", href: "/partner/documents", icon: FileText },
   { title: "My Earnings", href: "/partner/payments", icon: Wallet },
   { title: "Activity", href: "/activities", icon: History },
+  { title: "Notifications", href: "/notifications", icon: Bell },
   { title: "Profile", href: "/partner/profile", icon: UserCircle },
 ];
 

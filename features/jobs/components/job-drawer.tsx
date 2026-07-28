@@ -75,6 +75,7 @@ export function JobDrawer({
               }
             />
             <Detail label="Experience" value={job.experience} />
+            <Detail label="Seniority" value={job.seniorityLevel} />
             <Detail label="Salary" value={job.salary} />
             <Detail
               label="Priority"
@@ -90,7 +91,12 @@ export function JobDrawer({
 
           <Detail label="Skills" value={job.skills.join(", ") || null} />
           <Detail label="Description" value={job.description} />
-          <Detail label="Notes" value={job.notes} />
+          <Detail label="Interview process" value={job.interviewProcess} />
+          {job.notes &&
+          job.notes.trim() &&
+          job.notes.trim() !== (job.description ?? "").trim() ? (
+            <Detail label="Notes" value={job.notes} />
+          ) : null}
 
           {job.documents.length > 0 ? (
             <div>

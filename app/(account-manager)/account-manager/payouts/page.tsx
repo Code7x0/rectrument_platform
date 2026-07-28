@@ -8,7 +8,6 @@ import {
 import { PayoutsPageClient } from "@/features/payouts/components";
 import { listPayouts } from "@/features/payouts/services";
 import {
-  listAccountManagerOptions,
   listPartnerOptions,
 } from "@/services/lookups";
 
@@ -26,20 +25,19 @@ export default async function AccountManagerPayoutsPage() {
     redirect("/unauthorized");
   }
 
-  const [payouts, partners, accountManagers] = await Promise.all([
+  const [payouts, partners] = await Promise.all([
     listPayouts({
       includePartnerIdentity: false,
       accountManagerId,
     }),
     listPartnerOptions("operational"),
-    listAccountManagerOptions(),
   ]);
 
   return (
     <PayoutsPageClient
       payouts={payouts}
       partners={partners}
-      accountManagers={accountManagers}
+      accountManagers={[]}
       canManage={roleHasPermission(session.role, "update_payouts")}
       canMarkPaid={false}
       role="account_manager"

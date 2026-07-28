@@ -19,7 +19,7 @@ export default async function AdminCandidatesPage() {
     redirect("/forbidden");
   }
 
-  const submissions = await listSubmissions();
+  const submissions = await listSubmissions({ includePartnerIdentity: true });
   const homeLabel =
     session.role === "super_admin" ? "Super Admin" : "Admin";
   const homeHref =

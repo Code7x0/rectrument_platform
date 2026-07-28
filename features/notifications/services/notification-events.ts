@@ -411,15 +411,15 @@ export async function notifyDocumentUploaded(input: {
     entityId: input.documentId,
     actionUrl: "/admin/documents",
   });
-  await notifyRole("account_manager", {
-    title: "Partner document uploaded",
-    description: `A partner uploaded ${input.documentType}.`,
+  await notifyRole("super_admin", {
+    title: "Pending document verification",
+    description: `${input.partnerLabel} uploaded ${input.documentType}.`,
     type: "documents",
     category: "documents",
-    priority: "low",
+    priority: "high",
     entityType: "partner_document",
     entityId: input.documentId,
-    actionUrl: "/account-manager/candidates",
+    actionUrl: "/admin/documents",
   });
 }
 

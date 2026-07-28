@@ -8,7 +8,6 @@ import {
 } from "@/lib/auth";
 import { ClientsPageClient } from "@/features/clients/components";
 import { listClients } from "@/features/clients/services";
-import { listAccountManagerOptions } from "@/services/lookups";
 
 export default async function AccountManagerClientsPage() {
   const session = await getAppSession();
@@ -26,9 +25,7 @@ export default async function AccountManagerClientsPage() {
 
   const [clients, accountManagers] = await Promise.all([
     listClients({ includeArchived: true, accountManagerId }),
-    listAccountManagerOptions().then((rows) =>
-      rows.filter((row) => row.id === accountManagerId),
-    ),
+    Promise.resolve([{ id: accountManagerId, label: "You" }]),
   ]);
 
   return (

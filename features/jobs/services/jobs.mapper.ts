@@ -109,7 +109,8 @@ function collectJobDocuments(fields: AirtableFields): Job["documents"] {
 
 /**
  * Prefer readable text description (Comments after Job ID marker strip).
- * Attachment JD files are exposed separately via `documents`.
+ * Attachment JD files are exposed separately via `documents` — do not
+ * duplicate filenames into the description field.
  */
 function descriptionFromFields(fields: AirtableFields): string | null {
   const notes = stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes]));
@@ -121,12 +122,6 @@ function descriptionFromFields(fields: AirtableFields): string | null {
   const asText = asString(raw);
   if (asText) {
     return asText;
-  }
-
-  // Attachment-only JD: surface filenames so the drawer never looks empty.
-  const files = asAttachments(raw);
-  if (files.length > 0) {
-    return files.map((file) => file.filename).join(", ");
   }
 
   return null;
@@ -178,6 +173,8 @@ export function mapJobRecord(record: {
       mapEnum(fields[JOBS_TABLE_FIELDS.status], AIRTABLE_JOB_STATUS) ?? "open",
     notes: stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes])),
     department: asString(fields[JOBS_TABLE_FIELDS.department]),
+    interviewProcess: asString(fields[JOBS_TABLE_FIELDS.interviewProcess]),
+    seniorityLevel: asString(fields[JOBS_TABLE_FIELDS.seniorityLevel]),
     createdById: asLinkedId(fields[JOBS_TABLE_FIELDS.createdBy]),
     createdAt: asString(fields[JOBS_TABLE_FIELDS.createdAt]),
   };

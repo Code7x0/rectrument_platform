@@ -4,12 +4,7 @@ import { z } from "zod";
 export const partnerSelfProfileSchema = z.object({
   companyName: z.string().trim().min(2, "Company name is required"),
   contactName: z.string().trim().optional(),
-  email: z
-    .string()
-    .trim()
-    .email("Enter a valid email")
-    .optional()
-    .or(z.literal("")),
+  /** Email is identity-bound — partners cannot change it from the profile form. */
   phone: z.string().trim().optional(),
   specialization: z.string().trim().optional(),
   notes: z.string().trim().optional(),

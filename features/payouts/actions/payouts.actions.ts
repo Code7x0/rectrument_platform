@@ -41,17 +41,18 @@ export async function updatePayoutStatusAction(
   try {
     const session = await requirePermission("view_payouts");
 
-    const isAdmin = session.role === "admin";
+    const isElevated =
+      session.role === "admin" || session.role === "super_admin";
     const isAm = session.role === "account_manager";
 
-    if (!isAdmin && !isAm) {
+    if (!isElevated && !isAm) {
       return { success: false, message: "Forbidden" };
     }
 
-    if (!isAdmin) {
-      await requirePermission("update_payouts");
-    } else {
+    if (isElevated) {
       await requirePermission("manage_payouts");
+    } else {
+      await requirePermission("update_payouts");
     }
 
     const parsed = updatePayoutStatusSchema.safeParse({
@@ -68,11 +69,30 @@ export async function updatePayoutStatusAction(
       };
     }
 
+    if (isAm) {
+      const { getPayoutById } = await import("@/features/payouts/services");
+      const { assertAccountManagerOwnsJob, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      const existing = await getPayoutById(parsed.data.payoutId);
+      if (!existing) {
+        return { success: false, message: "Payout not found" };
+      }
+      try {
+        await assertAccountManagerOwnsJob(session, existing.jobId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+    }
+
     const payout = await updatePayoutStatus({
       payoutId: parsed.data.payoutId,
       toStatus: parsed.data.payoutStatus,
       actorUserId: session.userId,
-      role: isAdmin ? "admin" : "account_manager",
+      role: isElevated ? "admin" : "account_manager",
       amount: parsed.data.amount,
       currency: parsed.data.currency,
       eligibleDate: parsed.data.eligibleDate,
@@ -104,7 +124,9 @@ export async function updatePayoutNotesAction(
       return { success: false, message: "Forbidden" };
     }
 
-    if (session.role === "admin") {
+    const isElevated =
+      session.role === "admin" || session.role === "super_admin";
+    if (isElevated) {
       await requirePermission("manage_payouts");
     } else {
       await requirePermission("update_payouts");
@@ -117,6 +139,25 @@ export async function updatePayoutNotesAction(
         message: "Validation failed",
         errors: parsed.error.issues.map((issue) => issue.message),
       };
+    }
+
+    if (session.role === "account_manager") {
+      const { getPayoutById } = await import("@/features/payouts/services");
+      const { assertAccountManagerOwnsJob, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      const existing = await getPayoutById(parsed.data.payoutId);
+      if (!existing) {
+        return { success: false, message: "Payout not found" };
+      }
+      try {
+        await assertAccountManagerOwnsJob(session, existing.jobId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
     }
 
     const payout = await updatePayoutNotes(parsed.data.payoutId, parsed.data.notes);

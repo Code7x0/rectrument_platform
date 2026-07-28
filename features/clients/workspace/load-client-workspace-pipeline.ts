@@ -8,7 +8,10 @@ import type { Submission } from "@/features/submissions/types";
  * Load partners (allocations) and candidates (submissions) for a client's jobs.
  * Fetches per job so Airtable filters stay scoped — avoids full-table scans.
  */
-export async function loadClientWorkspacePipeline(jobs: Job[]): Promise<{
+export async function loadClientWorkspacePipeline(
+  jobs: Job[],
+  options?: { includePartnerIdentity?: boolean },
+): Promise<{
   allocations: Allocation[];
   submissions: Submission[];
 }> {
@@ -16,17 +19,26 @@ export async function loadClientWorkspacePipeline(jobs: Job[]): Promise<{
     return { allocations: [], submissions: [] };
   }
 
+  const includePartnerIdentity = options?.includePartnerIdentity ?? false;
+
   const [allocationGroups, submissionGroups] = await Promise.all([
     Promise.all(
       jobs.map((job) =>
         listAllocations({
           jobId: job.id,
           includeArchived: true,
-          includePartnerIdentity: true,
+          includePartnerIdentity,
         }),
       ),
     ),
-    Promise.all(jobs.map((job) => listSubmissions({ jobId: job.id }))),
+    Promise.all(
+      jobs.map((job) =>
+        listSubmissions({
+          jobId: job.id,
+          includePartnerIdentity,
+        }),
+      ),
+    ),
   ]);
 
   return {

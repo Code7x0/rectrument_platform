@@ -55,16 +55,19 @@ export async function findDuplicateCandidates(input: {
 
 export async function createCandidate(
   input: CreateCandidateInput,
+  options?: { skipDuplicateCheck?: boolean },
 ): Promise<Candidate> {
-  const duplicates = await findDuplicateCandidates({
-    email: input.email,
-    phone: input.phone,
-  });
+  if (!options?.skipDuplicateCheck) {
+    const duplicates = await findDuplicateCandidates({
+      email: input.email,
+      phone: input.phone,
+    });
 
-  if (duplicates.length > 0) {
-    throw new Error(
-      "A candidate with this email or phone already exists. Reuse the existing record.",
-    );
+    if (duplicates.length > 0) {
+      throw new Error(
+        "A candidate with this email or phone already exists. Reuse the existing record.",
+      );
+    }
   }
 
   return insertCandidate(toAirtableCreateFields(input));

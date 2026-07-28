@@ -65,7 +65,7 @@ export default async function AdminClientWorkspacePage({
   ]);
 
   const [{ allocations, submissions }, activityTimeline] = await Promise.all([
-    loadClientWorkspacePipeline(jobs),
+    loadClientWorkspacePipeline(jobs, { includePartnerIdentity: true }),
     import("@/features/activity/services").then(({ getEntityTimeline }) =>
       getEntityTimeline(
         session,

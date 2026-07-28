@@ -42,6 +42,9 @@ export interface JobEntity {
   status: JobStatus;
   notes: string | null;
   department: string | null;
+  /** Locked-base Interview Process field (closest analogue to requirements). */
+  interviewProcess: string | null;
+  seniorityLevel: string | null;
   createdById: string | null;
   createdAt: string | null;
 }

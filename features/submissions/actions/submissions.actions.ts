@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth";
 import { candidateFormSchema } from "@/features/candidates/schemas/candidate.schema";
-import { findDuplicateCandidates } from "@/features/candidates/services";
 import {
   stageResumeFile,
   submitCandidateForAllocation,
@@ -60,9 +59,26 @@ export async function lookupCandidateDuplicatesAction(
   phone: string,
 ): Promise<ActionResult<Candidate[]>> {
   try {
-    await requirePermission("submit_candidates");
-    const duplicates = await findDuplicateCandidates({ email, phone });
-    return { success: true, data: duplicates };
+    const session = await requirePermission("submit_candidates");
+    if (session.role !== "partner" || !session.partnerId) {
+      return { success: false, message: "Only partners can search candidates" };
+    }
+
+    const { findDuplicateCandidates } = await import(
+      "@/features/candidates/services"
+    );
+    const { listSubmissions } = await import(
+      "@/features/submissions/services"
+    );
+
+    const [duplicates, prior] = await Promise.all([
+      findDuplicateCandidates({ email, phone }),
+      listSubmissions({ partnerId: session.partnerId }),
+    ]);
+    const ownedIds = new Set(prior.map((row) => row.candidateId));
+    const owned = duplicates.filter((row) => ownedIds.has(row.id));
+
+    return { success: true, data: owned };
   } catch (error) {
     return {
       success: false,

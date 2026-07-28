@@ -143,8 +143,12 @@ export async function deleteJobAction(jobId: string): Promise<ActionResult> {
   }
 }
 
-/** Ensures AM/Admin can load the jobs page. Partners are rejected. */
+/** Ensures Admin/SA/AM can load the jobs page. Partners are rejected. */
 export async function assertCanViewJobs() {
-  const session = await requireRole(["admin", "account_manager"]);
+  const session = await requireRole([
+    "super_admin",
+    "admin",
+    "account_manager",
+  ]);
   return session;
 }

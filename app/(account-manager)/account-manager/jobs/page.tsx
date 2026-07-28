@@ -8,10 +8,7 @@ import {
 import { JobsPageClient } from "@/features/jobs/components";
 import { listJobs, getJobLocations } from "@/features/jobs/services";
 import { listClients } from "@/features/clients/services";
-import {
-  listAccountManagerOptions,
-  listPartnerOptions,
-} from "@/services/lookups";
+import { listPartnerOptions } from "@/services/lookups";
 
 export default async function AccountManagerJobsPage() {
   const session = await getAppSession();
@@ -42,9 +39,7 @@ export default async function AccountManagerJobsPage() {
         accountManagerId,
       }),
       listClients({ includeArchived: true, accountManagerId }),
-      listAccountManagerOptions().then((rows) =>
-        rows.filter((row) => row.id === accountManagerId),
-      ),
+      Promise.resolve([{ id: accountManagerId, label: "You" }]),
       listPartnerOptions("operational"),
       getJobLocations(),
     ]);
