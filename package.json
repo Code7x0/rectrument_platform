@@ -11,7 +11,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "migrate:business-ids": "node --env-file=.env.local scripts/migrate-business-ids.mjs",
-    "migrate:business-ids:dry": "DRY_RUN=1 node --env-file=.env.local scripts/migrate-business-ids.mjs"
+    "migrate:business-ids:dry": "DRY_RUN=1 node --env-file=.env.local scripts/migrate-business-ids.mjs",
+    "am:upsert": "node --env-file=.env.local scripts/upsert-account-manager.mjs",
+    "test:roles": "node --env-file=.env.local scripts/verify-role-identity.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.18",
