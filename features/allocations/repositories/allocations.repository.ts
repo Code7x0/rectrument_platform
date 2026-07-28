@@ -35,7 +35,8 @@ function allocationFromJobPartner(
   const id = buildJobPartnerAllocationId(jobId, partnerId);
   return {
     id,
-    allocationCode: id.replace(/^jp_/, "ALL-"),
+    // Placeholder — withEnrichment sets JOBCODE-PARTNERCODE (never ALL-rec…).
+    allocationCode: "",
     jobId,
     jobTitle: null,
     jobCode: null,

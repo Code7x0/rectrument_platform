@@ -2,6 +2,7 @@ export {
   archivePartner,
   createPartner,
   deletePartner,
+  findPartnerByEmail,
   getPartnerById,
   getPartnerDocumentSummary,
   getPartnerPerformanceStats,

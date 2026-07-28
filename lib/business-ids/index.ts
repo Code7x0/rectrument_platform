@@ -19,8 +19,9 @@ export function isSyntheticDisplayId(value: string | null | undefined): boolean 
   const v = value.trim();
   return (
     /^rec[A-Za-z0-9]+$/.test(v) ||
-    /^(CLI|PRT|TP|JOB|SUB)-/i.test(v) ||
-    v.startsWith("jp_")
+    /^(CLI|PRT|TP|JOB|SUB|ALL)-/i.test(v) ||
+    v.startsWith("jp_") ||
+    /rec[A-Za-z0-9]+_rec[A-Za-z0-9]+/.test(v)
   );
 }
 

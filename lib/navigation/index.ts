@@ -27,6 +27,7 @@ export interface AppNavItem {
 const SUPER_ADMIN_NAV: AppNavItem[] = [
   { title: "Workspace", href: "/super-admin", icon: Shield },
   { title: "Role Management", href: "/super-admin/users", icon: Users },
+  { title: "Account Managers", href: "/admin/account-managers", icon: UserCircle },
   { title: "Approvals", href: "/admin/approvals", icon: ClipboardCheck },
   { title: "Clients", href: "/admin/clients", icon: Building2 },
   { title: "Jobs", href: "/admin/jobs", icon: Briefcase },
@@ -42,6 +43,7 @@ const SUPER_ADMIN_NAV: AppNavItem[] = [
 const ADMIN_NAV: AppNavItem[] = [
   { title: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { title: "Approvals", href: "/admin/approvals", icon: ClipboardCheck },
+  { title: "Account Managers", href: "/admin/account-managers", icon: UserCircle },
   { title: "Clients", href: "/admin/clients", icon: Building2 },
   { title: "Jobs", href: "/admin/jobs", icon: Briefcase },
   { title: "Talent Partners", href: "/admin/partners", icon: Users },

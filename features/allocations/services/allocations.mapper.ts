@@ -59,11 +59,15 @@ export function mapAllocationRecord(record: {
     throw new Error(`Allocation ${record.id} is missing Partner`);
   }
 
+  const rawCode = asString(fields[ALLOCATIONS_TABLE_FIELDS.allocationId]);
   return {
     id: record.id,
+    // Prefer Airtable Allocation ID only when it is a human business code.
+    // Otherwise enrichment fills JOBCODE-PARTNERCODE.
     allocationCode:
-      asString(fields[ALLOCATIONS_TABLE_FIELDS.allocationId]) ??
-      record.id.replace(/^rec/, "ALL-"),
+      rawCode && !/^ALL-/i.test(rawCode) && !rawCode.startsWith("rec")
+        ? rawCode
+        : "",
     jobId,
     jobTitle: null,
     jobCode: null,

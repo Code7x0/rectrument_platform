@@ -34,7 +34,9 @@ export function AllocationTable({
         header: "Allocation",
         cell: (row) => (
           <span className="font-medium text-[#0F172A]">
-            {row.allocationCode ?? row.id.slice(0, 10)}
+            {row.allocationCode?.trim() ||
+              [row.jobCode, row.partnerCode].filter(Boolean).join("-") ||
+              "—"}
           </span>
         ),
       },

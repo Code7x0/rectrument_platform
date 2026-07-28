@@ -59,9 +59,47 @@ export async function getPartnerById(
   return findPartnerById(partnerId);
 }
 
+function escapeFormulaValue(value: string): string {
+  return value.replace(/'/g, "\\'");
+}
+
+/** Lookup by Official Email ID or Personal Email (case-insensitive). */
+export async function findPartnerByEmail(
+  email: string,
+): Promise<Partner | null> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  const escaped = escapeFormulaValue(normalized);
+  const rows = await findPartners({
+    filterByFormula: `OR(LOWER({${PARTNERS_TABLE_FIELDS.email}}) = '${escaped}', LOWER({${PARTNERS_TABLE_FIELDS.personalEmail}}) = '${escaped}')`,
+    maxRecords: 5,
+  });
+  return (
+    rows.find((p) => p.email?.trim().toLowerCase() === normalized) ??
+    rows[0] ??
+    null
+  );
+}
+
 export async function createPartner(
   input: CreatePartnerInput,
 ): Promise<Partner> {
+  if (input.email?.trim()) {
+    const existing = await findPartnerByEmail(input.email);
+    if (existing) {
+      throw new Error("A talent partner with this email already exists");
+    }
+    const { findUserByEmail } = await import("@/services/users");
+    const user = await findUserByEmail(input.email);
+    if (user && user.role !== "partner") {
+      throw new Error("This email is already registered to another account");
+    }
+    if (user?.role === "partner" && user.partnerId) {
+      throw new Error("A talent partner with this email already exists");
+    }
+  }
   return insertPartner(toAirtableCreateFields(input));
 }
 
@@ -69,6 +107,12 @@ export async function updatePartner(
   partnerId: string,
   input: UpdatePartnerInput,
 ): Promise<Partner> {
+  if (input.email?.trim()) {
+    const existing = await findPartnerByEmail(input.email);
+    if (existing && existing.id !== partnerId) {
+      throw new Error("A talent partner with this email already exists");
+    }
+  }
   return patchPartner(partnerId, toAirtableUpdateFields(input));
 }
 

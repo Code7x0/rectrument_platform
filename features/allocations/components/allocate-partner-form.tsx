@@ -65,7 +65,7 @@ export function AllocatePartnerForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="partnerId">Talent Partner ID</Label>
+        <Label htmlFor="partnerId">Talent Partner</Label>
         <Select id="partnerId" {...register("partnerId")}>
           <option value="">Select talent partner</option>
           {partners.map((partner) => (

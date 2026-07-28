@@ -4,7 +4,11 @@ import {
   ALLOCATIONS_TABLE_FIELDS,
   PARTNERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
-import { displayBusinessId, isValidPartnerCode } from "@/lib/business-ids";
+import {
+  displayBusinessId,
+  isSyntheticDisplayId,
+  isValidPartnerCode,
+} from "@/lib/business-ids";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { getClientById } from "@/features/clients/services";
 import { getJobById, listJobs } from "@/features/jobs/services";
@@ -108,17 +112,102 @@ async function withEnrichment(
       meta?.partnerCode ?? displayBusinessId(null);
     const showIdentity =
       includePartnerIdentity || meta?.identityVisibility === "public";
+    const partnerName = showIdentity
+      ? (meta?.identityLabel ?? null)
+      : null;
+    const jobCode = job?.jobCode ?? null;
+    const jobTitle = job?.title ?? null;
+    const allocationCode = formatAllocationDisplayCode(jobCode, partnerCode, {
+      jobTitle,
+      partnerLabel: meta?.identityLabel ?? null,
+    });
 
     return {
       ...allocation,
-      jobTitle: job?.title ?? null,
-      jobCode: job?.jobCode ?? null,
+      allocationCode,
+      jobTitle,
+      jobCode,
       accountManagerId:
         allocation.accountManagerId ?? job?.accountManagerId ?? null,
       partnerCode,
-      partnerName: showIdentity ? (meta?.identityLabel ?? null) : null,
+      partnerName,
     };
   });
+}
+
+function shortCodePart(
+  value: string | null | undefined,
+  fallback: string,
+): string {
+  if (!value?.trim() || value.trim() === "—" || isSyntheticDisplayId(value)) {
+    return fallback;
+  }
+  return value.trim().toUpperCase().slice(0, 16);
+}
+
+function shortFromJobTitle(title: string | null | undefined): string | null {
+  if (!title?.trim()) {
+    return null;
+  }
+  const words = title
+    .trim()
+    .split(/[\s/-]+/)
+    .filter((w) => w.length > 0 && !/^(to|of|the|and|a|an)$/i.test(w));
+  if (words.length === 0) {
+    return null;
+  }
+  if (words.length === 1) {
+    const only = words[0] ?? "";
+    return only.slice(0, 4).toUpperCase();
+  }
+  return words
+    .slice(0, 3)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+}
+
+function initialsFromLabel(label: string | null | undefined): string | null {
+  if (!label?.trim()) {
+    return null;
+  }
+  const name = label.includes("—")
+    ? (label.split("—").pop()?.trim() ?? label.trim())
+    : label.trim();
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return null;
+  }
+  if (parts.length === 1) {
+    const only = parts[0] ?? "";
+    return only.slice(0, 3).toUpperCase();
+  }
+  const first = parts[0] ?? "";
+  const last = parts[parts.length - 1] ?? "";
+  return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+}
+
+/**
+ * Human-readable code: JOBCODE-PARTNERCODE (never raw Airtable / jp_ ids).
+ * Falls back to short job title + partner initials when business codes are missing.
+ */
+export function formatAllocationDisplayCode(
+  jobCode: string | null | undefined,
+  partnerCode: string | null | undefined,
+  options?: {
+    jobTitle?: string | null;
+    partnerLabel?: string | null;
+  },
+): string {
+  const job = shortCodePart(
+    jobCode,
+    shortFromJobTitle(options?.jobTitle) ?? "JOB",
+  );
+  const partner = shortCodePart(
+    partnerCode,
+    initialsFromLabel(options?.partnerLabel) ?? "TP",
+  );
+  return `${job}-${partner}`;
 }
 
 function applySearchFilter(

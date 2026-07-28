@@ -98,7 +98,9 @@ export function ClientForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="accountManagerId">Account Manager</Label>
+          <Label htmlFor="accountManagerId">
+            Assign Account Manager
+          </Label>
           <Select id="accountManagerId" {...register("accountManagerId")}>
             <option value="">Unassigned</option>
             {accountManagers.map((am) => (
@@ -107,6 +109,9 @@ export function ClientForm({
               </option>
             ))}
           </Select>
+          <p className="text-xs text-[#64748B]">
+            Sets the client Account Owner. Jobs under this client follow that AM.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>

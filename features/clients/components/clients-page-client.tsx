@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { AssignAccountManagerDialog } from "@/features/account-managers/components/assign-account-manager-dialog";
 import { archiveClientAction } from "@/features/clients/actions/clients.actions";
 import { ClientDialog } from "@/features/clients/components/client-dialog";
 import { ClientTable } from "@/features/clients/components/client-table";
@@ -78,8 +79,20 @@ export function ClientsPageClient({
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Client | null>(null);
+  const [assignAmOpen, setAssignAmOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const clientOptions = useMemo<LookupOption[]>(
+    () =>
+      initialClients
+        .filter((c) => c.status !== "archived")
+        .map((c) => ({
+          id: c.id,
+          label: c.clientCode ? `${c.clientCode} — ${c.name}` : c.name,
+        })),
+    [initialClients],
+  );
 
   const filtered = useMemo(
     () => applyFilters(initialClients, filters),
@@ -114,14 +127,25 @@ export function ClientsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="Clients"
-        description="Hiring companies and their workspaces."
+        description="Hiring companies and their workspaces. Assign an Account Manager to own each client."
         actions={
-          canCreate ? (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create Client
-            </Button>
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            {canUpdate && accountManagers.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAssignAmOpen(true)}
+              >
+                Assign Account Manager
+              </Button>
+            ) : null}
+            {canCreate ? (
+              <Button type="button" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create Client
+              </Button>
+            ) : null}
+          </div>
         }
       />
 
@@ -181,6 +205,14 @@ export function ClientsPageClient({
             setEditClient(null);
           }
         }}
+        onCompleted={refresh}
+      />
+
+      <AssignAccountManagerDialog
+        open={assignAmOpen}
+        onOpenChange={setAssignAmOpen}
+        clients={clientOptions}
+        accountManagers={accountManagers}
         onCompleted={refresh}
       />
 

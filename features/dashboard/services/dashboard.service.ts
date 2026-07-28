@@ -63,15 +63,55 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
   const { unstable_noStore: noStore } = await import("next/cache");
   noStore();
 
-  const [summary, users, activity] = await Promise.all([
+  const { listAccountManagersDirectory } = await import(
+    "@/features/account-managers/services/account-managers.service"
+  );
+  const { findCandidates } = await import(
+    "@/features/candidates/repositories/candidates.repository"
+  );
+
+  const [
+    summary,
+    users,
+    activity,
+    submissions,
+    amDirectory,
+    partners,
+    jobs,
+    clients,
+    candidateRecords,
+  ] = await Promise.all([
     getUsersSummary(),
     listUsers(),
-    settledSource("activities", listRecentActivities(10, { entityTypes: ["user"] }), []),
+    settledSource(
+      "activities",
+      listRecentActivities(10, { entityTypes: ["user"] }),
+      [],
+    ),
+    settledSource("submissions", listSubmissions(), []),
+    settledSource(
+      "accountManagers",
+      listAccountManagersDirectory(),
+      {
+        rows: [],
+        summary: { total: 0, active: 0, inactive: 0 },
+      },
+    ),
+    settledSource(
+      "partners",
+      listPartners({ includeArchived: false }),
+      [],
+    ),
+    settledSource("jobs", listJobs({ includeArchived: false }), []),
+    settledSource("clients", listClients({ includeArchived: false }), []),
+    settledSource("candidates", findCandidates({}), []),
   ]);
 
   const activeUsers = users.filter((u) => u.status === "active").length;
   const inactiveUsers = users.filter((u) => u.status !== "active").length;
-  const talentPartners = users.filter((u) => u.role === "partner").length;
+  const talentPartners = partners.filter((p) => p.status === "active").length;
+  const candidateCount = candidateRecords.length;
+  const submissionCount = submissions.length;
 
   const recentInvitations = users
     .filter((u) => u.registrationStatus === "invitation_pending")
@@ -125,29 +165,50 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
         hint: "Talent Partner registrations",
       },
       {
-        id: "pending-invites",
-        label: "Pending Invitations",
-        value: summary.invitationPending,
-        href: "/super-admin/users",
-        tone: summary.invitationPending > 0 ? "attention" : "default",
+        id: "ams-active",
+        label: "Active AMs",
+        value: amDirectory.summary.active,
+        href: "/admin/account-managers",
+        tone: "positive",
       },
       {
-        id: "admins",
-        label: "Admins",
-        value: summary.admins,
-        href: "/super-admin/users",
+        id: "ams-inactive",
+        label: "Inactive AMs",
+        value: amDirectory.summary.inactive,
+        href: "/admin/account-managers",
+        tone: "muted",
       },
       {
-        id: "ams",
-        label: "Account Managers",
-        value: summary.accountManagers,
-        href: "/super-admin/users",
+        id: "candidates",
+        label: "Candidate Count",
+        value: candidateCount,
+        href: "/admin/candidates",
+        hint: "Airtable Candidates rows",
+      },
+      {
+        id: "submissions",
+        label: "Submission Count",
+        value: submissionCount,
+        href: "/admin/candidates",
+        hint: "Airtable submission rows",
       },
       {
         id: "partners",
         label: "Talent Partners",
         value: talentPartners,
         href: "/admin/partners",
+      },
+      {
+        id: "jobs",
+        label: "Open Jobs",
+        value: jobs.filter((j) => j.status === "open").length,
+        href: "/admin/jobs",
+      },
+      {
+        id: "clients",
+        label: "Clients",
+        value: clients.length,
+        href: "/admin/clients",
       },
     ],
     companyHealth: [
@@ -172,6 +233,12 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
         href: "/admin/approvals",
         tone: summary.pendingApprovals > 0 ? "attention" : "default",
       },
+      {
+        id: "am-total",
+        label: "Account Managers",
+        value: amDirectory.summary.total,
+        href: "/admin/account-managers",
+      },
     ],
     quickActions: [
       {
@@ -187,15 +254,21 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
         href: "/super-admin/users",
       },
       {
+        id: "manage-ams",
+        label: "Account Managers",
+        description: "Active / inactive & client assignment",
+        href: "/admin/account-managers",
+      },
+      {
         id: "review-regs",
         label: "Review Registrations",
-        description: "Approve pending partners",
+        description: "Approve or reject Talent Partners",
         href: "/admin/approvals",
       },
       {
-        id: "role-mgmt",
+        id: "manage-roles",
         label: "Role Management",
-        description: "Promote, demote, deactivate",
+        description: "Invites and access control",
         href: "/super-admin/users",
       },
     ],
@@ -212,6 +285,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const { unstable_noStore: noStore } = await import("next/cache");
   noStore();
 
+  const { listAccountManagersDirectory } = await import(
+    "@/features/account-managers/services/account-managers.service"
+  );
+
   const [
     clients,
     allJobs,
@@ -221,6 +298,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     payouts,
     submissions,
     activity,
+    amDirectory,
   ] = await Promise.all([
     settledSource("clients", listClients({ status: "active" }), []),
     settledSource("jobs", listJobs({ includeArchived: false }), []),
@@ -240,16 +318,20 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       }),
       [],
     ),
+    settledSource(
+      "accountManagers",
+      listAccountManagersDirectory(),
+      {
+        rows: [],
+        summary: { total: 0, active: 0, inactive: 0 },
+      },
+    ),
   ]);
 
   const jobs = allJobs.filter((job) => job.status === "open");
   const documents = allDocuments.filter(
     (doc) => doc.verificationStatus === "pending",
   );
-
-  const assignedAMs = new Set(
-    jobs.map((job) => job.accountManagerId).filter(Boolean),
-  ).size;
 
   const pendingPayouts = payouts.filter(
     (p) =>
@@ -313,11 +395,18 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         href: "/admin/jobs",
       },
       {
-        id: "ams",
-        label: "Assigned Account Managers",
-        value: assignedAMs,
-        href: "/admin/jobs",
-        hint: "On open jobs",
+        id: "ams-active",
+        label: "Active AMs",
+        value: amDirectory.summary.active,
+        href: "/admin/account-managers",
+        tone: "positive",
+      },
+      {
+        id: "ams-inactive",
+        label: "Inactive AMs",
+        value: amDirectory.summary.inactive,
+        href: "/admin/account-managers",
+        tone: "muted",
       },
       {
         id: "docs",
@@ -366,6 +455,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         label: "Create Job",
         description: "Open a new requisition",
         href: "/admin/jobs",
+      },
+      {
+        id: "manage-ams",
+        label: "Account Managers",
+        description: "Active / inactive & assign to clients",
+        href: "/admin/account-managers",
       },
       {
         id: "review-docs",
