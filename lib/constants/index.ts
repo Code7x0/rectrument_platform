@@ -19,6 +19,7 @@ export const PUBLIC_ROUTES = [
   ROUTES.signIn,
   ROUTES.signUp,
   ROUTES.register,
+  "/partner-agreement",
   "/invite",
   ROUTES.unauthorized,
   ROUTES.forbidden,

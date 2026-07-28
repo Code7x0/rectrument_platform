@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission } from "@/lib/auth";
+import {
+  getAppSession,
+  roleHasPermission,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
 import { PayoutsPageClient } from "@/features/payouts/components";
 import { listPayouts } from "@/features/payouts/services";
 import {
@@ -17,10 +21,15 @@ export default async function AccountManagerPayoutsPage() {
     redirect("/forbidden");
   }
 
+  const accountManagerId = resolveAccountManagerScopeId(session);
+  if (!accountManagerId) {
+    redirect("/unauthorized");
+  }
+
   const [payouts, partners, accountManagers] = await Promise.all([
     listPayouts({
       includePartnerIdentity: false,
-      accountManagerId: session.userId,
+      accountManagerId,
     }),
     listPartnerOptions("operational"),
     listAccountManagerOptions(),

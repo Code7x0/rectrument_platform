@@ -1,11 +1,15 @@
 import { redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission } from "@/lib/auth";
+import {
+  getAppSession,
+  roleHasPermission,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
 import { JobsPageClient } from "@/features/jobs/components";
 import { listJobs, getJobLocations } from "@/features/jobs/services";
+import { listClients } from "@/features/clients/services";
 import {
   listAccountManagerOptions,
-  listClientOptions,
   listPartnerOptions,
 } from "@/services/lookups";
 
@@ -20,19 +24,32 @@ export default async function AccountManagerJobsPage() {
     redirect("/forbidden");
   }
 
+  const accountManagerId = resolveAccountManagerScopeId(session);
+  if (!accountManagerId) {
+    redirect("/unauthorized");
+  }
+
   const canAllocate = roleHasPermission(session.role, "manage_allocations");
 
-  const [jobs, clients, accountManagers, partners, locations] =
+  const [jobs, assignedClients, accountManagers, partners, locations] =
     await Promise.all([
       listJobs({
         includeArchived: true,
-        accountManagerId: session.userId,
+        accountManagerId,
       }),
-      listClientOptions(),
-      listAccountManagerOptions(),
+      listClients({ includeArchived: true, accountManagerId }),
+      listAccountManagerOptions().then((rows) =>
+        rows.filter((row) => row.id === accountManagerId),
+      ),
       listPartnerOptions("operational"),
       getJobLocations(),
     ]);
+
+  const clients = assignedClients.map((client) => ({
+    id: client.id,
+    label: client.name,
+    accountManagerId: client.accountManagerId,
+  }));
 
   return (
     <JobsPageClient

@@ -37,6 +37,8 @@ export interface AllocationListFilters {
   status?: AllocationStatus | "all";
   partnerId?: string | "all";
   jobId?: string | "all";
+  /** Restrict to allocations whose job id is in this set (AM scoping). */
+  jobIds?: string[];
   includeArchived?: boolean;
   /** Admin-only: expose partner company/contact. Default false. */
   includePartnerIdentity?: boolean;

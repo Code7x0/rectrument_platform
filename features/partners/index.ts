@@ -15,6 +15,7 @@ export {
 export {
   archivePartner,
   createPartner,
+  deletePartner,
   getPartnerById,
   getPartnerDocumentSummary,
   getPartnerPerformanceStats,

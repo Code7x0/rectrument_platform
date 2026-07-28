@@ -1,5 +1,6 @@
 import {
   createRecord,
+  deleteRecord,
   findRecord,
   getRecords,
   updateRecord,
@@ -59,4 +60,8 @@ export async function patchJob(
     id: record.id,
     fields: record.fields as AirtableFields,
   });
+}
+
+export async function destroyJob(recordId: string): Promise<void> {
+  await deleteRecord(getTableName(), recordId);
 }

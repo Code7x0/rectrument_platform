@@ -20,6 +20,8 @@ export interface ClientListFilters {
   search?: string;
   status?: import("@/features/shared/entities").ClientStatus | "all";
   includeArchived?: boolean;
+  /** Scope to Clients.Account Owner (Account Managers record id). */
+  accountManagerId?: string;
 }
 
 /** Calculated — never stored on Client record. */

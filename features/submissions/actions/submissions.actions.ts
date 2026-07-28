@@ -25,8 +25,11 @@ export type ActionResult<T = unknown> =
 function revalidateSubmissionPaths() {
   revalidatePath("/partner");
   revalidatePath("/partner/candidates");
+  revalidatePath("/partner/jobs");
   revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
   revalidatePath("/account-manager/candidates");
+  revalidatePath("/account-manager");
   revalidatePath("/admin/allocations");
   revalidatePath("/account-manager/allocations");
 }

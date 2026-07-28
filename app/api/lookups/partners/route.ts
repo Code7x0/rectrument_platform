@@ -21,7 +21,9 @@ export async function GET() {
 
   try {
     const mode =
-      session.role === "admin" ? "identity" : "operational";
+      session.role === "admin" || session.role === "super_admin"
+        ? "identity"
+        : "operational";
     const data = await listPartnerOptions(mode);
     return NextResponse.json({ success: true, data });
   } catch {

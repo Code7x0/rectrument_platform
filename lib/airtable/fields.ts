@@ -138,6 +138,8 @@ export const JOBS_TABLE_FIELDS = {
    * Text description is stored in Comments when writing in client mode.
    */
   description: "Job Description",
+  sampleProfiling: "Sample Profiling",
+  skillMatrixFitment: "Skill Matrix Fitment",
   location: "Location",
   employmentType: "Employment Type",
   experience: "Years of Exp",

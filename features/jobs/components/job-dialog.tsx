@@ -3,10 +3,12 @@
 import { toast } from "sonner";
 import { useState } from "react";
 
+import { DeleteDialog } from "@/components/shared/delete-dialog";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { JobForm } from "@/features/jobs/components/job-form";
 import {
   createJobAction,
+  deleteJobAction,
   updateJobAction,
 } from "@/features/jobs/actions/jobs.actions";
 import type { JobFormValues } from "@/features/jobs/schemas/job.schema";
@@ -19,6 +21,7 @@ interface JobDialogProps {
   job?: Job | null;
   clients: LookupOption[];
   accountManagers: LookupOption[];
+  canDelete?: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
 }
@@ -29,10 +32,13 @@ export function JobDialog({
   job,
   clients,
   accountManagers,
+  canDelete = false,
   onOpenChange,
   onCompleted,
 }: JobDialogProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleSubmit(values: JobFormValues) {
     setSubmitting(true);
@@ -55,27 +61,63 @@ export function JobDialog({
     }
   }
 
-  return (
-    <FormDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={mode === "create" ? "Create Job" : "Edit Job"}
-      description={
-        mode === "create"
-          ? "Add a new hiring requirement."
-          : "Update job details."
+  async function confirmDelete() {
+    if (!job) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const result = await deleteJobAction(job.id);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
       }
-    >
-      <JobForm
-        key={job?.id ?? "create"}
-        clients={clients}
-        accountManagers={accountManagers}
-        initialJob={mode === "edit" ? job : null}
-        submitting={submitting}
-        submitLabel={mode === "create" ? "Create Job" : "Save Changes"}
-        onCancel={() => onOpenChange(false)}
-        onSubmit={handleSubmit}
+      toast.success("Job deleted from Airtable");
+      setDeleteOpen(false);
+      onOpenChange(false);
+      onCompleted();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <>
+      <FormDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title={mode === "create" ? "Create Job" : "Edit Job"}
+        description={
+          mode === "create"
+            ? "Add a new hiring requirement."
+            : "Update job details."
+        }
+      >
+        <JobForm
+          key={job?.id ?? "create"}
+          clients={clients}
+          accountManagers={accountManagers}
+          initialJob={mode === "edit" ? job : null}
+          submitting={submitting || deleting}
+          submitLabel={mode === "create" ? "Create Job" : "Save Changes"}
+          onCancel={() => onOpenChange(false)}
+          onSubmit={handleSubmit}
+          onDelete={
+            mode === "edit" && canDelete && job
+              ? () => setDeleteOpen(true)
+              : undefined
+          }
+        />
+      </FormDialog>
+
+      <DeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        entityName={job?.title ?? "this job"}
+        entityLabel="job"
+        loading={deleting}
+        onConfirm={confirmDelete}
       />
-    </FormDialog>
+    </>
   );
 }

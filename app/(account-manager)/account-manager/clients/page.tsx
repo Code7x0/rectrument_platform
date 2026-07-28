@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission, isAdmin } from "@/lib/auth";
+import {
+  getAppSession,
+  roleHasPermission,
+  isAdmin,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
 import { ClientsPageClient } from "@/features/clients/components";
 import { listClients } from "@/features/clients/services";
 import { listAccountManagerOptions } from "@/services/lookups";
@@ -14,9 +19,16 @@ export default async function AccountManagerClientsPage() {
     redirect("/forbidden");
   }
 
+  const accountManagerId = resolveAccountManagerScopeId(session);
+  if (!accountManagerId) {
+    redirect("/unauthorized");
+  }
+
   const [clients, accountManagers] = await Promise.all([
-    listClients({ includeArchived: true }),
-    listAccountManagerOptions(),
+    listClients({ includeArchived: true, accountManagerId }),
+    listAccountManagerOptions().then((rows) =>
+      rows.filter((row) => row.id === accountManagerId),
+    ),
   ]);
 
   return (

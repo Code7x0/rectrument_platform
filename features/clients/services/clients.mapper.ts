@@ -113,6 +113,7 @@ export function toAirtableUpdateFields(
 export function buildClientsFilterFormula(filters: {
   status?: ClientStatus | "all";
   includeArchived?: boolean;
+  accountManagerId?: string;
 }): string {
   const clauses: string[] = [];
   const clientMode = isClientCompatMode();
@@ -135,6 +136,13 @@ export function buildClientsFilterFormula(filters: {
   if (filters.status && filters.status !== "all") {
     clauses.push(
       `{${CLIENTS_TABLE_FIELDS.status}} = '${DOMAIN_CLIENT_STATUS_TO_AIRTABLE[filters.status]}'`,
+    );
+  }
+
+  if (filters.accountManagerId?.trim()) {
+    const id = filters.accountManagerId.trim().replace(/'/g, "\\'");
+    clauses.push(
+      `FIND('${id}', ARRAYJOIN({${CLIENTS_TABLE_FIELDS.accountManager}}))`,
     );
   }
 

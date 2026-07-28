@@ -6,6 +6,10 @@ import { revalidatePath } from "next/cache";
 
 import { requirePermission, requireRole } from "@/lib/auth";
 import {
+  assertAccountManagerOwnsSubmission,
+  ScopeDeniedError,
+} from "@/lib/auth/scope";
+import {
   InvalidTransitionError,
   transitionSubmissionStatus,
 } from "@/features/workflows/services";
@@ -17,8 +21,11 @@ export type ActionResult<T = unknown> =
 
 function revalidateReviewPaths() {
   revalidatePath("/account-manager/candidates");
+  revalidatePath("/account-manager");
   revalidatePath("/admin/candidates");
+  revalidatePath("/admin");
   revalidatePath("/partner/candidates");
+  revalidatePath("/partner");
 }
 
 /**
@@ -32,6 +39,7 @@ export async function transitionSubmissionAction(
   try {
     const session = await requirePermission("review_candidates");
     await requireRole(["account_manager"]);
+    await assertAccountManagerOwnsSubmission(session, submissionId);
 
     const submission = await transitionSubmissionStatus({
       submissionId,
@@ -44,6 +52,9 @@ export async function transitionSubmissionAction(
 
     return { success: true, data: submission };
   } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
     if (error instanceof InvalidTransitionError) {
       return { success: false, message: actionErrorMessage(error, "Unable to complete action") };
     }

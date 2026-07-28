@@ -142,7 +142,11 @@ export function JobTable({
       getRowId={(job) => job.id}
       loading={loading}
       emptyTitle="No Jobs Found"
-      emptyDescription="Try adjusting filters or create a new job requirement."
+      emptyDescription={
+        canManage
+          ? "Try adjusting filters or create a new job requirement."
+          : "Try adjusting filters. New jobs appear when Admin assigns your clients."
+      }
       emptyAction={
         emptyAction ??
         (canManage ? (

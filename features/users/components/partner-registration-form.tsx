@@ -137,16 +137,24 @@ export function PartnerRegistrationForm() {
           label="Bank details (optional)"
           error={form.formState.errors.bankDetails?.message}
         >
-          <Textarea rows={2} {...form.register("bankDetails")} />
+          <Textarea
+            rows={2}
+            placeholder="Account holder, bank name, account number, IFSC"
+            {...form.register("bankDetails")}
+          />
         </Field>
 
         <Field
-          label="Identity visibility"
+          label="Name visibility to Account Managers"
           error={form.formState.errors.identityVisibility?.message}
         >
           <Select {...form.register("identityVisibility")}>
-            <option value="private">Private — Account Managers see Partner ID only</option>
-            <option value="public">Public — Account Managers see your name</option>
+            <option value="private">
+              Keep my name private (managers see Partner ID only)
+            </option>
+            <option value="public">
+              Show my name to Account Managers
+            </option>
           </Select>
         </Field>
 
@@ -159,11 +167,30 @@ export function PartnerRegistrationForm() {
           <FileField label="PAN" onChange={setPanFile} required />
           <FileField label="Aadhaar" onChange={setAadhaarFile} required />
           <FileField
-            label="Signed agreement"
+            label="Signed Partner Agreement"
             onChange={setAgreementFile}
             required
           />
         </section>
+
+        <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#475569]">
+          Download the{" "}
+          <Link
+            href="/partner-agreement"
+            className="font-medium text-[#0F766E] underline-offset-2 hover:underline"
+            target="_blank"
+          >
+            TalentSocio Partner Agreement
+          </Link>
+          , sign it, then upload the signed PDF here. Need a blank copy? Email{" "}
+          <a
+            href="mailto:delivery@talentsocio.com"
+            className="font-medium text-[#0F766E] underline-offset-2 hover:underline"
+          >
+            delivery@talentsocio.com
+          </a>
+          .
+        </p>
 
         <label className="flex items-start gap-3 text-sm text-[#334155]">
           <input

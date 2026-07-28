@@ -60,6 +60,9 @@ async function settledSource<T>(
  * Super Admin command center — users, approvals, invitations, health.
  */
 export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardData> {
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
+
   const [summary, users, activity] = await Promise.all([
     getUsersSummary(),
     listUsers(),
@@ -206,6 +209,9 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
  * Admin business operations command center.
  */
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
+
   const [
     clients,
     allJobs,
@@ -388,15 +394,27 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 export async function getAccountManagerDashboardData(
   accountManagerId: string,
 ): Promise<AccountManagerDashboardData> {
-  const [jobs, allocations, reviewQueue, allSubmissions, activity] =
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
+
+  const jobs = await listJobs({
+    accountManagerId,
+    includeArchived: false,
+  });
+  const jobIds = jobs.map((j) => j.id);
+
+  const [allocations, reviewQueue, allSubmissions, activity] =
     await Promise.all([
-      listJobs({
-        accountManagerId,
-        includeArchived: false,
+      listAllocations({
+        includePartnerIdentity: false,
+        jobIds,
       }),
-      listAllocations({ includePartnerIdentity: false }),
-      listReviewQueueSubmissions(),
-      listSubmissions(),
+      listReviewQueueSubmissions({ jobIds }),
+      jobIds.length === 0
+        ? Promise.resolve([])
+        : listSubmissions().then((rows) =>
+            rows.filter((s) => jobIds.includes(s.jobId)),
+          ),
       settledSource(
         "activities",
         listRecentActivities(10, {
@@ -406,11 +424,10 @@ export async function getAccountManagerDashboardData(
       ),
     ]);
 
-  const jobIds = new Set(jobs.map((j) => j.id));
   const assignedJobs = jobs.filter((j) => j.status === "open");
-  const myAllocations = allocations.filter((a) => jobIds.has(a.jobId));
-  const mySubmissions = allSubmissions.filter((s) => jobIds.has(s.jobId));
-  const myReviews = reviewQueue.filter((s) => jobIds.has(s.jobId));
+  const myAllocations = allocations;
+  const mySubmissions = allSubmissions;
+  const myReviews = reviewQueue;
 
   const interviews = mySubmissions.filter((s) => s.status === "interview");
   const offers = mySubmissions.filter((s) => s.status === "offer");
@@ -440,6 +457,14 @@ export async function getAccountManagerDashboardData(
     badge: row.status,
     href: "/account-manager/allocations",
   }));
+
+  const submissionIds = new Set(mySubmissions.map((s) => s.id));
+  const scopedActivity = activity.filter(
+    (row) =>
+      (row.entityType === "submission" && submissionIds.has(row.entityId)) ||
+      (row.entityType === "payout" &&
+        mySubmissions.some((s) => s.id === row.entityId)),
+  );
 
   return {
     metrics: [
@@ -502,8 +527,8 @@ export async function getAccountManagerDashboardData(
       {
         id: "allocate",
         label: "Allocate Partner",
-        description: "Assign Talent Partners to jobs",
-        href: "/account-manager/allocations",
+        description: "Open a job, then assign Talent Partners",
+        href: "/account-manager/jobs",
       },
       {
         id: "jobs",
@@ -521,7 +546,9 @@ export async function getAccountManagerDashboardData(
     awaitingAction,
     recentCandidateActivity,
     recentPartnerActivity,
-    recentActivity: mapActivitiesToFeed(activity),
+    recentActivity: mapActivitiesToFeed(scopedActivity, {
+      roleBase: "/account-manager",
+    }),
   };
 }
 
@@ -532,6 +559,9 @@ export async function getPartnerDashboardData(
   partnerId: string,
   partnerName: string,
 ): Promise<PartnerDashboardData> {
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
+
   const [tasks, submissions, payouts] = await Promise.all([
     listPartnerWorkTasks(partnerId),
     listPartnerSubmissions(partnerId),

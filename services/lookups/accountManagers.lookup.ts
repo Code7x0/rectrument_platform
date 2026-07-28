@@ -1,5 +1,6 @@
 import { getRecords } from "@/lib/airtable/client";
 import { getOptionalEnv } from "@/lib/api/env";
+import { isClientCompatMode } from "@/lib/airtable/compat";
 import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   USERS_TABLE_FIELDS,
@@ -18,11 +19,11 @@ function asString(value: unknown): string | null {
  * App base: Users where Role = Account Manager.
  */
 export async function listAccountManagerOptions(): Promise<LookupOption[]> {
-  const accountManagersTable = getOptionalEnv(
-    "AIRTABLE_ACCOUNT_MANAGERS_TABLE",
-  )?.trim();
+  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
+  const accountManagersTable =
+    !raw || raw === "Account" ? "Account Managers" : raw;
 
-  if (accountManagersTable) {
+  if (raw || isClientCompatMode()) {
     const records = await getRecords(accountManagersTable, {
       filterByFormula: `OR({${ACCOUNT_MANAGERS_TABLE_FIELDS.status}} = 'Active', {${ACCOUNT_MANAGERS_TABLE_FIELDS.status}} = '')`,
       sort: [{ field: ACCOUNT_MANAGERS_TABLE_FIELDS.name, direction: "asc" }],

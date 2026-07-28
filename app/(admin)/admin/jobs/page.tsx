@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission } from "@/lib/auth";
+import { getAppSession, isAdmin, roleHasPermission } from "@/lib/auth";
 import { JobsPageClient } from "@/features/jobs/components";
 import { listJobs, getJobLocations } from "@/features/jobs/services";
 import {
@@ -33,6 +33,7 @@ async function loadJobsPageData() {
     ]);
 
   return {
+    session,
     jobs,
     clients,
     accountManagers,
@@ -40,11 +41,13 @@ async function loadJobsPageData() {
     locations,
     canManage,
     canAllocate,
+    canDelete: isAdmin(session),
   };
 }
 
 export default async function AdminJobsPage() {
   const {
+    session,
     jobs,
     clients,
     accountManagers,
@@ -52,7 +55,11 @@ export default async function AdminJobsPage() {
     locations,
     canManage,
     canAllocate,
+    canDelete,
   } = await loadJobsPageData();
+
+  const homeLabel = session.role === "super_admin" ? "Super Admin" : "Admin";
+  const homeHref = session.role === "super_admin" ? "/super-admin" : "/admin";
 
   return (
     <JobsPageClient
@@ -63,8 +70,9 @@ export default async function AdminJobsPage() {
       locations={locations}
       canManage={canManage}
       canAllocate={canAllocate}
+      canDelete={canDelete}
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
+        { label: homeLabel, href: homeHref },
         { label: "Jobs" },
       ]}
     />

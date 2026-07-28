@@ -19,6 +19,7 @@ import type {
   UpdateJobInput,
 } from "@/features/jobs/types";
 import {
+  destroyJob,
   findJobById,
   findJobs,
   insertJob,
@@ -102,6 +103,25 @@ async function syncClientAccountOwner(
 export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
   const { search, accountManagerId, ...rest } = filters;
 
+  // Client mode: AM ownership is Clients.Account Owner — prefer client-id filter
+  // so we never return another manager's jobs from Airtable.
+  let clientScopedIds: Set<string> | null = null;
+  if (
+    isClientCompatMode() &&
+    accountManagerId &&
+    accountManagerId !== "all"
+  ) {
+    const { listClients } = await import("@/features/clients/services");
+    const owned = await listClients({
+      accountManagerId,
+      includeArchived: true,
+    });
+    clientScopedIds = new Set(owned.map((c) => c.id));
+    if (clientScopedIds.size === 0) {
+      return [];
+    }
+  }
+
   // Client mode: do not query the missing Jobs.Assigned Account Manager field.
   const formula = buildJobsFilterFormula({
     ...rest,
@@ -116,7 +136,11 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
 
   let enriched = await withEnrichment(jobs);
 
-  if (
+  if (clientScopedIds) {
+    enriched = enriched.filter(
+      (job) => job.clientId != null && clientScopedIds!.has(job.clientId),
+    );
+  } else if (
     isClientCompatMode() &&
     accountManagerId &&
     accountManagerId !== "all"
@@ -209,6 +233,15 @@ export async function updateJob(
  */
 export async function archiveJob(jobId: string): Promise<Job> {
   return updateJob(jobId, { status: "archived" });
+}
+
+/** Permanently remove the job record from Airtable. */
+export async function deleteJob(jobId: string): Promise<void> {
+  const existing = await findJobById(jobId);
+  if (!existing) {
+    throw new Error("Job not found");
+  }
+  await destroyJob(jobId);
 }
 
 export async function getJobLocations(): Promise<string[]> {

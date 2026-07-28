@@ -46,10 +46,12 @@ import type {
 } from "./users.types";
 
 function accountManagersTable(): string {
-  return (
-    getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim() ||
-    "Account Managers"
-  );
+  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
+  // Guard against unquoted .env truncation ("Account Managers" → "Account").
+  if (!raw || raw === "Account") {
+    return "Account Managers";
+  }
+  return raw;
 }
 
 function partnersTable(): string {

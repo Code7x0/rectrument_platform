@@ -92,6 +92,28 @@ export function JobDrawer({
           <Detail label="Description" value={job.description} />
           <Detail label="Notes" value={job.notes} />
 
+          {job.documents.length > 0 ? (
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+                Documents
+              </p>
+              <ul className="mt-2 space-y-2">
+                {job.documents.map((doc) => (
+                  <li key={`${doc.label}-${doc.url}`}>
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
+                    >
+                      {doc.label}: {doc.filename}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <div className="border-t border-[#E2E8F0] pt-5">
             <EntityActivityInline
               entityRef={{ kind: "job", id: job.id }}

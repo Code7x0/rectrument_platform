@@ -171,15 +171,25 @@ export async function validateStartupConfiguration(): Promise<StartupValidationR
     requireEnvPresent(items, table.envKey, `${table.label} table name`);
   }
 
+  const amTableRaw =
+    getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim() || "";
   const amTable =
-    getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim() ||
-    "Account Managers";
-  if (!getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim()) {
+    !amTableRaw || amTableRaw === "Account"
+      ? "Account Managers"
+      : amTableRaw;
+  if (!amTableRaw) {
     push(
       items,
       "env:AIRTABLE_ACCOUNT_MANAGERS_TABLE",
       "warning",
       `AIRTABLE_ACCOUNT_MANAGERS_TABLE unset — defaulting to "${amTable}"`,
+    );
+  } else if (amTableRaw === "Account") {
+    push(
+      items,
+      "env:AIRTABLE_ACCOUNT_MANAGERS_TABLE",
+      "warning",
+      `AIRTABLE_ACCOUNT_MANAGERS_TABLE truncated to "Account" — using "Account Managers". Quote the value in .env.local.`,
     );
   } else {
     push(

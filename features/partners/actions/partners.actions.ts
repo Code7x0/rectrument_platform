@@ -8,6 +8,7 @@ import { requirePermission, requireRole } from "@/lib/auth";
 import {
   archivePartner,
   createPartner,
+  deletePartner,
   getPartnerById,
   updatePartner,
 } from "@/features/partners/services";
@@ -126,6 +127,26 @@ export async function archivePartnerAction(
       success: false,
       message:
         actionErrorMessage(error, "Unable to archive partner"),
+    };
+  }
+}
+
+/**
+ * Hard-delete a talent partner from Airtable. Admin / Super Admin only.
+ */
+export async function deletePartnerAction(
+  partnerId: string,
+): Promise<ActionResult> {
+  try {
+    await requirePermission("manage_partners");
+    await requireRole(["admin", "super_admin"]);
+    await deletePartner(partnerId);
+    revalidatePartnerPaths(partnerId);
+    return { success: true, data: { id: partnerId } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to delete partner"),
     };
   }
 }

@@ -61,19 +61,75 @@ function mapEnum<T extends string>(
   return map[raw] ?? null;
 }
 
+function asAttachments(
+  value: unknown,
+): Array<{ url: string; filename: string }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => {
+      const row = item as { url?: string; filename?: string };
+      if (typeof row.url !== "string" || !row.url.trim()) {
+        return null;
+      }
+      return {
+        url: row.url.trim(),
+        filename:
+          typeof row.filename === "string" && row.filename.trim()
+            ? row.filename.trim()
+            : "Attachment",
+      };
+    })
+    .filter((row): row is { url: string; filename: string } => Boolean(row));
+}
+
+function collectJobDocuments(fields: AirtableFields): Job["documents"] {
+  const groups: Array<{ label: string; field: string }> = [
+    { label: "Job Description", field: JOBS_TABLE_FIELDS.description },
+    { label: "Sample Profiling", field: JOBS_TABLE_FIELDS.sampleProfiling },
+    {
+      label: "Skill Matrix Fitment",
+      field: JOBS_TABLE_FIELDS.skillMatrixFitment,
+    },
+  ];
+
+  const docs: Job["documents"] = [];
+  for (const group of groups) {
+    for (const file of asAttachments(fields[group.field])) {
+      docs.push({
+        label: group.label,
+        url: file.url,
+        filename: file.filename,
+      });
+    }
+  }
+  return docs;
+}
+
+/**
+ * Prefer readable text description (Comments after Job ID marker strip).
+ * Attachment JD files are exposed separately via `documents`.
+ */
 function descriptionFromFields(fields: AirtableFields): string | null {
   const notes = stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes]));
   if (notes) {
     return notes;
   }
+
   const raw = fields[JOBS_TABLE_FIELDS.description];
-  if (Array.isArray(raw) && raw.length > 0) {
-    const first = raw[0] as { filename?: string; url?: string };
-    if (typeof first.filename === "string" && first.filename.trim()) {
-      return first.filename.trim();
-    }
+  const asText = asString(raw);
+  if (asText) {
+    return asText;
   }
-  return asString(raw);
+
+  // Attachment-only JD: surface filenames so the drawer never looks empty.
+  const files = asAttachments(raw);
+  if (files.length > 0) {
+    return files.map((file) => file.filename).join(", ");
+  }
+
+  return null;
 }
 
 function resolveJobCode(fields: AirtableFields): string {
@@ -107,6 +163,7 @@ export function mapJobRecord(record: {
     accountManagerName: null,
     hiringManager: asString(fields[JOBS_TABLE_FIELDS.hiringManager]),
     description: descriptionFromFields(fields),
+    documents: collectJobDocuments(fields),
     location: asString(fields[JOBS_TABLE_FIELDS.location]),
     employmentType: mapEnum(
       fields[JOBS_TABLE_FIELDS.employmentType],

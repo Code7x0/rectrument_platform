@@ -42,8 +42,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "manage_partners",
     "archive_partners",
     "view_allocations",
-    "manage_allocations",
-    "archive_allocations",
+    // Admin never allocates partners (business rule) — Account Managers do.
     "view_submissions",
     "view_documents",
     "verify_documents",
@@ -144,6 +143,8 @@ export function getRequiredRoleForPath(pathname: string): UserRole | null {
   if (pathname === "/super-admin" || pathname.startsWith("/super-admin/")) {
     return "super_admin";
   }
+  // /admin/* is shared by Admin and Super Admin (layout admits both).
+  // Callers must use RoleLayout / requireRole arrays — not a single role.
   if (pathname === "/admin" || pathname.startsWith("/admin/")) {
     return "admin";
   }

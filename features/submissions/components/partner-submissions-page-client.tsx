@@ -34,7 +34,7 @@ export function PartnerSubmissionsPageClient({
       {submissions.length === 0 ? (
         <EmptyState
           title="No submissions yet"
-          description="Open My Work, select a job, and submit a candidate."
+          description="Open Assigned Jobs, select a job, and submit a candidate."
           icon={<ClipboardList className="h-5 w-5" />}
         />
       ) : (

@@ -145,12 +145,28 @@ export async function getSubmissionById(
 
 /**
  * Open review queue — submissions not joined/rejected.
+ * Pass jobIds to hard-scope for Account Managers (never return other AMs' rows).
  */
-export async function listReviewQueueSubmissions(): Promise<Submission[]> {
+export async function listReviewQueueSubmissions(options?: {
+  jobIds?: string[];
+}): Promise<Submission[]> {
+  if (options?.jobIds && options.jobIds.length === 0) {
+    return [];
+  }
+
   const rows = await listSubmissions();
-  const open = rows.filter((row) =>
-    REVIEWABLE_SUBMISSION_STATUSES.includes(row.status),
-  );
+  const allowed =
+    options?.jobIds != null ? new Set(options.jobIds) : null;
+
+  const open = rows.filter((row) => {
+    if (!REVIEWABLE_SUBMISSION_STATUSES.includes(row.status)) {
+      return false;
+    }
+    if (allowed && !allowed.has(row.jobId)) {
+      return false;
+    }
+    return true;
+  });
 
   const priorityRank: Record<string, number> = {
     urgent: 0,
@@ -239,23 +255,8 @@ export async function submitCandidateForAllocation(
       throw new Error("Resume is required for new candidates");
     }
 
-    // Locked Candidates schema has no Company / Experience / Skills columns —
-    // fold them into Screening Matrix Notes so partner input is not lost.
-    const foldedNotes = [
-      payload.form.remarks?.trim() || null,
-      payload.form.currentCompany?.trim()
-        ? `Company: ${payload.form.currentCompany.trim()}`
-        : null,
-      payload.form.experience?.trim()
-        ? `Experience: ${payload.form.experience.trim()}`
-        : null,
-      payload.form.skills?.trim()
-        ? `Skills: ${payload.form.skills.trim()}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
+    // Write native Candidates columns (exist on locked base). Keep Screening
+    // Matrix Notes for free-text partner remarks only.
     candidate = await createCandidate({
       fullName: payload.form.fullName,
       email: payload.form.email,
@@ -267,7 +268,7 @@ export async function submitCandidateForAllocation(
       expectedCtc: payload.form.expectedCtc || undefined,
       noticePeriod: payload.form.noticePeriod || undefined,
       skills: parseSkillsInput(payload.form.skills),
-      remarks: foldedNotes || undefined,
+      remarks: payload.form.remarks?.trim() || undefined,
     });
 
     if (payload.resumeUpload) {
@@ -290,21 +291,6 @@ export async function submitCandidateForAllocation(
     throw new Error("This candidate was already submitted for this allocation");
   }
 
-  const submissionRemarks = [
-    payload.form.remarks?.trim() || null,
-    payload.form.currentCompany?.trim()
-      ? `Company: ${payload.form.currentCompany.trim()}`
-      : null,
-    payload.form.experience?.trim()
-      ? `Experience: ${payload.form.experience.trim()}`
-      : null,
-    payload.form.skills?.trim()
-      ? `Skills: ${payload.form.skills.trim()}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
   const submission = await insertSubmission(
     toAirtableCreateFields({
       candidateId: candidate.id,
@@ -312,7 +298,7 @@ export async function submitCandidateForAllocation(
       allocationId: payload.allocationId,
       partnerId: payload.partnerId,
       status: "submitted",
-      remarks: submissionRemarks || undefined,
+      remarks: payload.form.remarks?.trim() || undefined,
     }),
   );
 

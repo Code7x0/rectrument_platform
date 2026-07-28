@@ -19,6 +19,7 @@ interface PartnerFormProps {
   submitting?: boolean;
   onSubmit: (values: PartnerFormValues) => Promise<void> | void;
   onCancel?: () => void;
+  onDelete?: () => void;
   submitLabel?: string;
 }
 
@@ -57,6 +58,7 @@ export function PartnerForm({
   submitting = false,
   onSubmit,
   onCancel,
+  onDelete,
   submitLabel = "Save Partner",
 }: PartnerFormProps) {
   const {
@@ -151,20 +153,34 @@ export function PartnerForm({
         <Textarea id="notes" rows={3} {...register("notes")} />
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        {onCancel ? (
+      <div className="flex items-center justify-between gap-2 pt-2">
+        {onDelete ? (
           <Button
             type="button"
-            variant="outline"
+            variant="destructive"
             disabled={submitting}
-            onClick={onCancel}
+            onClick={onDelete}
           >
-            Cancel
+            Delete Partner
           </Button>
-        ) : null}
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : submitLabel}
-        </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          {onCancel ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          ) : null}
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Saving…" : submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );

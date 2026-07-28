@@ -1,6 +1,7 @@
 export {
   archiveJob,
   createJob,
+  deleteJob,
   getJobById,
   getJobLocations,
   listJobs,

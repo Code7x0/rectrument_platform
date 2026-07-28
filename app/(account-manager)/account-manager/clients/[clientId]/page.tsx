@@ -1,6 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission } from "@/lib/auth";
+import {
+  getAppSession,
+  roleHasPermission,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
 import {
   ClientWorkspacePageClient,
   type ClientWorkspaceTabId,
@@ -47,6 +51,11 @@ export default async function AccountManagerClientWorkspacePage({
     redirect("/forbidden");
   }
 
+  const accountManagerId = resolveAccountManagerScopeId(session);
+  if (!accountManagerId) {
+    redirect("/unauthorized");
+  }
+
   const { clientId } = await params;
   const { tab: tabParam } = await searchParams;
   const tab = parseTab(tabParam);
@@ -56,15 +65,24 @@ export default async function AccountManagerClientWorkspacePage({
     notFound();
   }
 
+  // Hard ownership gate — never leak another AM's client via URL.
+  if (client.accountManagerId !== accountManagerId) {
+    notFound();
+  }
+
   const [stats, jobs, accountManagers, clients, partners] = await Promise.all([
     getClientWorkspaceStats(clientId),
     listJobs({
       clientId,
       includeArchived: true,
-      accountManagerId: session.userId,
+      accountManagerId,
     }),
-    listAccountManagerOptions(),
-    listClientOptions(),
+    listAccountManagerOptions().then((rows) =>
+      rows.filter((row) => row.id === accountManagerId),
+    ),
+    listClientOptions().then((rows) =>
+      rows.filter((row) => row.accountManagerId === accountManagerId),
+    ),
     listPartnerOptions("operational"),
   ]);
 

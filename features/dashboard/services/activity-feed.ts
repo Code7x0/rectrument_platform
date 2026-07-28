@@ -14,7 +14,14 @@ const ACTION_TITLES: Record<string, string> = {
   identity_visibility_changed: "Identity visibility changed",
 };
 
-function activityHref(activity: Activity): string | undefined {
+function activityHref(
+  activity: Activity,
+  roleBase?: string,
+): string | undefined {
+  const base =
+    roleBase ??
+    (activity.entityType === "user" ? "/admin" : "/admin");
+
   switch (activity.entityType) {
     case "user":
       if (
@@ -22,15 +29,19 @@ function activityHref(activity: Activity): string | undefined {
         activity.action === "partner_approved" ||
         activity.action === "partner_rejected"
       ) {
-        return "/admin/approvals";
+        return `${base === "/account-manager" ? "/admin" : base}/approvals`;
       }
       return "/super-admin/users";
     case "partner_document":
       return "/admin/documents";
     case "payout":
-      return "/admin/payouts";
+      return base === "/account-manager"
+        ? "/account-manager/payouts"
+        : "/admin/payouts";
     case "submission":
-      return "/admin/candidates";
+      return base === "/account-manager"
+        ? "/account-manager/candidates"
+        : "/admin/candidates";
     default:
       return undefined;
   }
@@ -38,6 +49,7 @@ function activityHref(activity: Activity): string | undefined {
 
 export function toDashboardActivityItem(
   activity: Activity,
+  options?: { roleBase?: string },
 ): DashboardActivityItem {
   const fromTo =
     activity.fromStatus && activity.toStatus
@@ -49,12 +61,13 @@ export function toDashboardActivityItem(
     title: ACTION_TITLES[activity.action] ?? activity.action,
     description: activity.note ?? fromTo,
     timestamp: activity.createdAt,
-    href: activityHref(activity),
+    href: activityHref(activity, options?.roleBase),
   };
 }
 
 export function mapActivitiesToFeed(
   activities: Activity[],
+  options?: { roleBase?: string },
 ): DashboardActivityItem[] {
-  return activities.map(toDashboardActivityItem);
+  return activities.map((row) => toDashboardActivityItem(row, options));
 }

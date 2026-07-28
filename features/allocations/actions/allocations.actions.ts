@@ -4,7 +4,16 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 
 import { revalidatePath } from "next/cache";
 
-import { requirePermission, requireRole } from "@/lib/auth";
+import {
+  requirePermission,
+  requireRole,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
+import {
+  assertAccountManagerOwnsAllocation,
+  assertAccountManagerOwnsJob,
+  ScopeDeniedError,
+} from "@/lib/auth/scope";
 import {
   allocatePartner,
   archiveAllocation,
@@ -26,6 +35,10 @@ function revalidateAllocationPaths() {
   revalidatePath("/account-manager/allocations");
   revalidatePath("/admin/jobs");
   revalidatePath("/account-manager/jobs");
+  revalidatePath("/account-manager");
+  revalidatePath("/admin");
+  revalidatePath("/partner/jobs");
+  revalidatePath("/partner");
 }
 
 /**
@@ -37,7 +50,7 @@ export async function allocatePartnerAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_allocations");
-    await requireRole(["admin", "super_admin", "account_manager"]);
+    await requireRole(["super_admin", "account_manager"]);
 
     const parsed = allocatePartnerFormSchema.safeParse(raw);
 
@@ -50,6 +63,13 @@ export async function allocatePartnerAction(
     }
 
     const data = parsed.data;
+    if (session.role === "account_manager") {
+      await assertAccountManagerOwnsJob(session, data.jobId);
+    }
+
+    const accountManagerId =
+      resolveAccountManagerScopeId(session) ?? session.userId;
+
     const allocation = await allocatePartner({
       jobId: data.jobId,
       partnerId: data.partnerId,
@@ -58,13 +78,16 @@ export async function allocatePartnerAction(
       notes: data.notes || undefined,
       status: data.status === "archived" ? "assigned" : data.status,
       assignedById: session.userId,
-      accountManagerId: session.userId,
+      accountManagerId,
     });
 
     revalidateAllocationPaths();
 
     return { success: true, data: allocation };
   } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
     return {
       success: false,
       message:
@@ -78,8 +101,12 @@ export async function updateAllocationAction(
   raw: UpdateAllocationFormValues,
 ): Promise<ActionResult> {
   try {
-    await requirePermission("manage_allocations");
-    await requireRole(["admin", "super_admin", "account_manager"]);
+    const session = await requirePermission("manage_allocations");
+    await requireRole(["super_admin", "account_manager"]);
+    if (session.role === "account_manager") {
+      await assertAccountManagerOwnsAllocation(session, allocationId);
+    }
+
     const parsed = updateAllocationFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -109,6 +136,9 @@ export async function updateAllocationAction(
 
     return { success: true, data: allocation };
   } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
     return {
       success: false,
       message:
@@ -121,14 +151,20 @@ export async function archiveAllocationAction(
   allocationId: string,
 ): Promise<ActionResult> {
   try {
-    await requirePermission("archive_allocations");
-    await requireRole(["admin", "super_admin", "account_manager"]);
+    const session = await requirePermission("archive_allocations");
+    await requireRole(["super_admin", "account_manager"]);
+    if (session.role === "account_manager") {
+      await assertAccountManagerOwnsAllocation(session, allocationId);
+    }
     const allocation = await archiveAllocation(allocationId);
 
     revalidateAllocationPaths();
 
     return { success: true, data: allocation };
   } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
     return {
       success: false,
       message:

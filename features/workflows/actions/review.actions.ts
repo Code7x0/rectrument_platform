@@ -3,6 +3,11 @@
 import { actionErrorMessage } from "@/lib/actions/errors";
 
 import { requirePermission } from "@/lib/auth";
+import {
+  assertAccountManagerOwnsSubmission,
+  isElevatedStaff,
+  ScopeDeniedError,
+} from "@/lib/auth/scope";
 import { getCandidateById } from "@/features/candidates/services";
 import { getJobById } from "@/features/jobs/services";
 import { getSubmissionById } from "@/features/submissions/services";
@@ -23,10 +28,18 @@ export async function getReviewDetailAction(
   | { success: false; message: string }
 > {
   try {
-    await requirePermission("view_submissions");
+    const session = await requirePermission("view_submissions");
     const submission = await getSubmissionById(submissionId);
     if (!submission) {
       return { success: false, message: "Submission not found" };
+    }
+
+    if (session.role === "account_manager") {
+      await assertAccountManagerOwnsSubmission(session, submissionId);
+    } else if (session.role === "partner") {
+      return { success: false, message: "Forbidden" };
+    } else if (!isElevatedStaff(session)) {
+      return { success: false, message: "Forbidden" };
     }
 
     const [candidate, job] = await Promise.all([
@@ -39,6 +52,9 @@ export async function getReviewDetailAction(
       data: { submission, candidate, job },
     };
   } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
     return {
       success: false,
       message:

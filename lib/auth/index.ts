@@ -140,6 +140,31 @@ export function isPartner(session: AppSession | null | undefined): boolean {
   return checkPartner(session?.role);
 }
 
+/**
+ * Canonical Account Manager Airtable record id for scoping.
+ * In client-identity mode userId === accountManagerId; prefer the dedicated field.
+ */
+export function resolveAccountManagerScopeId(
+  session: AppSession | null | undefined,
+): string | null {
+  if (!session) {
+    return null;
+  }
+  return session.accountManagerId ?? (session.role === "account_manager" ? session.userId : null);
+}
+
+/**
+ * Canonical Partner Airtable record id for scoping.
+ */
+export function resolvePartnerScopeId(
+  session: AppSession | null | undefined,
+): string | null {
+  if (!session) {
+    return null;
+  }
+  return session.partnerId ?? (session.role === "partner" ? session.userId : null);
+}
+
 export {
   getDashboardRouteForRole,
   getPermissionsForRole,

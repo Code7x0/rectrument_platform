@@ -69,6 +69,7 @@ export class AirtableAttachmentUploadService implements UploadService {
       contentType: file.contentType,
       size: file.size,
       url: null,
+      data: file.data,
     };
   }
 
@@ -76,7 +77,18 @@ export class AirtableAttachmentUploadService implements UploadService {
     upload: UploadedFile,
     target: BindUploadTarget,
   ): Promise<BoundFile> {
-    const payload = staged.get(upload.uploadId);
+    const stagedPayload = staged.get(upload.uploadId);
+    const payload = stagedPayload
+      ? stagedPayload
+      : upload.data
+        ? {
+            data: upload.data,
+            filename: upload.filename,
+            contentType: upload.contentType,
+            size: upload.size,
+          }
+        : null;
+
     if (!payload) {
       throw new Error(
         "Upload expired or not found — please re-select the file",

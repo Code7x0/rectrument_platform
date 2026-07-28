@@ -30,6 +30,8 @@ export interface JobEntity {
   accountManagerName: string | null;
   hiringManager: string | null;
   description: string | null;
+  /** Airtable attachment files from Job Description / Sample Profiling / Skill Matrix. */
+  documents: JobDocument[];
   location: string | null;
   employmentType: EmploymentType | null;
   experience: string | null;
@@ -42,6 +44,12 @@ export interface JobEntity {
   department: string | null;
   createdById: string | null;
   createdAt: string | null;
+}
+
+export interface JobDocument {
+  label: string;
+  url: string;
+  filename: string;
 }
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {

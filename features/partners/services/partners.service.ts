@@ -3,6 +3,7 @@ import { listAllocations } from "@/features/allocations/services";
 import { getPartnerDocumentSummary as summarizePartnerDocuments } from "@/features/partner-documents/services/documents.service";
 import { listSubmissions } from "@/features/submissions/services";
 import {
+  destroyPartner,
   findPartnerById,
   findPartners,
   insertPartner,
@@ -73,6 +74,15 @@ export async function updatePartner(
 
 export async function archivePartner(partnerId: string): Promise<Partner> {
   return updatePartner(partnerId, { status: "archived" });
+}
+
+/** Permanently remove the partner record from Airtable. */
+export async function deletePartner(partnerId: string): Promise<void> {
+  const existing = await findPartnerById(partnerId);
+  if (!existing) {
+    throw new Error("Partner not found");
+  }
+  await destroyPartner(partnerId);
 }
 
 /**

@@ -29,8 +29,10 @@ export default async function AdminCandidatesPage() {
     <ReviewQueuePageClient
       initialSubmissions={submissions}
       canTransition={false}
+      title="Candidates"
+      description="All partner submissions across clients and jobs. Account Managers update interview status."
       emptyTitle="No candidates found"
-      emptyDescription="Candidates linked to a Job (Role) and Talent Partner appear here from Airtable."
+      emptyDescription="When Talent Partners submit profiles against allocated jobs, they appear here."
       breadcrumbs={[
         { label: homeLabel, href: homeHref },
         { label: "Candidates" },

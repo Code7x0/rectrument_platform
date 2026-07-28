@@ -27,6 +27,11 @@ export interface UploadedFile {
    * Airtable may be null until bindToEntity completes.
    */
   url: string | null;
+  /**
+   * Same-process bytes for Airtable bind (avoids Map loss across serverless isolates).
+   * Not serialized to the client.
+   */
+  data?: Buffer;
 }
 
 export interface BindUploadTarget {

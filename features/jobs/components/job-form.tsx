@@ -22,6 +22,7 @@ interface JobFormProps {
   submitting?: boolean;
   onSubmit: (values: JobFormValues) => Promise<void> | void;
   onCancel?: () => void;
+  onDelete?: () => void;
   submitLabel?: string;
 }
 
@@ -72,6 +73,7 @@ export function JobForm({
   submitting = false,
   onSubmit,
   onCancel,
+  onDelete,
   submitLabel = "Save Job",
 }: JobFormProps) {
   const {
@@ -252,20 +254,34 @@ export function JobForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        {onCancel ? (
+      <div className="flex items-center justify-between gap-2 pt-2">
+        {onDelete ? (
           <Button
             type="button"
-            variant="outline"
-            onClick={onCancel}
+            variant="destructive"
             disabled={submitting}
+            onClick={onDelete}
           >
-            Cancel
+            Delete Job
           </Button>
-        ) : null}
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Saving..." : submitLabel}
-        </Button>
+        ) : (
+          <span />
+        )}
+        <div className="flex gap-2">
+          {onCancel ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+          ) : null}
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Saving..." : submitLabel}
+          </Button>
+        </div>
       </div>
     </form>
   );

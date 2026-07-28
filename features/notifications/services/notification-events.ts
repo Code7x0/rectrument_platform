@@ -219,6 +219,12 @@ export async function notifyJobAssigned(input: {
   if (!partnerUserId) {
     return;
   }
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    process.env.APP_URL?.replace(/\/$/, "") ||
+    "http://localhost:3000";
+  const jobsUrl = `${baseUrl}/partner/jobs`;
+
   await publishNotification({
     recipientUserId: partnerUserId,
     title: "New job assigned",
@@ -229,6 +235,12 @@ export async function notifyJobAssigned(input: {
     entityType: "allocation",
     entityId: input.allocationId,
     actionUrl: "/partner/jobs",
+    sendEmail: true,
+    emailTemplate: "job_assigned",
+    emailData: {
+      jobTitle: input.jobTitle,
+      jobsUrl,
+    },
   });
 }
 

@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission } from "@/lib/auth";
+import {
+  getAppSession,
+  roleHasPermission,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
+import { listAccountManagerJobIds } from "@/lib/auth/scope";
 import { ReviewQueuePageClient } from "@/features/tasks/components";
 import { listReviewQueueSubmissions } from "@/features/submissions/services";
 
@@ -19,7 +24,13 @@ export default async function AccountManagerReviewQueuePage() {
     redirect("/forbidden");
   }
 
-  const submissions = await listReviewQueueSubmissions();
+  const accountManagerId = resolveAccountManagerScopeId(session);
+  if (!accountManagerId) {
+    redirect("/unauthorized");
+  }
+
+  const jobIds = await listAccountManagerJobIds(accountManagerId);
+  const submissions = await listReviewQueueSubmissions({ jobIds });
 
   return (
     <ReviewQueuePageClient

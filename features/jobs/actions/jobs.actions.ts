@@ -8,6 +8,7 @@ import { requirePermission, requireRole } from "@/lib/auth";
 import {
   archiveJob,
   createJob,
+  deleteJob,
   updateJob,
 } from "@/features/jobs/services";
 import { parseSkillsInput } from "@/features/jobs/services/jobs.validation";
@@ -116,6 +117,28 @@ export async function archiveJobAction(jobId: string): Promise<ActionResult> {
       success: false,
       message:
         actionErrorMessage(error, "Unable to archive job"),
+    };
+  }
+}
+
+/**
+ * Hard-delete a job from Airtable. Admin / Super Admin only.
+ */
+export async function deleteJobAction(jobId: string): Promise<ActionResult> {
+  try {
+    await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin"]);
+    await deleteJob(jobId);
+
+    revalidatePath("/admin/jobs");
+    revalidatePath("/account-manager/jobs");
+    revalidatePath("/admin/allocations");
+
+    return { success: true, data: { id: jobId } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to delete job"),
     };
   }
 }

@@ -22,6 +22,7 @@ interface PartnersPageClientProps {
   canCreate: boolean;
   canUpdate: boolean;
   canArchive: boolean;
+  canDelete?: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
@@ -73,6 +74,7 @@ export function PartnersPageClient({
   canCreate,
   canUpdate,
   canArchive,
+  canDelete = false,
   breadcrumbs,
 }: PartnersPageClientProps) {
   const router = useRouter();
@@ -194,6 +196,7 @@ export function PartnersPageClient({
         open={Boolean(editPartner)}
         mode="edit"
         partner={editPartner}
+        canDelete={canDelete}
         onOpenChange={(open) => {
           if (!open) {
             setEditPartner(null);

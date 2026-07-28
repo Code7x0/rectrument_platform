@@ -10,7 +10,7 @@ import {
 } from "@/features/partner-documents/services/documents.service";
 import type { PartnerDocumentType } from "@/features/partner-documents/types";
 import { recordActivity } from "@/features/workflows/services/activity.service";
-import { sendEmail } from "@/services/email";
+import { sendEmail, sendEmailSafe } from "@/services/email";
 import {
   createUserRecord,
   findUserByEmail,
@@ -194,6 +194,33 @@ export async function submitPartnerRegistration(
     applicantName: fullName,
   });
 
+  // Fan-out email to Super Admins (and Admins) — soft-fail, no Airtable writes.
+  const { getSuperAdminEmails, getAdminEmails } = await import(
+    "@/lib/airtable/identity-mode"
+  );
+  const approvalUrl = `${appBaseUrl()}/admin/approvals`;
+  const recipients = [
+    ...new Set([...getSuperAdminEmails(), ...getAdminEmails()]),
+  ];
+  await Promise.all(
+    recipients.map((to) =>
+      sendEmailSafe({
+        to,
+        template: "partner_registration_submitted",
+        subject: "New Partner Registration – Approval Required",
+        data: {
+          partnerName: fullName,
+          name: fullName,
+          experience: input.experience,
+          specialization: input.skills,
+          skills: input.skills,
+          email: input.email,
+          approvalUrl,
+        },
+      }),
+    ),
+  );
+
   return { user, partnerId: partner.id };
 }
 
@@ -252,13 +279,16 @@ export async function approvePartnerApplication(
     rejectedReason: null,
   });
 
+  const partnerRecord = user.partnerId
+    ? await findPartnerById(user.partnerId)
+    : null;
+
   if (user.partnerId) {
-    const partner = await findPartnerById(user.partnerId);
-    if (partner) {
+    if (partnerRecord) {
       const { ensurePartnerHasBusinessCode } = await import(
         "@/features/shared/services/business-ids.service"
       );
-      const partnerCode = await ensurePartnerHasBusinessCode(partner);
+      const partnerCode = await ensurePartnerHasBusinessCode(partnerRecord);
       await updatePartner(user.partnerId, {
         status: "active",
         ...(partnerCode ? { partnerCode } : {}),
@@ -278,24 +308,32 @@ export async function approvePartnerApplication(
     note: "Talent Partner approved — login enabled",
   });
 
-  const loginUrl = `${appBaseUrl()}/sign-in`;
-  await sendEmail({
-    to: user.email,
-    template: "approval",
-    data: {
-      name: user.fullName,
-      loginUrl,
-    },
-  });
-  await sendEmail({
-    to: user.email,
-    template: "account_activated",
-    data: {
-      name: user.fullName,
-      loginUrl,
-    },
-  });
+  // One approval email via Resend/console. Soft-fail: never block approval.
+  // Recipient comes from existing Partners.Official Email ID (Airtable) — no schema writes.
+  const recipientEmail =
+    partnerRecord?.email?.trim() || user.email.trim() || null;
+  const partnerName =
+    partnerRecord?.contactName?.trim() ||
+    partnerRecord?.companyName?.trim() ||
+    user.fullName;
 
+  if (recipientEmail) {
+    await sendEmailSafe({
+      to: recipientEmail,
+      template: "approval",
+      data: {
+        partnerName,
+        name: partnerName,
+      },
+    });
+  } else {
+    console.error(
+      "[email] Partner approval succeeded but no email address found on Airtable/identity",
+      { userId, partnerId: user.partnerId },
+    );
+  }
+
+  const loginUrl = `${appBaseUrl()}/sign-in`;
   const { notifyPartnerApproved } = await import(
     "@/features/notifications/services/notification-events"
   );
@@ -341,7 +379,7 @@ export async function rejectPartnerApplication(
     note: reason,
   });
 
-  await sendEmail({
+  await sendEmailSafe({
     to: user.email,
     template: "rejection",
     data: {
@@ -400,7 +438,7 @@ export async function inviteStaffUser(
     note: `Invited as ${getRoleLabel(input.role)}`,
   });
 
-  await sendEmail({
+  await sendEmailSafe({
     to: input.email,
     template: "invitation",
     data: {
@@ -408,14 +446,6 @@ export async function inviteStaffUser(
       roleLabel: getRoleLabel(input.role),
       inviteUrl,
       expiresAt: new Date(expiry).toLocaleDateString(),
-    },
-  });
-  await sendEmail({
-    to: input.email,
-    template: "password_setup",
-    data: {
-      name: input.fullName,
-      inviteUrl,
     },
   });
 

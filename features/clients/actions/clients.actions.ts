@@ -74,7 +74,21 @@ export async function updateClientAction(
   raw: ClientFormValues,
 ): Promise<ActionResult> {
   try {
-    await requirePermission("manage_clients");
+    const session = await requirePermission("manage_clients");
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsClient, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      try {
+        await assertAccountManagerOwnsClient(session, clientId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+    }
+
     const parsed = clientFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -85,7 +99,14 @@ export async function updateClientAction(
       };
     }
 
-    const client = await updateClient(clientId, formToInput(parsed.data));
+    // AMs cannot reassign Account Owner away from themselves.
+    const input = formToInput(parsed.data);
+    if (session.role === "account_manager") {
+      input.accountManagerId =
+        session.accountManagerId ?? session.userId;
+    }
+
+    const client = await updateClient(clientId, input);
     revalidateClientPaths(clientId);
     return { success: true, data: client };
   } catch (error) {
@@ -101,7 +122,20 @@ export async function archiveClientAction(
   clientId: string,
 ): Promise<ActionResult> {
   try {
-    await requirePermission("archive_clients");
+    const session = await requirePermission("archive_clients");
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsClient, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      try {
+        await assertAccountManagerOwnsClient(session, clientId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+    }
     const client = await archiveClient(clientId);
     revalidateClientPaths(clientId);
     return { success: true, data: client };

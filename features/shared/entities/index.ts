@@ -13,6 +13,7 @@ export {
 } from "./partner.entity";
 export type {
   EmploymentType,
+  JobDocument,
   JobEntity,
   JobPriority,
   JobStatus,

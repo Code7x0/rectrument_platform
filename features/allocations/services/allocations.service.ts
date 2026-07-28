@@ -144,8 +144,12 @@ function applySearchFilter(
 export async function listAllocations(
   filters: AllocationListFilters = {},
 ): Promise<Allocation[]> {
-  const { search, includePartnerIdentity = false, ...airtableFilters } =
-    filters;
+  const {
+    search,
+    includePartnerIdentity = false,
+    jobIds,
+    ...airtableFilters
+  } = filters;
   const formula = buildAllocationsFilterFormula({
     ...airtableFilters,
     search: undefined,
@@ -156,8 +160,17 @@ export async function listAllocations(
     sort: [{ field: ALLOCATIONS_TABLE_FIELDS.assignedDate, direction: "desc" }],
   });
 
+  let scoped = rows;
+  if (jobIds) {
+    if (jobIds.length === 0) {
+      return [];
+    }
+    const allowed = new Set(jobIds);
+    scoped = rows.filter((row) => allowed.has(row.jobId));
+  }
+
   return applySearchFilter(
-    await withEnrichment(rows, includePartnerIdentity),
+    await withEnrichment(scoped, includePartnerIdentity),
     search,
   );
 }

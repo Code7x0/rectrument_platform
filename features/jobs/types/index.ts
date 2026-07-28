@@ -5,6 +5,7 @@
 export type {
   EmploymentType,
   JobEntity as Job,
+  JobDocument,
   JobPriority,
   JobStatus,
 } from "@/features/shared/entities";

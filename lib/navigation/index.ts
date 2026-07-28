@@ -77,7 +77,7 @@ const ACCOUNT_MANAGER_NAV: AppNavItem[] = [
   },
   { title: "Payouts", href: "/account-manager/payouts", icon: Wallet },
   { title: "Activity", href: "/activities", icon: History },
-  { title: "Settings", href: "/account-manager/settings", icon: Settings },
+  { title: "Notifications", href: "/account-manager/settings", icon: Settings },
 ];
 
 const PARTNER_NAV: AppNavItem[] = [

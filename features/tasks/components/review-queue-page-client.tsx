@@ -34,6 +34,8 @@ interface ReviewQueuePageClientProps {
   breadcrumbs: Array<{ label: string; href?: string }>;
   emptyTitle?: string;
   emptyDescription?: string;
+  title?: string;
+  description?: string;
 }
 
 function Detail({
@@ -59,6 +61,8 @@ export function ReviewQueuePageClient({
   breadcrumbs,
   emptyTitle = "No submissions to review",
   emptyDescription = "New partner submissions will appear here.",
+  title,
+  description,
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [selected, setSelected] = useState<Submission | null>(null);
@@ -196,11 +200,15 @@ export function ReviewQueuePageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title="Review Queue"
+        title={
+          title ??
+          (canTransition ? "Review Queue" : "Candidates")
+        }
         description={
-          canTransition
-            ? "Submissions awaiting review. Status changes go through the Workflow Service."
-            : "Read-only view of the review pipeline."
+          description ??
+          (canTransition
+            ? "Candidates waiting for your review. Update status as interviews progress."
+            : "All candidate submissions across the pipeline.")
         }
       />
 

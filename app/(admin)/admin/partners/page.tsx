@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getAppSession, roleHasPermission } from "@/lib/auth";
+import { getAppSession, isAdmin, roleHasPermission } from "@/lib/auth";
 import { PartnersPageClient } from "@/features/partners/components";
 import { listPartners } from "@/features/partners/services";
 
@@ -14,6 +14,8 @@ export default async function AdminPartnersPage() {
   }
 
   const partners = await listPartners({ includeArchived: true });
+  const homeLabel = session.role === "super_admin" ? "Super Admin" : "Admin";
+  const homeHref = session.role === "super_admin" ? "/super-admin" : "/admin";
 
   return (
     <PartnersPageClient
@@ -21,8 +23,9 @@ export default async function AdminPartnersPage() {
       canCreate={roleHasPermission(session.role, "manage_partners")}
       canUpdate={roleHasPermission(session.role, "manage_partners")}
       canArchive={roleHasPermission(session.role, "archive_partners")}
+      canDelete={isAdmin(session)}
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
+        { label: homeLabel, href: homeHref },
         { label: "Partners" },
       ]}
     />

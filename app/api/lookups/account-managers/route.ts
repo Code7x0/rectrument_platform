@@ -12,6 +12,13 @@ export async function GET() {
     );
   }
 
+  if (session.role === "partner" || session.role === "account_manager") {
+    return NextResponse.json(
+      { success: false, message: "Forbidden" },
+      { status: 403 },
+    );
+  }
+
   try {
     const data = await listAccountManagerOptions();
     return NextResponse.json({ success: true, data });

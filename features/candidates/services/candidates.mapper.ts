@@ -1,5 +1,5 @@
 import type { AirtableFields } from "@/lib/airtable/client";
-import { asString, isClientCompatMode } from "@/lib/airtable/compat";
+import { asString } from "@/lib/airtable/compat";
 import { CANDIDATES_TABLE_FIELDS } from "@/lib/airtable/fields";
 import type {
   Candidate,
@@ -87,13 +87,13 @@ export function toAirtableCreateFields(
   if (input.phone) {
     fields[CANDIDATES_TABLE_FIELDS.phone] = input.phone;
   }
-  if (!isClientCompatMode() && input.currentCompany) {
+  if (input.currentCompany) {
     fields[CANDIDATES_TABLE_FIELDS.currentCompany] = input.currentCompany;
   }
   if (input.currentLocation) {
     fields[CANDIDATES_TABLE_FIELDS.currentLocation] = input.currentLocation;
   }
-  if (!isClientCompatMode() && input.experience) {
+  if (input.experience) {
     fields[CANDIDATES_TABLE_FIELDS.experience] = input.experience;
   }
   if (input.currentCtc) {
@@ -105,7 +105,7 @@ export function toAirtableCreateFields(
   if (input.noticePeriod) {
     fields[CANDIDATES_TABLE_FIELDS.noticePeriod] = input.noticePeriod;
   }
-  if (!isClientCompatMode() && input.skills?.length) {
+  if (input.skills?.length) {
     fields[CANDIDATES_TABLE_FIELDS.skills] = input.skills.join(", ");
   }
   if (input.remarks) {

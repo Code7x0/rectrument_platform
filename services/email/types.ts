@@ -1,7 +1,7 @@
 /**
  * Email service abstraction.
- * Swap provider via EMAIL_PROVIDER without changing callers.
- * Production providers (Resend / SendGrid / SES) are not wired yet.
+ * Swap provider via EMAIL_PROVIDER (console | resend).
+ * Never stores delivery state in Airtable.
  */
 
 export type EmailTemplateId =
@@ -12,7 +12,9 @@ export type EmailTemplateId =
   | "account_activated"
   | "password_setup"
   | "candidate_joined"
-  | "payout_approved";
+  | "payout_approved"
+  | "partner_registration_submitted"
+  | "job_assigned";
 
 export interface SendEmailInput {
   to: string;

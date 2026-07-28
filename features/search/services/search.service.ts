@@ -158,24 +158,18 @@ async function searchClients(
     return [];
   }
 
+  const accountManagerId =
+    session.role === "account_manager"
+      ? (session.accountManagerId ?? session.userId)
+      : undefined;
+
   const clients = await listClients({
     search: query,
     includeArchived: false,
+    ...(accountManagerId ? { accountManagerId } : {}),
   });
 
-  let scoped = clients;
-  if (session.role === "account_manager") {
-    const jobs = await listJobs({
-      accountManagerId: session.userId,
-      includeArchived: true,
-    });
-    const clientIds = new Set(
-      jobs.map((job) => job.clientId).filter(Boolean),
-    );
-    scoped = clients.filter((client) => clientIds.has(client.id));
-  }
-
-  return scoped
+  return clients
     .map((client) => {
       const match = matchScore(query, [
         { value: client.name, field: "name" },
@@ -204,7 +198,7 @@ async function searchJobs(
 ): Promise<SearchResult[]> {
   const filters =
     session.role === "account_manager"
-      ? { search: query, accountManagerId: session.userId }
+      ? { search: query, accountManagerId: session.accountManagerId ?? session.userId }
       : session.role === "partner"
         ? { search: query }
         : { search: query };
@@ -255,7 +249,7 @@ async function searchPartners(
 
   if (session.role === "account_manager") {
     const jobs = await listJobs({
-      accountManagerId: session.userId,
+      accountManagerId: session.accountManagerId ?? session.userId,
       includeArchived: true,
     });
     const jobIds = new Set(jobs.map((job) => job.id));
@@ -384,7 +378,7 @@ async function searchAllocations(
 
   if (session.role === "account_manager") {
     const jobs = await listJobs({
-      accountManagerId: session.userId,
+      accountManagerId: session.accountManagerId ?? session.userId,
       includeArchived: true,
     });
     const jobIds = new Set(jobs.map((job) => job.id));
@@ -455,7 +449,7 @@ async function searchSubmissionsAndCandidates(
 
   if (session.role === "account_manager") {
     const jobs = await listJobs({
-      accountManagerId: session.userId,
+      accountManagerId: session.accountManagerId ?? session.userId,
       includeArchived: true,
     });
     const jobIds = new Set(jobs.map((job) => job.id));
@@ -551,17 +545,17 @@ async function searchDocuments(
   session: AppSession,
   query: string,
 ): Promise<SearchResult[]> {
-  let documents =
+  // Account Managers do not have view_documents — never leak partner KYC files.
+  if (session.role === "account_manager") {
+    return [];
+  }
+
+  const documents =
     session.role === "partner" && session.partnerId
       ? await listDocuments({ partnerId: session.partnerId })
-      : isAdmin(session.role) || session.role === "account_manager"
+      : isAdmin(session.role)
         ? await listDocuments({})
         : [];
-
-  if (session.role === "account_manager") {
-    // AM may review docs; keep list but avoid partner identity leakage in subtitle
-    documents = documents.slice(0, FETCH_CAP);
-  }
 
   return documents
     .map((doc) => {
@@ -575,10 +569,7 @@ async function searchDocuments(
       return makeResult({
         id: doc.id,
         title: typeLabel,
-        subtitle:
-          session.role === "account_manager"
-            ? doc.documentCode
-            : (doc.partnerName ?? doc.fileName),
+        subtitle: doc.partnerName ?? doc.fileName,
         entityType: "document",
         status: doc.verificationStatus,
         score: match.score,
@@ -598,7 +589,7 @@ async function searchPayouts(
     session.role === "partner" && session.partnerId
       ? await listPayouts({ partnerId: session.partnerId })
       : session.role === "account_manager"
-        ? await listPayouts({ accountManagerId: session.userId })
+        ? await listPayouts({ accountManagerId: session.accountManagerId ?? session.userId })
         : isAdmin(session.role)
           ? await listPayouts({
               includePartnerIdentity: true,

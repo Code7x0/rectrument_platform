@@ -27,6 +27,7 @@ interface JobsPageClientProps {
   locations: string[];
   canManage: boolean;
   canAllocate: boolean;
+  canDelete?: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
@@ -101,6 +102,7 @@ export function JobsPageClient({
   locations,
   canManage,
   canAllocate,
+  canDelete = false,
   breadcrumbs,
 }: JobsPageClientProps) {
   const router = useRouter();
@@ -156,7 +158,13 @@ export function JobsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="Jobs"
-        description="Manage hiring requirements across clients."
+        description={
+          canManage
+            ? "Create and manage hiring requirements across clients."
+            : canAllocate
+              ? "Your assigned jobs — open a job to allocate Talent Partners or review details."
+              : "Hiring requirements you can view."
+        }
         actions={
           canManage ? (
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -207,6 +215,7 @@ export function JobsPageClient({
         job={editJob}
         clients={clients}
         accountManagers={accountManagers}
+        canDelete={canDelete}
         onOpenChange={(open) => {
           if (!open) {
             setEditJob(null);

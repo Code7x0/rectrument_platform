@@ -89,7 +89,9 @@ export interface CreateNotificationInput {
     | "account_activated"
     | "password_setup"
     | "candidate_joined"
-    | "payout_approved";
+    | "payout_approved"
+    | "partner_registration_submitted"
+    | "job_assigned";
   emailData?: Record<string, string>;
 }
 

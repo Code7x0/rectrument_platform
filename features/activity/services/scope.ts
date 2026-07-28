@@ -131,7 +131,7 @@ export async function resolveViewerAccessKeys(
 
   // Account Manager — assigned activities only
   const jobs = await listJobs({
-    accountManagerId: session.userId,
+    accountManagerId: session.accountManagerId ?? session.userId,
     includeArchived: true,
   });
   const keys = new Set<string>();
