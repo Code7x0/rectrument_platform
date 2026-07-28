@@ -5,12 +5,15 @@ import { ClientsPageClient } from "@/features/clients/components";
 import { listClients } from "@/features/clients/services";
 import { listAccountManagerOptions } from "@/services/lookups";
 
-async function loadClientsPage() {
+export default async function AdminClientsPage() {
   const session = await getAppSession();
   if (!session) {
     redirect("/unauthorized");
   }
   if (!roleHasPermission(session.role, "manage_clients")) {
+    redirect("/forbidden");
+  }
+  if (!isAdmin(session)) {
     redirect("/forbidden");
   }
 
@@ -19,30 +22,21 @@ async function loadClientsPage() {
     listAccountManagerOptions(),
   ]);
 
-  return {
-    clients,
-    accountManagers,
-    canCreate: isAdmin(session),
-    canUpdate: roleHasPermission(session.role, "manage_clients"),
-    canArchive: roleHasPermission(session.role, "archive_clients"),
-    canDelete: isAdmin(session),
-  };
-}
-
-export default async function AdminClientsPage() {
-  const data = await loadClientsPage();
+  const homeLabel = session.role === "super_admin" ? "Super Admin" : "Admin";
+  const homeHref =
+    session.role === "super_admin" ? "/super-admin" : "/admin";
 
   return (
     <ClientsPageClient
-      initialClients={data.clients}
-      accountManagers={data.accountManagers}
-      canCreate={data.canCreate}
-      canUpdate={data.canUpdate}
-      canArchive={data.canArchive}
-      canDelete={data.canDelete}
+      initialClients={clients}
+      accountManagers={accountManagers}
+      canCreate={isAdmin(session)}
+      canUpdate={roleHasPermission(session.role, "manage_clients")}
+      canArchive={roleHasPermission(session.role, "archive_clients")}
+      canDelete={isAdmin(session)}
       basePath="/admin/clients"
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
+        { label: homeLabel, href: homeHref },
         { label: "Clients" },
       ]}
     />

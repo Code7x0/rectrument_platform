@@ -10,6 +10,10 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import {
+  AssignAccountManagerDialog,
+  type AssignAmTarget,
+} from "@/features/account-managers/components/assign-account-manager-dialog";
 import { AllocatePartnerDialog } from "@/features/allocations/components";
 import { archiveJobAction } from "@/features/jobs/actions/jobs.actions";
 import { JobDialog } from "@/features/jobs/components/job-dialog";
@@ -117,6 +121,8 @@ export function JobsPageClient({
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [viewJob, setViewJob] = useState<Job | null>(null);
   const [allocateJob, setAllocateJob] = useState<Job | null>(null);
+  const [assignAmOpen, setAssignAmOpen] = useState(false);
+  const [assignAmTarget, setAssignAmTarget] = useState<AssignAmTarget>(null);
   const [archiveTarget, setArchiveTarget] = useState<Job | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -160,17 +166,29 @@ export function JobsPageClient({
         title="Jobs"
         description={
           canManage
-            ? "Create and manage hiring requirements across clients."
+            ? "Create jobs, assign Account Managers, and manage hiring requirements across clients."
             : canAllocate
               ? "Your assigned jobs — open a job to allocate Talent Partners or review details."
               : "Hiring requirements you can view."
         }
         actions={
           canManage ? (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Create Job
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAssignAmTarget(null);
+                  setAssignAmOpen(true);
+                }}
+              >
+                Assign Account Manager
+              </Button>
+              <Button type="button" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create Job
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -198,6 +216,19 @@ export function JobsPageClient({
         onEdit={setEditJob}
         onArchive={setArchiveTarget}
         onAllocate={setAllocateJob}
+        onAssignAm={(job) => {
+          setAssignAmTarget({
+            kind: "job",
+            jobId: job.id,
+            jobLabel: job.jobCode
+              ? `${job.jobCode} — ${job.title}`
+              : job.title,
+            clientId: job.clientId,
+            clientLabel: job.clientName,
+            accountManagerId: job.accountManagerId,
+          });
+          setAssignAmOpen(true);
+        }}
       />
 
       <JobDialog
@@ -243,6 +274,20 @@ export function JobsPageClient({
             setAllocateJob(null);
           }
         }}
+        onCompleted={refresh}
+      />
+
+      <AssignAccountManagerDialog
+        open={assignAmOpen}
+        onOpenChange={(open) => {
+          setAssignAmOpen(open);
+          if (!open) {
+            setAssignAmTarget(null);
+          }
+        }}
+        clients={clients}
+        accountManagers={accountManagers}
+        target={assignAmTarget}
         onCompleted={refresh}
       />
 

@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { AssignAccountManagerDialog } from "@/features/account-managers/components/assign-account-manager-dialog";
+import { AssignAccountManagerDialog, type AssignAmTarget } from "@/features/account-managers/components/assign-account-manager-dialog";
 import { archiveClientAction } from "@/features/clients/actions/clients.actions";
 import { ClientDialog } from "@/features/clients/components/client-dialog";
 import { ClientTable } from "@/features/clients/components/client-table";
@@ -80,6 +80,7 @@ export function ClientsPageClient({
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Client | null>(null);
   const [assignAmOpen, setAssignAmOpen] = useState(false);
+  const [assignAmTarget, setAssignAmTarget] = useState<AssignAmTarget>(null);
   const [archiving, setArchiving] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -130,11 +131,16 @@ export function ClientsPageClient({
         description="Hiring companies and their workspaces. Assign an Account Manager to own each client."
         actions={
           <div className="flex flex-wrap gap-2">
-            {canUpdate && accountManagers.length > 0 ? (
+            {canUpdate &&
+            basePath === "/admin/clients" &&
+            accountManagers.length > 0 ? (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setAssignAmOpen(true)}
+                onClick={() => {
+                  setAssignAmTarget(null);
+                  setAssignAmOpen(true);
+                }}
               >
                 Assign Account Manager
               </Button>
@@ -184,6 +190,20 @@ export function ClientsPageClient({
         }
         onEdit={setEditClient}
         onArchive={setArchiveTarget}
+        onAssignAm={
+          canUpdate && basePath === "/admin/clients"
+            ? (client) => {
+                setAssignAmTarget({
+                  kind: "client",
+                  clientId: client.id,
+                  clientLabel: client.clientCode
+                    ? `${client.clientCode} — ${client.name}`
+                    : client.name,
+                });
+                setAssignAmOpen(true);
+              }
+            : undefined
+        }
       />
 
       <ClientDialog
@@ -208,13 +228,27 @@ export function ClientsPageClient({
         onCompleted={refresh}
       />
 
-      <AssignAccountManagerDialog
-        open={assignAmOpen}
-        onOpenChange={setAssignAmOpen}
-        clients={clientOptions}
-        accountManagers={accountManagers}
-        onCompleted={refresh}
-      />
+      {basePath === "/admin/clients" ? (
+        <AssignAccountManagerDialog
+          open={assignAmOpen}
+          onOpenChange={(open) => {
+            setAssignAmOpen(open);
+            if (!open) {
+              setAssignAmTarget(null);
+            }
+          }}
+          clients={clientOptions}
+          accountManagers={accountManagers}
+          target={assignAmTarget}
+          initialAccountManagerId={
+            assignAmTarget?.kind === "client"
+              ? (initialClients.find((c) => c.id === assignAmTarget.clientId)
+                  ?.accountManagerId ?? "")
+              : ""
+          }
+          onCompleted={refresh}
+        />
+      ) : null}
 
       <ArchiveDialog
         open={Boolean(archiveTarget)}

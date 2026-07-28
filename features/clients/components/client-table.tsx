@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Eye, Pencil, Archive } from "lucide-react";
+import { Eye, Pencil, Archive, UserCog } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
@@ -16,6 +16,7 @@ interface ClientTableProps {
   onOpenWorkspace: (client: Client) => void;
   onEdit: (client: Client) => void;
   onArchive: (client: Client) => void;
+  onAssignAm?: (client: Client) => void;
 }
 
 export function ClientTable({
@@ -26,6 +27,7 @@ export function ClientTable({
   onOpenWorkspace,
   onEdit,
   onArchive,
+  onAssignAm,
 }: ClientTableProps) {
   const columns = useMemo<DataTableColumn<Client>[]>(
     () => [
@@ -89,6 +91,19 @@ export function ClientTable({
             >
               <Eye className="h-4 w-4" />
             </Button>
+            {canUpdate && row.status !== "archived" && onAssignAm ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label="Assign account manager"
+                className="gap-1 px-2"
+                onClick={() => onAssignAm(row)}
+              >
+                <UserCog className="h-4 w-4" />
+                <span className="hidden xl:inline">Assign AM</span>
+              </Button>
+            ) : null}
             {canUpdate && row.status !== "archived" ? (
               <Button
                 type="button"
@@ -115,7 +130,7 @@ export function ClientTable({
         ),
       },
     ],
-    [canArchive, canUpdate, onArchive, onEdit, onOpenWorkspace],
+    [canArchive, canUpdate, onArchive, onAssignAm, onEdit, onOpenWorkspace],
   );
 
   return (

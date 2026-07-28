@@ -23,6 +23,7 @@ interface JobTableProps {
   onEdit: (job: Job) => void;
   onArchive: (job: Job) => void;
   onAllocate?: (job: Job) => void;
+  onAssignAm?: (job: Job) => void;
 }
 
 export function JobTable({
@@ -35,6 +36,7 @@ export function JobTable({
   onEdit,
   onArchive,
   onAllocate,
+  onAssignAm,
 }: JobTableProps) {
   const columns = useMemo<DataTableColumn<Job>[]>(
     () => [
@@ -128,11 +130,20 @@ export function JobTable({
             onEdit={onEdit}
             onArchive={onArchive}
             onAllocate={onAllocate}
+            onAssignAm={onAssignAm}
           />
         ),
       },
     ],
-    [canAllocate, canManage, onAllocate, onArchive, onEdit, onView],
+    [
+      canAllocate,
+      canManage,
+      onAllocate,
+      onArchive,
+      onAssignAm,
+      onEdit,
+      onView,
+    ],
   );
 
   return (
