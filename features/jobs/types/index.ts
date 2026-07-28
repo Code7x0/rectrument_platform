@@ -35,7 +35,8 @@ export interface JobListFilters {
 export interface CreateJobInput {
   title: string;
   clientId: string;
-  accountManagerId: string;
+  /** Optional — Admin/SA may leave unassigned and set later. */
+  accountManagerId?: string;
   hiringManager?: string;
   description?: string;
   location?: string;

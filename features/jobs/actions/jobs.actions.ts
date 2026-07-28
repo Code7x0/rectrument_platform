@@ -23,7 +23,7 @@ function formValuesToInput(values: JobFormValues, createdById?: string) {
   return {
     title: values.title,
     clientId: values.clientId,
-    accountManagerId: values.accountManagerId,
+    accountManagerId: values.accountManagerId ?? "",
     hiringManager: values.hiringManager || undefined,
     description: values.description || undefined,
     location: values.location || undefined,

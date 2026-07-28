@@ -26,7 +26,8 @@ function formToInput(values: ClientFormValues) {
     industry: values.industry || undefined,
     website: values.website || undefined,
     primaryContact: values.primaryContact || undefined,
-    accountManagerId: values.accountManagerId || undefined,
+    // Empty string clears Account Owner — do not coerce to undefined.
+    accountManagerId: values.accountManagerId ?? "",
     status: values.status === "archived" ? ("active" as const) : values.status,
     notes: values.notes || undefined,
   };

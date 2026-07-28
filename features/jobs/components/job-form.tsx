@@ -118,7 +118,7 @@ export function JobForm({
             {...register("accountManagerId")}
             disabled={submitting}
           >
-            <option value="">Select account manager</option>
+            <option value="">Unassigned</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
                 {am.label}
@@ -127,7 +127,7 @@ export function JobForm({
           </Select>
           <p className="text-xs text-[#64748B]">
             Assigns this job&apos;s client to the Account Manager (Clients →
-            Account Owner).
+            Account Owner). Choose Unassigned to clear ownership.
           </p>
           {errors.accountManagerId ? (
             <p className="text-xs text-[#EF4444]">

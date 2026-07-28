@@ -47,9 +47,9 @@ interface AssignAccountManagerDialogProps {
 }
 
 /**
- * Assign Account Manager — Admin / Super Admin.
- * - Client: sets Clients.Account Owner (all jobs under that client follow).
- * - Job: sets the job's AM and syncs the client Account Owner.
+ * Assign or unassign Account Manager — Admin / Super Admin.
+ * - Client: sets or clears Clients.Account Owner.
+ * - Job: sets or clears AM and syncs the client Account Owner.
  */
 export function AssignAccountManagerDialog({
   open,
@@ -70,6 +70,11 @@ export function AssignAccountManagerDialog({
   const isJob = target?.kind === "job";
   const isClientLocked =
     target?.kind === "client" || (isJob && Boolean(target.clientId));
+  const hadAssignment = Boolean(
+    (target?.kind === "job" && target.accountManagerId) ||
+      (target?.kind === "client" && initialAccountManagerId) ||
+      (!target && initialAccountManagerId),
+  );
 
   useEffect(() => {
     if (!open) {
@@ -96,8 +101,10 @@ export function AssignAccountManagerDialog({
   }
 
   const canSubmit = isJob
-    ? Boolean(target?.kind === "job" && accountManagerId)
-    : Boolean(clientId && accountManagerId);
+    ? Boolean(target?.kind === "job")
+    : Boolean(clientId);
+
+  const isUnassign = !accountManagerId;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,13 +112,13 @@ export function AssignAccountManagerDialog({
         <DialogHeader>
           <DialogTitle>
             {isJob
-              ? "Assign Account Manager to job"
-              : "Assign Account Manager to client"}
+              ? "Account Manager for job"
+              : "Account Manager for client"}
           </DialogTitle>
           <DialogDescription>
             {isJob
-              ? "Sets the Account Manager on this job and updates the client Account Owner so the AM can see all jobs for that client."
-              : "Sets Clients.Account Owner. That AM owns the client and sees all jobs under it."}
+              ? "Assign an Account Manager, or choose Unassigned to clear ownership on this job’s client."
+              : "Assign an Account Manager, or choose Unassigned to leave the client with no owner."}
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +163,7 @@ export function AssignAccountManagerDialog({
               value={accountManagerId}
               onChange={(e) => setAccountManagerId(e.target.value)}
             >
-              <option value="">Select account manager</option>
+              <option value="">Unassigned</option>
               {accountManagers.map((am) => (
                 <option key={am.id} value={am.id}>
                   {am.label}
@@ -172,36 +179,50 @@ export function AssignAccountManagerDialog({
           </Button>
           <Button
             type="button"
+            variant={isUnassign ? "outline" : "default"}
             disabled={!canSubmit || pending}
             onClick={() => {
               startTransition(async () => {
+                const nextAm = accountManagerId.trim() || null;
                 if (isJob && target?.kind === "job") {
                   const result = await assignAccountManagerToJobAction({
                     jobId: target.jobId,
-                    accountManagerId,
+                    accountManagerId: nextAm,
                   });
                   if (!result.success) {
                     toast.error(result.message);
                     return;
                   }
-                  toast.success("Account Manager assigned to job");
+                  toast.success(
+                    nextAm
+                      ? "Account Manager assigned to job"
+                      : "Account Manager unassigned from job",
+                  );
                 } else {
                   const result = await assignAccountManagerToClientAction({
                     clientId,
-                    accountManagerId,
+                    accountManagerId: nextAm,
                   });
                   if (!result.success) {
                     toast.error(result.message);
                     return;
                   }
-                  toast.success("Account Manager assigned to client");
+                  toast.success(
+                    nextAm
+                      ? "Account Manager assigned to client"
+                      : "Account Manager unassigned from client",
+                  );
                 }
                 onOpenChange(false);
                 onCompleted?.();
               });
             }}
           >
-            Assign
+            {isUnassign
+              ? hadAssignment
+                ? "Unassign"
+                : "Save (unassigned)"
+              : "Assign"}
           </Button>
         </DialogFooter>
       </DialogContent>

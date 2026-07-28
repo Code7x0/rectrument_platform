@@ -56,15 +56,28 @@ function applySearch(clients: Client[], search?: string): Client[] {
 export async function listClients(
   filters: ClientListFilters = {},
 ): Promise<Client[]> {
-  const { search, ...airtableFilters } = filters;
-  const formula = buildClientsFilterFormula(airtableFilters);
+  const { search, accountManagerId, ...airtableFilters } = filters;
+
+  // Do not filter Account Owner by record id in Airtable formulas.
+  // ARRAYJOIN({Account Owner}) returns primary-field names (e.g. "Lucifer"),
+  // not rec… ids — FIND(recId, …) always misses and blanks AM dashboards.
+  const formula = buildClientsFilterFormula({
+    ...airtableFilters,
+    accountManagerId: undefined,
+  });
 
   const rows = await findClients({
     ...(formula ? { filterByFormula: formula } : {}),
     sort: [{ field: CLIENTS_TABLE_FIELDS.name, direction: "asc" }],
   });
 
-  return applySearch(await withAccountManagerNames(rows), search);
+  let enriched = await withAccountManagerNames(rows);
+  if (accountManagerId?.trim()) {
+    const amId = accountManagerId.trim();
+    enriched = enriched.filter((client) => client.accountManagerId === amId);
+  }
+
+  return applySearch(enriched, search);
 }
 
 export async function getClientById(clientId: string): Promise<Client | null> {

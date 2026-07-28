@@ -87,21 +87,24 @@ function applySearchFilter(jobs: Job[], search?: string): Job[] {
 /**
  * On the locked client base, "assign job → AM" means setting the Client's
  * Account Owner (Jobs has no Assigned Account Manager column).
+ * Pass null/empty to clear ownership.
  */
 async function syncClientAccountOwner(
   clientId: string,
-  accountManagerId: string,
+  accountManagerId: string | null | undefined,
 ): Promise<void> {
   if (!isClientCompatMode()) {
     return;
   }
   await patchClient(clientId, {
-    [CLIENTS_TABLE_FIELDS.accountManager]: [accountManagerId],
+    [CLIENTS_TABLE_FIELDS.accountManager]: accountManagerId
+      ? [accountManagerId]
+      : [],
   });
 }
 
 export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
-  const { search, accountManagerId, ...rest } = filters;
+  const { search, accountManagerId, clientId, ...rest } = filters;
 
   // Client mode: AM ownership is Clients.Account Owner — prefer client-id filter
   // so we never return another manager's jobs from Airtable.
@@ -122,9 +125,11 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
     }
   }
 
-  // Client mode: do not query the missing Jobs.Assigned Account Manager field.
+  // Client mode: do not query missing Jobs.Assigned Account Manager, and do not
+  // FIND(recId) on linked Client — ARRAYJOIN returns client names, not ids.
   const formula = buildJobsFilterFormula({
     ...rest,
+    clientId: isClientCompatMode() ? undefined : clientId,
     accountManagerId: isClientCompatMode() ? undefined : accountManagerId,
     search: undefined,
   });
@@ -150,6 +155,10 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
     );
   }
 
+  if (isClientCompatMode() && clientId && clientId !== "all") {
+    enriched = enriched.filter((job) => job.clientId === clientId);
+  }
+
   return applySearchFilter(enriched, search);
 }
 
@@ -164,15 +173,16 @@ export async function getJobById(jobId: string): Promise<Job | null> {
 }
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
-  if (!input.accountManagerId) {
-    throw new Error("Assigned Account Manager is required");
-  }
-
   const { jobCode } = await allocateNextJobCodeForClient(input.clientId);
   const created = await insertJob(
     toAirtableCreateFields(input, valueMaps, { jobCode }),
   );
-  await syncClientAccountOwner(input.clientId, input.accountManagerId);
+  if (input.clientId) {
+    await syncClientAccountOwner(
+      input.clientId,
+      input.accountManagerId?.trim() || null,
+    );
+  }
 
   const [job] = await withEnrichment([created]);
 
@@ -187,10 +197,6 @@ export async function updateJob(
   jobId: string,
   input: UpdateJobInput,
 ): Promise<Job> {
-  if (input.accountManagerId !== undefined && !input.accountManagerId) {
-    throw new Error("Assigned Account Manager is required");
-  }
-
   const existing = await findJobById(jobId);
   const fields = toAirtableUpdateFields(input, valueMaps);
 
@@ -212,10 +218,13 @@ export async function updateJob(
 
   const updated = await patchJob(jobId, fields);
 
-  if (input.accountManagerId) {
+  if (input.accountManagerId !== undefined) {
     const clientId = input.clientId ?? updated.clientId;
     if (clientId) {
-      await syncClientAccountOwner(clientId, input.accountManagerId);
+      await syncClientAccountOwner(
+        clientId,
+        input.accountManagerId.trim() || null,
+      );
     }
   }
 

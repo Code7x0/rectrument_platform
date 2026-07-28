@@ -51,18 +51,16 @@ export async function assignAccountManagerToClientAction(input: {
 
 /**
  * Assign AM to a job (and its client Account Owner). Admin + Super Admin only.
+ * Pass empty / null accountManagerId to unassign.
  */
 export async function assignAccountManagerToJobAction(input: {
   jobId: string;
-  accountManagerId: string;
+  accountManagerId: string | null;
 }): Promise<ActionResult> {
   try {
     await requireRole(["admin", "super_admin"]);
     if (!input.jobId) {
       return { success: false, message: "Job is required" };
-    }
-    if (!input.accountManagerId) {
-      return { success: false, message: "Account Manager is required" };
     }
 
     const { getJobById, updateJob } = await import(
@@ -73,11 +71,14 @@ export async function assignAccountManagerToJobAction(input: {
       return { success: false, message: "Job not found" };
     }
     if (job.status === "archived") {
-      return { success: false, message: "Cannot assign AM to an archived job" };
+      return {
+        success: false,
+        message: "Cannot change AM on an archived job",
+      };
     }
 
     await updateJob(input.jobId, {
-      accountManagerId: input.accountManagerId,
+      accountManagerId: input.accountManagerId?.trim() || "",
     });
 
     revalidateAmPaths(job.clientId ?? undefined);
@@ -87,7 +88,7 @@ export async function assignAccountManagerToJobAction(input: {
   } catch (error) {
     return {
       success: false,
-      message: actionErrorMessage(error, "Unable to assign Account Manager"),
+      message: actionErrorMessage(error, "Unable to update Account Manager"),
     };
   }
 }

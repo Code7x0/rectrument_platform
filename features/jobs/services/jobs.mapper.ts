@@ -205,7 +205,9 @@ export function toAirtableCreateFields(
   };
 
   if (!clientMode) {
-    fields[JOBS_TABLE_FIELDS.accountManager] = [input.accountManagerId];
+    if (input.accountManagerId) {
+      fields[JOBS_TABLE_FIELDS.accountManager] = [input.accountManagerId];
+    }
     fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions ?? 1;
   }
 
@@ -275,7 +277,9 @@ export function toAirtableUpdateFields(
     fields[JOBS_TABLE_FIELDS.client] = [input.clientId];
   }
   if (!clientMode && input.accountManagerId !== undefined) {
-    fields[JOBS_TABLE_FIELDS.accountManager] = [input.accountManagerId];
+    fields[JOBS_TABLE_FIELDS.accountManager] = input.accountManagerId
+      ? [input.accountManagerId]
+      : [];
   }
   if (input.hiringManager !== undefined) {
     fields[JOBS_TABLE_FIELDS.hiringManager] = input.hiringManager || "";

@@ -21,9 +21,7 @@ export const employmentTypeSchema = z.enum([
 export const jobFormSchema = z.object({
   title: z.string().trim().min(2, "Job title is required"),
   clientId: z.string().min(1, "Client is required"),
-  accountManagerId: z
-    .string()
-    .min(1, "Assigned Account Manager is required"),
+  accountManagerId: z.string().optional().default(""),
   hiringManager: z.string().trim().optional(),
   description: z.string().trim().optional(),
   location: z.string().trim().optional(),

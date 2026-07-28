@@ -5,7 +5,6 @@
 import { findClientById } from "@/features/clients/repositories/clients.repository";
 import { findJobs } from "@/features/jobs/repositories/jobs.repository";
 import { findPartners } from "@/features/partners/repositories/partners.repository";
-import { JOBS_TABLE_FIELDS } from "@/lib/airtable/fields";
 import {
   allocateUniquePartnerCode,
   buildPartnerCodeBase,
@@ -62,14 +61,14 @@ export async function allocateNextJobCodeForClient(
   }
 
   const clientCode = client.clientCode.trim().toUpperCase();
-  const jobs = await findJobs({
-    filterByFormula: `FIND('${clientRecordId}', ARRAYJOIN({${JOBS_TABLE_FIELDS.client}}))`,
-  });
-
-  // Also scan all job codes in case marker/field exists but filter misses orphans
-  const allJobs = jobs.length > 0 ? jobs : await findJobs({});
+  // ARRAYJOIN({Client}) returns client names, not record ids — filter in memory.
+  const allJobs = await findJobs({});
   const codes = allJobs
-    .filter((j) => j.clientId === clientRecordId || j.jobCode.startsWith(`${clientCode}_`))
+    .filter(
+      (j) =>
+        j.clientId === clientRecordId ||
+        j.jobCode.startsWith(`${clientCode}_`),
+    )
     .map((j) => j.jobCode)
     .filter(Boolean);
 
