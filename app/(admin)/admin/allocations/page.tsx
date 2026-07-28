@@ -34,7 +34,10 @@ export default async function AdminAllocationsPage() {
       canManage={canManage}
       canArchive={canArchive}
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
+        {
+          label: session.role === "super_admin" ? "Super Admin" : "Admin",
+          href: session.role === "super_admin" ? "/super-admin" : "/admin",
+        },
         { label: "Allocations" },
       ]}
     />

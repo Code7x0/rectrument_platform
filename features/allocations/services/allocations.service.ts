@@ -237,10 +237,17 @@ export async function listAllocations(
     search,
     includePartnerIdentity = false,
     jobIds,
+    jobId,
+    partnerId,
     ...airtableFilters
   } = filters;
+
+  // Do not FIND(recId) via ARRAYJOIN — linked fields join display names, not ids.
+  // Filter jobId / partnerId in memory after fetch (works in table + job_partners modes).
   const formula = buildAllocationsFilterFormula({
     ...airtableFilters,
+    jobId: undefined,
+    partnerId: undefined,
     search: undefined,
   });
 
@@ -250,12 +257,18 @@ export async function listAllocations(
   });
 
   let scoped = rows;
+  if (jobId && jobId !== "all") {
+    scoped = scoped.filter((row) => row.jobId === jobId);
+  }
+  if (partnerId && partnerId !== "all") {
+    scoped = scoped.filter((row) => row.partnerId === partnerId);
+  }
   if (jobIds) {
     if (jobIds.length === 0) {
       return [];
     }
     const allowed = new Set(jobIds);
-    scoped = rows.filter((row) => allowed.has(row.jobId));
+    scoped = scoped.filter((row) => allowed.has(row.jobId));
   }
 
   return applySearchFilter(

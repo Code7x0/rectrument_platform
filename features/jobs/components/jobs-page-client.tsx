@@ -14,7 +14,7 @@ import {
   AssignAccountManagerDialog,
   type AssignAmTarget,
 } from "@/features/account-managers/components/assign-account-manager-dialog";
-import { AllocatePartnerDialog } from "@/features/allocations/components";
+import { AllocatePartnerDialog, JobAssignedPartnersDialog } from "@/features/allocations/components";
 import { archiveJobAction } from "@/features/jobs/actions/jobs.actions";
 import { JobDialog } from "@/features/jobs/components/job-dialog";
 import { JobDrawer } from "@/features/jobs/components/job-drawer";
@@ -31,6 +31,8 @@ interface JobsPageClientProps {
   locations: string[];
   canManage: boolean;
   canAllocate: boolean;
+  /** View + unassign partners on a job (Admin / SA / AM with archive). */
+  canManagePartners?: boolean;
   canDelete?: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
@@ -106,6 +108,7 @@ export function JobsPageClient({
   locations,
   canManage,
   canAllocate,
+  canManagePartners = false,
   canDelete = false,
   breadcrumbs,
 }: JobsPageClientProps) {
@@ -121,6 +124,7 @@ export function JobsPageClient({
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [viewJob, setViewJob] = useState<Job | null>(null);
   const [allocateJob, setAllocateJob] = useState<Job | null>(null);
+  const [partnersJob, setPartnersJob] = useState<Job | null>(null);
   const [assignAmOpen, setAssignAmOpen] = useState(false);
   const [assignAmTarget, setAssignAmTarget] = useState<AssignAmTarget>(null);
   const [archiveTarget, setArchiveTarget] = useState<Job | null>(null);
@@ -168,7 +172,7 @@ export function JobsPageClient({
           canManage
             ? "Create jobs, assign Account Managers, and manage hiring requirements across clients."
             : canAllocate
-              ? "Your assigned jobs — open a job to allocate Talent Partners or review details."
+              ? "Jobs for your clients — Allocate partners, or open Partners to unassign them."
               : "Hiring requirements you can view."
         }
         actions={
@@ -205,6 +209,7 @@ export function JobsPageClient({
         loading={pending}
         canManage={canManage}
         canAllocate={canAllocate}
+        canViewPartners={canManagePartners || canAllocate}
         emptyAction={
           canManage ? (
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -216,6 +221,7 @@ export function JobsPageClient({
         onEdit={setEditJob}
         onArchive={setArchiveTarget}
         onAllocate={setAllocateJob}
+        onViewPartners={setPartnersJob}
         onAssignAm={(job) => {
           setAssignAmTarget({
             kind: "job",
@@ -272,6 +278,18 @@ export function JobsPageClient({
         onOpenChange={(open) => {
           if (!open) {
             setAllocateJob(null);
+          }
+        }}
+        onCompleted={refresh}
+      />
+
+      <JobAssignedPartnersDialog
+        open={Boolean(partnersJob)}
+        job={partnersJob}
+        canUnassign={canManagePartners || canAllocate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPartnersJob(null);
           }
         }}
         onCompleted={refresh}

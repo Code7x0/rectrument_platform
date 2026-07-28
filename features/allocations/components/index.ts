@@ -8,3 +8,4 @@ export { AllocationFilters } from "./allocation-filters";
 export { AllocationStatusBadge } from "./allocation-status-badge";
 export { AllocationTable } from "./allocation-table";
 export { AllocationsPageClient } from "./allocations-page-client";
+export { JobAssignedPartnersDialog } from "./job-assigned-partners-dialog";

@@ -128,7 +128,11 @@ export function ClientsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="Clients"
-        description="Hiring companies and their workspaces. Assign an Account Manager to own each client."
+        description={
+          basePath === "/account-manager/clients"
+            ? "Your assigned clients. Open a workspace to edit details, or manage talent partners on that client’s jobs."
+            : "Hiring companies and their workspaces. Assign an Account Manager to own each client."
+        }
         actions={
           <div className="flex flex-wrap gap-2">
             {canUpdate &&
@@ -220,6 +224,7 @@ export function ClientsPageClient({
         client={editClient}
         accountManagers={accountManagers}
         canDelete={canDelete}
+        lockAccountManager={basePath === "/account-manager/clients"}
         onOpenChange={(open) => {
           if (!open) {
             setEditClient(null);

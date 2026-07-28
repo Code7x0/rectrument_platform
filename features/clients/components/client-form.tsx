@@ -19,6 +19,8 @@ interface ClientFormProps {
   accountManagers: LookupOption[];
   initialClient?: Client | null;
   submitting?: boolean;
+  /** When true, Account Manager field is read-only (Account Manager role). */
+  lockAccountManager?: boolean;
   onSubmit: (values: ClientFormValues) => Promise<void> | void;
   onCancel?: () => void;
   onDelete?: () => void;
@@ -53,6 +55,7 @@ export function ClientForm({
   accountManagers,
   initialClient,
   submitting = false,
+  lockAccountManager = false,
   onSubmit,
   onCancel,
   onDelete,
@@ -101,7 +104,11 @@ export function ClientForm({
           <Label htmlFor="accountManagerId">
             Assign Account Manager
           </Label>
-          <Select id="accountManagerId" {...register("accountManagerId")}>
+          <Select
+            id="accountManagerId"
+            {...register("accountManagerId")}
+            disabled={lockAccountManager || submitting}
+          >
             <option value="">Unassigned</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
@@ -110,7 +117,9 @@ export function ClientForm({
             ))}
           </Select>
           <p className="text-xs text-[#64748B]">
-            Sets the client Account Owner. Jobs under this client follow that AM.
+            {lockAccountManager
+              ? "You own this client. Only Admin / Super Admin can reassign ownership."
+              : "Sets the client Account Owner. Jobs under this client follow that AM."}
           </p>
         </div>
         <div className="space-y-2">

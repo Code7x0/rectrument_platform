@@ -42,6 +42,8 @@ interface ClientWorkspacePageClientProps {
   canUpdate: boolean;
   canManageJobs: boolean;
   canAllocate: boolean;
+  /** Unassign partners from jobs under this client. */
+  canManagePartners?: boolean;
   activityTimeline: TimelineListResult;
   basePath: "/admin/clients" | "/account-manager/clients";
   breadcrumbs: Array<{ label: string; href?: string }>;
@@ -60,12 +62,14 @@ export function ClientWorkspacePageClient({
   canUpdate,
   canManageJobs,
   canAllocate,
+  canManagePartners = false,
   activityTimeline,
   basePath,
   breadcrumbs,
 }: ClientWorkspacePageClientProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const isAmPath = basePath === "/account-manager/clients";
 
   const tabs = [
     { id: "overview", label: "Overview", href: `${basePath}/${client.id}` },
@@ -126,10 +130,14 @@ export function ClientWorkspacePageClient({
             partners={partners}
             canManageJobs={canManageJobs}
             canAllocate={canAllocate}
+            canManagePartners={canManagePartners}
           />
         ) : null}
         {tab === "partners" ? (
-          <ClientPartnersTab allocations={allocations} />
+          <ClientPartnersTab
+            allocations={allocations}
+            canUnassign={canManagePartners || canAllocate}
+          />
         ) : null}
         {tab === "candidates" ? (
           <ClientCandidatesTab submissions={submissions} />
@@ -148,6 +156,7 @@ export function ClientWorkspacePageClient({
         mode="edit"
         client={client}
         accountManagers={accountManagers}
+        lockAccountManager={isAmPath}
         onOpenChange={setEditOpen}
         onCompleted={() => router.refresh()}
       />

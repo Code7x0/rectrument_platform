@@ -22,6 +22,10 @@ async function loadJobsPageData() {
 
   const canManage = roleHasPermission(session.role, "manage_jobs");
   const canAllocate = roleHasPermission(session.role, "manage_allocations");
+  const canManagePartners = roleHasPermission(
+    session.role,
+    "archive_allocations",
+  );
 
   const [jobs, clients, accountManagers, partners, locations] =
     await Promise.all([
@@ -41,6 +45,7 @@ async function loadJobsPageData() {
     locations,
     canManage,
     canAllocate,
+    canManagePartners,
     canDelete: isAdmin(session),
   };
 }
@@ -55,6 +60,7 @@ export default async function AdminJobsPage() {
     locations,
     canManage,
     canAllocate,
+    canManagePartners,
     canDelete,
   } = await loadJobsPageData();
 
@@ -70,6 +76,7 @@ export default async function AdminJobsPage() {
       locations={locations}
       canManage={canManage}
       canAllocate={canAllocate}
+      canManagePartners={canManagePartners}
       canDelete={canDelete}
       breadcrumbs={[
         { label: homeLabel, href: homeHref },

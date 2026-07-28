@@ -89,10 +89,17 @@ export default async function AdminClientWorkspacePage({
       activityTimeline={activityTimeline}
       canUpdate={roleHasPermission(session.role, "manage_clients")}
       canManageJobs={roleHasPermission(session.role, "manage_jobs")}
-      canAllocate={false}
+      canAllocate={roleHasPermission(session.role, "manage_allocations")}
+      canManagePartners={roleHasPermission(
+        session.role,
+        "archive_allocations",
+      )}
       basePath="/admin/clients"
       breadcrumbs={[
-        { label: "Admin", href: "/admin" },
+        {
+          label: session.role === "super_admin" ? "Super Admin" : "Admin",
+          href: session.role === "super_admin" ? "/super-admin" : "/admin",
+        },
         { label: "Clients", href: "/admin/clients" },
         { label: client.name },
       ]}

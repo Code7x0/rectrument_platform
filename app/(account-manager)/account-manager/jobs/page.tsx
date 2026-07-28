@@ -30,6 +30,10 @@ export default async function AccountManagerJobsPage() {
   }
 
   const canAllocate = roleHasPermission(session.role, "manage_allocations");
+  const canManagePartners = roleHasPermission(
+    session.role,
+    "archive_allocations",
+  );
 
   const [jobs, assignedClients, accountManagers, partners, locations] =
     await Promise.all([
@@ -60,6 +64,7 @@ export default async function AccountManagerJobsPage() {
       locations={locations}
       canManage={false}
       canAllocate={canAllocate}
+      canManagePartners={canManagePartners}
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },
         { label: "Jobs" },

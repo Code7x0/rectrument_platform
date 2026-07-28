@@ -10,7 +10,10 @@ import { archiveJobAction } from "@/features/jobs/actions/jobs.actions";
 import { JobDialog } from "@/features/jobs/components/job-dialog";
 import { JobDrawer } from "@/features/jobs/components/job-drawer";
 import { JobTable } from "@/features/jobs/components/job-table";
-import { AllocatePartnerDialog } from "@/features/allocations/components";
+import {
+  AllocatePartnerDialog,
+  JobAssignedPartnersDialog,
+} from "@/features/allocations/components";
 import type { Job } from "@/features/jobs/types";
 import type { LookupOption } from "@/services/lookups";
 
@@ -21,6 +24,8 @@ interface ClientJobsTabProps {
   partners: LookupOption[];
   canManageJobs: boolean;
   canAllocate: boolean;
+  /** View + unassign partners on owned jobs. */
+  canManagePartners?: boolean;
 }
 
 /**
@@ -33,12 +38,14 @@ export function ClientJobsTab({
   partners,
   canManageJobs,
   canAllocate,
+  canManagePartners = false,
 }: ClientJobsTabProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [viewJob, setViewJob] = useState<Job | null>(null);
   const [editJob, setEditJob] = useState<Job | null>(null);
   const [allocateJob, setAllocateJob] = useState<Job | null>(null);
+  const [partnersJob, setPartnersJob] = useState<Job | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Job | null>(null);
   const [archiving, setArchiving] = useState(false);
 
@@ -81,10 +88,12 @@ export function ClientJobsTab({
         loading={pending}
         canManage={canManageJobs}
         canAllocate={canAllocate}
+        canViewPartners={canManagePartners || canAllocate}
         onView={setViewJob}
         onEdit={setEditJob}
         onArchive={setArchiveTarget}
         onAllocate={setAllocateJob}
+        onViewPartners={setPartnersJob}
       />
 
       <JobDrawer
@@ -118,6 +127,18 @@ export function ClientJobsTab({
         onOpenChange={(open) => {
           if (!open) {
             setAllocateJob(null);
+          }
+        }}
+        onCompleted={refresh}
+      />
+
+      <JobAssignedPartnersDialog
+        open={Boolean(partnersJob)}
+        job={partnersJob}
+        canUnassign={canManagePartners || canAllocate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPartnersJob(null);
           }
         }}
         onCompleted={refresh}

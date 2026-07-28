@@ -42,7 +42,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "manage_partners",
     "archive_partners",
     "view_allocations",
-    // Admin never allocates partners (business rule) — Account Managers do.
+    // Admin may unassign partners from jobs (oversight); allocation create stays AM/SA.
+    "archive_allocations",
     "view_submissions",
     "view_documents",
     "verify_documents",

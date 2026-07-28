@@ -18,12 +18,14 @@ interface JobTableProps {
   loading?: boolean;
   canManage: boolean;
   canAllocate?: boolean;
+  canViewPartners?: boolean;
   emptyAction?: ReactNode;
   onView: (job: Job) => void;
   onEdit: (job: Job) => void;
   onArchive: (job: Job) => void;
   onAllocate?: (job: Job) => void;
   onAssignAm?: (job: Job) => void;
+  onViewPartners?: (job: Job) => void;
 }
 
 export function JobTable({
@@ -31,12 +33,14 @@ export function JobTable({
   loading = false,
   canManage,
   canAllocate = false,
+  canViewPartners = false,
   emptyAction,
   onView,
   onEdit,
   onArchive,
   onAllocate,
   onAssignAm,
+  onViewPartners,
 }: JobTableProps) {
   const columns = useMemo<DataTableColumn<Job>[]>(
     () => [
@@ -126,11 +130,13 @@ export function JobTable({
             job={job}
             canManage={canManage}
             canAllocate={canAllocate}
+            canViewPartners={canViewPartners}
             onView={onView}
             onEdit={onEdit}
             onArchive={onArchive}
             onAllocate={onAllocate}
             onAssignAm={onAssignAm}
+            onViewPartners={onViewPartners}
           />
         ),
       },
@@ -138,11 +144,13 @@ export function JobTable({
     [
       canAllocate,
       canManage,
+      canViewPartners,
       onAllocate,
       onArchive,
       onAssignAm,
       onEdit,
       onView,
+      onViewPartners,
     ],
   );
 

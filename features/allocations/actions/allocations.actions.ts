@@ -152,13 +152,16 @@ export async function archiveAllocationAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("archive_allocations");
-    await requireRole(["super_admin", "account_manager"]);
+    await requireRole(["admin", "super_admin", "account_manager"]);
     if (session.role === "account_manager") {
       await assertAccountManagerOwnsAllocation(session, allocationId);
     }
     const allocation = await archiveAllocation(allocationId);
 
     revalidateAllocationPaths();
+    if (allocation.partnerId) {
+      revalidatePath(`/admin/partners/${allocation.partnerId}`);
+    }
 
     return { success: true, data: allocation };
   } catch (error) {
@@ -167,8 +170,49 @@ export async function archiveAllocationAction(
     }
     return {
       success: false,
-      message:
-        actionErrorMessage(error, "Unable to archive allocation"),
+      message: actionErrorMessage(
+        error,
+        "Unable to unassign talent partner",
+      ),
+    };
+  }
+}
+
+/**
+ * Active partner allocations for a single job (Admin / SA / AM).
+ */
+export async function listJobPartnerAllocationsAction(
+  jobId: string,
+): Promise<ActionResult> {
+  try {
+    const session = await requireRole([
+      "admin",
+      "super_admin",
+      "account_manager",
+    ]);
+    if (!jobId) {
+      return { success: false, message: "Job is required" };
+    }
+    if (session.role === "account_manager") {
+      await assertAccountManagerOwnsJob(session, jobId);
+    }
+
+    const { listAllocations } = await import(
+      "@/features/allocations/services"
+    );
+    const rows = await listAllocations({
+      jobId,
+      includeArchived: false,
+      includePartnerIdentity: true,
+    });
+    return { success: true, data: rows };
+  } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to load assigned partners"),
     };
   }
 }

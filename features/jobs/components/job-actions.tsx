@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Pencil, Archive, UserPlus, UserCog } from "lucide-react";
+import { Eye, Pencil, Archive, UserPlus, UserCog, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { Job } from "@/features/jobs/types";
@@ -9,22 +9,26 @@ interface JobActionsProps {
   job: Job;
   canManage: boolean;
   canAllocate?: boolean;
+  canViewPartners?: boolean;
   onView: (job: Job) => void;
   onEdit: (job: Job) => void;
   onArchive: (job: Job) => void;
   onAllocate?: (job: Job) => void;
   onAssignAm?: (job: Job) => void;
+  onViewPartners?: (job: Job) => void;
 }
 
 export function JobActions({
   job,
   canManage,
   canAllocate = false,
+  canViewPartners = false,
   onView,
   onEdit,
   onArchive,
   onAllocate,
   onAssignAm,
+  onViewPartners,
 }: JobActionsProps) {
   return (
     <div className="flex items-center justify-end gap-1">
@@ -37,6 +41,19 @@ export function JobActions({
       >
         <Eye className="h-4 w-4" />
       </Button>
+      {canViewPartners && onViewPartners ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => onViewPartners(job)}
+          aria-label="Assigned talent partners"
+          className="gap-1 px-2"
+        >
+          <Users className="h-4 w-4" />
+          <span className="hidden xl:inline">Partners</span>
+        </Button>
+      ) : null}
       {canManage && job.status !== "archived" && onAssignAm ? (
         <Button
           type="button"

@@ -21,6 +21,7 @@ interface ClientDialogProps {
   client?: Client | null;
   accountManagers: LookupOption[];
   canDelete?: boolean;
+  lockAccountManager?: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
 }
@@ -31,6 +32,7 @@ export function ClientDialog({
   client,
   accountManagers,
   canDelete = false,
+  lockAccountManager = false,
   onOpenChange,
   onCompleted,
 }: ClientDialogProps) {
@@ -96,6 +98,7 @@ export function ClientDialog({
           accountManagers={accountManagers}
           initialClient={mode === "edit" ? client : null}
           submitting={submitting || deleting}
+          lockAccountManager={lockAccountManager}
           submitLabel={mode === "create" ? "Create Client" : "Save Changes"}
           onCancel={() => onOpenChange(false)}
           onSubmit={handleSubmit}

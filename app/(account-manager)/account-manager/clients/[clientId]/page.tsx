@@ -112,6 +112,10 @@ export default async function AccountManagerClientWorkspacePage({
       canUpdate={roleHasPermission(session.role, "manage_clients")}
       canManageJobs={false}
       canAllocate={roleHasPermission(session.role, "manage_allocations")}
+      canManagePartners={roleHasPermission(
+        session.role,
+        "archive_allocations",
+      )}
       basePath="/account-manager/clients"
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },
