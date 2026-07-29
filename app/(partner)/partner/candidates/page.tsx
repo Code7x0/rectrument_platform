@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { getPayoutMapForPartner } from "@/features/payouts/services";
@@ -8,6 +9,8 @@ import { listPartnerSubmissions } from "@/features/submissions/services";
 import type { Payout } from "@/features/payouts/types";
 
 export default async function PartnerCandidatesPage() {
+  noStore();
+
   const session = await getAppSession();
 
   if (!session) {

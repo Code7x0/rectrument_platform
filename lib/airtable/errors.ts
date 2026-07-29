@@ -39,6 +39,12 @@ export function toUserFacingAirtableMessage(error: unknown): string {
     return "This feature is not available on the connected Airtable base. Contact an administrator.";
   }
   if (error instanceof AirtableOperationError) {
+    // Prefer the sanitized operation message (table + Airtable detail) over a
+    // opaque generic — partners need actionable feedback when writes fail.
+    const detail = error.message.replace(/\n[\s\S]*$/, "").trim().slice(0, 240);
+    if (detail) {
+      return detail;
+    }
     return "Unable to save or load data right now. Please try again.";
   }
   if (error instanceof Error && error.message.startsWith("Missing required")) {

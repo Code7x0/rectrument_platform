@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { ClientErrorBoundary } from "@/components/providers/client-error-boundary";
 import type { Notification } from "@/features/notifications/types";
 import { SearchProvider } from "@/features/search/components/search-provider";
+import { useLiveDataSync } from "@/hooks/use-live-data-sync";
 import { getNavigationForRole } from "@/lib/navigation";
 import type { UserRole } from "@/types";
 
@@ -28,6 +29,9 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navItems = getNavigationForRole(role);
+
+  // Keep Airtable-backed lists/dashboards fresh across all roles.
+  useLiveDataSync(15_000);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
@@ -8,6 +9,8 @@ import { PartnerWorkQueue } from "@/features/tasks/components";
 import { listPartnerWorkTasks } from "@/features/tasks/services";
 
 export default async function PartnerJobsPage() {
+  noStore();
+
   const session = await getAppSession();
 
   if (!session) {

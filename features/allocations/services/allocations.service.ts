@@ -1,5 +1,9 @@
 import { getRecords, type AirtableFields } from "@/lib/airtable/client";
-import { asSelectList, isClientCompatMode } from "@/lib/airtable/compat";
+import {
+  asSelectList,
+  getAllocationsMode,
+  isClientCompatMode,
+} from "@/lib/airtable/compat";
 import {
   ALLOCATIONS_TABLE_FIELDS,
   PARTNERS_TABLE_FIELDS,
@@ -98,9 +102,20 @@ async function withEnrichment(
     return allocations;
   }
 
-  const [jobs, partnerMeta] = await Promise.all([
+  const [jobs, partnerMeta, submissionCounts] = await Promise.all([
     listJobs({ includeArchived: true }),
     loadPartnerMetaMap(allocations.map((row) => row.partnerId)),
+    getAllocationsMode() === "job_partners"
+      ? import("@/features/submissions/services").then(async ({ listSubmissions }) => {
+          const rows = await listSubmissions();
+          const counts = new Map<string, number>();
+          for (const row of rows) {
+            const key = `${row.jobId}::${row.partnerId}`;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+          }
+          return counts;
+        })
+      : Promise.resolve(null as Map<string, number> | null),
   ]);
 
   const jobMap = new Map(jobs.map((job) => [job.id, job]));
@@ -122,6 +137,10 @@ async function withEnrichment(
       partnerLabel: meta?.identityLabel ?? null,
     });
 
+    const derivedCount = submissionCounts?.get(
+      `${allocation.jobId}::${allocation.partnerId}`,
+    );
+
     return {
       ...allocation,
       allocationCode,
@@ -131,6 +150,10 @@ async function withEnrichment(
         allocation.accountManagerId ?? job?.accountManagerId ?? null,
       partnerCode,
       partnerName,
+      profilesSubmitted:
+        derivedCount !== undefined
+          ? derivedCount
+          : allocation.profilesSubmitted,
     };
   });
 }

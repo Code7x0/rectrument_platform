@@ -76,7 +76,7 @@ const ACCOUNT_MANAGER_NAV: AppNavItem[] = [
     icon: FolderKanban,
   },
   {
-    title: "Review Queue",
+    title: "Candidates",
     href: "/account-manager/candidates",
     icon: ClipboardList,
   },

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { ReviewQueuePageClient } from "@/features/tasks/components";
@@ -9,6 +10,8 @@ import { listSubmissions } from "@/features/submissions/services";
  * (including rejected / joined), not only the open review queue.
  */
 export default async function AdminCandidatesPage() {
+  noStore();
+
   const session = await getAppSession();
 
   if (!session) {

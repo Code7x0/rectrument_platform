@@ -66,9 +66,6 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
   const { listAccountManagersDirectory } = await import(
     "@/features/account-managers/services/account-managers.service"
   );
-  const { findCandidates } = await import(
-    "@/features/candidates/repositories/candidates.repository"
-  );
 
   const [
     summary,
@@ -79,7 +76,6 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
     partners,
     jobs,
     clients,
-    candidateRecords,
   ] = await Promise.all([
     getUsersSummary(),
     listUsers(),
@@ -108,14 +104,14 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
     ),
     settledSource("jobs", listJobs({ includeArchived: false }), []),
     settledSource("clients", listClients({ includeArchived: false }), []),
-    settledSource("candidates", findCandidates({}), []),
   ]);
 
   const activeUsers = users.filter((u) => u.status === "active").length;
   const inactiveUsers = users.filter((u) => u.status !== "active").length;
   const talentPartners = partners.filter((p) => p.status === "active").length;
-  const candidateCount = candidateRecords.length;
+  // Same source of truth as Admin Candidates + Submission Count: linked submissions.
   const submissionCount = submissions.length;
+  const candidateCount = submissionCount;
 
   const recentInvitations = users
     .filter((u) => u.registrationStatus === "invitation_pending")

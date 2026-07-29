@@ -14,12 +14,13 @@ import type { CandidateFormValues } from "@/features/candidates/schemas/candidat
 import { getJobById } from "@/features/jobs/services";
 import {
   findSubmissionById,
-  findSubmissions,
+  findSubmissionsSafe,
   insertSubmission,
   patchSubmission,
 } from "@/features/submissions/repositories/submissions.repository";
 import {
   buildSubmissionsFilterFormula,
+  toAirtableCandidateSubmissionCreateFields,
   toAirtableCreateFields,
 } from "@/features/submissions/services/submissions.mapper";
 import type {
@@ -32,6 +33,10 @@ import {
   REVIEWABLE_SUBMISSION_STATUSES,
 } from "@/features/shared/entities";
 import { getUploadService, type UploadedFile } from "@/services/uploads";
+import {
+  getAllocationsMode,
+  getSubmissionsMode,
+} from "@/lib/airtable/compat";
 import {
   DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
   SUBMISSIONS_TABLE_FIELDS,
@@ -73,7 +78,7 @@ async function withEnrichment(
     const partner = partnerMap.get(row.partnerId);
     return {
       ...row,
-      candidateName: candidate?.fullName ?? null,
+      candidateName: candidate?.fullName ?? row.candidateName ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,
       jobPriority: job?.priority ?? null,
@@ -108,22 +113,48 @@ export type SubmitCandidateResult =
       duplicates: Candidate[];
     };
 
+/**
+ * Canonical submissions list — shared by Candidates pages, dashboards, and counts.
+ *
+ * In candidates mode, partner/job ID filters MUST be applied in memory.
+ * FIND(recId, ARRAYJOIN({Link})) matches primary-field *names*, not record IDs,
+ * so Airtable formulas silently return empty partner lists/dashboards.
+ */
 export async function listSubmissions(
   filters: SubmissionListFilters = {},
 ): Promise<Submission[]> {
   const { includePartnerIdentity = false, ...listFilters } = filters;
-  const formula = buildSubmissionsFilterFormula({
-    partnerId: listFilters.partnerId,
-    jobId: listFilters.jobId,
-    allocationId: listFilters.allocationId,
-  });
+  const candidatesMode = getSubmissionsMode() === "candidates";
+  const scopeInMemory =
+    candidatesMode &&
+    Boolean(
+      listFilters.partnerId || listFilters.jobId || listFilters.allocationId,
+    );
 
-  const rows = await findSubmissions({
+  const formula = scopeInMemory
+    ? ""
+    : buildSubmissionsFilterFormula({
+        partnerId: listFilters.partnerId,
+        jobId: listFilters.jobId,
+        allocationId: listFilters.allocationId,
+      });
+
+  let rows = await findSubmissionsSafe({
     ...(formula ? { filterByFormula: formula } : {}),
     sort: [
       { field: SUBMISSIONS_TABLE_FIELDS.submissionDate, direction: "desc" },
     ],
   });
+
+  if (listFilters.partnerId) {
+    rows = rows.filter((row) => row.partnerId === listFilters.partnerId);
+  }
+  if (listFilters.jobId) {
+    rows = rows.filter((row) => row.jobId === listFilters.jobId);
+  }
+  if (listFilters.allocationId) {
+    rows = rows.filter((row) => row.allocationId === listFilters.allocationId);
+  }
 
   return withEnrichment(rows, includePartnerIdentity);
 }
@@ -208,6 +239,9 @@ export async function applySubmissionStatusChange(
 /**
  * Candidate Submission Engine — orchestrates Person + Event.
  * Partners may only submit against their own active allocations.
+ *
+ * Candidates mode: one atomic create with Role + Partner + person fields,
+ * then resume bind — never leave an unlinked resume-only orphan.
  */
 export async function submitCandidateForAllocation(
   payload: SubmitCandidatePayload,
@@ -226,8 +260,10 @@ export async function submitCandidateForAllocation(
     throw new Error("Job does not match this allocation");
   }
 
+  const candidatesMode = getSubmissionsMode() === "candidates";
   let candidate: Candidate;
   let reusedCandidate = false;
+  let submission: Submission;
 
   if (payload.existingCandidateId) {
     const existing = await getCandidateById(payload.existingCandidateId);
@@ -248,11 +284,45 @@ export async function submitCandidateForAllocation(
     candidate = existing;
     reusedCandidate = true;
 
+    const existingForJob = prior.filter(
+      (row) =>
+        row.jobId === payload.jobId &&
+        row.allocationId === payload.allocationId &&
+        row.candidateId === candidate.id,
+    );
+    if (existingForJob.length > 0) {
+      throw new Error("This candidate was already submitted for this allocation");
+    }
+
+    // Link first, then optional resume — visibility never depends on upload alone.
+    submission = await insertSubmission(
+      toAirtableCreateFields({
+        candidateId: candidate.id,
+        jobId: payload.jobId,
+        allocationId: payload.allocationId,
+        partnerId: payload.partnerId,
+        status: "submitted",
+        remarks: payload.form.remarks?.trim() || undefined,
+      }),
+    );
+
     if (payload.resumeUpload) {
-      candidate = await attachResumeToCandidate(
-        candidate.id,
-        payload.resumeUpload,
-      );
+      try {
+        candidate = await attachResumeToCandidate(
+          candidate.id,
+          payload.resumeUpload,
+        );
+      } catch (error) {
+        console.error(
+          "[submit] Resume upload failed after link (submission kept)",
+          error,
+        );
+        throw new Error(
+          error instanceof Error
+            ? `Candidate linked, but resume upload failed: ${error.message}`
+            : "Candidate linked, but resume upload failed",
+        );
+      }
     }
   } else {
     const duplicates = await findDuplicateCandidates({
@@ -272,55 +342,102 @@ export async function submitCandidateForAllocation(
       throw new Error("Resume is required for new candidates");
     }
 
-    // Foreign duplicates must not leak PII. Create a partner-owned person row
-    // when email/phone already exists under another partner's submissions.
-    candidate = await createCandidate(
-      {
-        fullName: payload.form.fullName,
-        email: payload.form.email,
-        phone: payload.form.phone,
-        currentCompany: payload.form.currentCompany || undefined,
-        currentLocation: payload.form.currentLocation || undefined,
-        experience: payload.form.experience || undefined,
-        currentCtc: payload.form.currentCtc || undefined,
-        expectedCtc: payload.form.expectedCtc || undefined,
-        noticePeriod: payload.form.noticePeriod || undefined,
-        skills: parseSkillsInput(payload.form.skills),
-        remarks: payload.form.remarks?.trim() || undefined,
-      },
-      { skipDuplicateCheck: duplicates.length > 0 },
-    );
+    if (candidatesMode) {
+      // Single Airtable create: person + Role + Partner + status.
+      submission = await insertSubmission(
+        toAirtableCandidateSubmissionCreateFields({
+          fullName: payload.form.fullName,
+          email: payload.form.email,
+          phone: payload.form.phone || undefined,
+          currentCompany: payload.form.currentCompany || undefined,
+          currentLocation: payload.form.currentLocation || undefined,
+          experience: payload.form.experience || undefined,
+          currentCtc: payload.form.currentCtc || undefined,
+          expectedCtc: payload.form.expectedCtc || undefined,
+          noticePeriod: payload.form.noticePeriod || undefined,
+          skills: parseSkillsInput(payload.form.skills),
+          remarks: payload.form.remarks?.trim() || undefined,
+          jobId: payload.jobId,
+          partnerId: payload.partnerId,
+          status: "submitted",
+        }),
+      );
 
-    if (payload.resumeUpload) {
-      candidate = await attachResumeToCandidate(
-        candidate.id,
-        payload.resumeUpload,
+      const created = await getCandidateById(submission.candidateId);
+      if (!created) {
+        throw new Error("Candidate was created but could not be reloaded");
+      }
+      candidate = created;
+
+      if (payload.resumeUpload) {
+        try {
+          candidate = await attachResumeToCandidate(
+            candidate.id,
+            payload.resumeUpload,
+          );
+        } catch (error) {
+          console.error(
+            "[submit] Resume upload failed after create (submission kept)",
+            {
+              candidateId: candidate.id,
+              error,
+            },
+          );
+          throw new Error(
+            error instanceof Error
+              ? `Candidate saved, but resume upload failed: ${error.message}`
+              : "Candidate saved, but resume upload failed",
+          );
+        }
+      }
+    } else {
+      candidate = await createCandidate(
+        {
+          fullName: payload.form.fullName,
+          email: payload.form.email,
+          phone: payload.form.phone,
+          currentCompany: payload.form.currentCompany || undefined,
+          currentLocation: payload.form.currentLocation || undefined,
+          experience: payload.form.experience || undefined,
+          currentCtc: payload.form.currentCtc || undefined,
+          expectedCtc: payload.form.expectedCtc || undefined,
+          noticePeriod: payload.form.noticePeriod || undefined,
+          skills: parseSkillsInput(payload.form.skills),
+          remarks: payload.form.remarks?.trim() || undefined,
+        },
+        { skipDuplicateCheck: duplicates.length > 0 },
+      );
+
+      if (payload.resumeUpload) {
+        candidate = await attachResumeToCandidate(
+          candidate.id,
+          payload.resumeUpload,
+        );
+      }
+
+      const existingForJob = await listSubmissions({
+        partnerId: payload.partnerId,
+        jobId: payload.jobId,
+        allocationId: payload.allocationId,
+      });
+      if (existingForJob.some((row) => row.candidateId === candidate.id)) {
+        throw new Error(
+          "This candidate was already submitted for this allocation",
+        );
+      }
+
+      submission = await insertSubmission(
+        toAirtableCreateFields({
+          candidateId: candidate.id,
+          jobId: payload.jobId,
+          allocationId: payload.allocationId,
+          partnerId: payload.partnerId,
+          status: "submitted",
+          remarks: payload.form.remarks?.trim() || undefined,
+        }),
       );
     }
   }
-
-  const existingForJob = await listSubmissions({
-    partnerId: payload.partnerId,
-    jobId: payload.jobId,
-    allocationId: payload.allocationId,
-  });
-  const alreadySubmitted = existingForJob.some(
-    (row) => row.candidateId === candidate.id,
-  );
-  if (alreadySubmitted) {
-    throw new Error("This candidate was already submitted for this allocation");
-  }
-
-  const submission = await insertSubmission(
-    toAirtableCreateFields({
-      candidateId: candidate.id,
-      jobId: payload.jobId,
-      allocationId: payload.allocationId,
-      partnerId: payload.partnerId,
-      status: "submitted",
-      remarks: payload.form.remarks?.trim() || undefined,
-    }),
-  );
 
   try {
     const { ensurePayoutForSubmission } = await import(
@@ -332,11 +449,20 @@ export async function submitCandidateForAllocation(
     console.error("Payout create skipped after submission", error);
   }
 
-  const nextCount = allocation.profilesSubmitted + 1;
-  await updateAllocation(allocation.id, {
-    profilesSubmitted: nextCount,
-    status: allocation.status === "assigned" ? "working" : allocation.status,
-  });
+  // job_partners mode has no Profiles Submitted column — counts derive from
+  // listSubmissions. Only persist counters when a real Allocations table exists.
+  if (getAllocationsMode() !== "job_partners") {
+    const nextCount = allocation.profilesSubmitted + 1;
+    try {
+      await updateAllocation(allocation.id, {
+        profilesSubmitted: nextCount,
+        status:
+          allocation.status === "assigned" ? "working" : allocation.status,
+      });
+    } catch (error) {
+      console.error("[submit] Allocation counter update failed", error);
+    }
+  }
 
   try {
     const { notifyCandidateSubmitted } = await import(
@@ -353,9 +479,11 @@ export async function submitCandidateForAllocation(
     console.error("Failed to publish candidate submission notification", error);
   }
 
+  const [enriched] = await withEnrichment([submission]);
+
   return {
     ok: true,
-    submission,
+    submission: enriched ?? submission,
     candidate,
     reusedCandidate,
   };

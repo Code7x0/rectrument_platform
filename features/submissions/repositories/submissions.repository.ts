@@ -55,6 +55,31 @@ export async function findSubmissions(
   return mapped;
 }
 
+/**
+ * List with optional sort. If Airtable rejects the sort field, retry unsorted
+ * and sort in memory so partner/admin lists never hard-fail.
+ */
+export async function findSubmissionsSafe(
+  options: AirtableListOptions = {},
+): Promise<Submission[]> {
+  try {
+    return await findSubmissions(options);
+  } catch (error) {
+    if (!options.sort?.length) {
+      throw error;
+    }
+    console.error(
+      "[submissions] Sorted list failed; retrying without Airtable sort",
+      error,
+    );
+    const { sort: _sort, ...rest } = options;
+    const rows = await findSubmissions(rest);
+    return rows.sort((a, b) =>
+      (b.submissionDate ?? "").localeCompare(a.submissionDate ?? ""),
+    );
+  }
+}
+
 export async function findSubmissionById(
   recordId: string,
 ): Promise<Submission | null> {

@@ -27,6 +27,7 @@ function revalidateSubmissionPaths() {
   revalidatePath("/partner/jobs");
   revalidatePath("/admin/candidates");
   revalidatePath("/admin");
+  revalidatePath("/super-admin");
   revalidatePath("/account-manager/candidates");
   revalidatePath("/account-manager");
   revalidatePath("/admin/allocations");
@@ -173,6 +174,14 @@ export async function submitCandidateAction(
       },
     };
   } catch (error) {
+    console.error("[submitCandidateAction] failed", {
+      message: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : undefined,
+      cause:
+        error && typeof error === "object" && "cause" in error
+          ? error.cause
+          : undefined,
+    });
     return {
       success: false,
       message:
