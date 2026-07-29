@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +65,7 @@ export function ReviewQueuePageClient({
   description,
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
+  const [rows, setRows] = useState(initialSubmissions);
   const [selected, setSelected] = useState<Submission | null>(null);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -73,6 +74,10 @@ export function ReviewQueuePageClient({
     null,
   );
   const [transitioning, setTransitioning] = useState(false);
+
+  useEffect(() => {
+    setRows(initialSubmissions);
+  }, [initialSubmissions]);
 
   async function openReview(row: Submission) {
     setSelected(row);
@@ -98,18 +103,23 @@ export function ReviewQueuePageClient({
       return;
     }
 
+    const nextStatus = pendingStatus;
+    const targetId = selected.id;
     setTransitioning(true);
     try {
-      const result = await transitionSubmissionAction(
-        selected.id,
-        pendingStatus,
-      );
+      const result = await transitionSubmissionAction(targetId, nextStatus);
       if (!result.success) {
         toast.error(result.message);
         return;
       }
 
-      toast.success(`Moved to ${SUBMISSION_STATUS_LABELS[pendingStatus]}`);
+      toast.success(`Moved to ${SUBMISSION_STATUS_LABELS[nextStatus]}`);
+      // Optimistic local update — avoid full-page Airtable reload.
+      setRows((current) =>
+        current.map((row) =>
+          row.id === targetId ? { ...row, status: nextStatus } : row,
+        ),
+      );
       setPendingStatus(null);
       setSelected(null);
       setCandidate(null);
@@ -214,7 +224,7 @@ export function ReviewQueuePageClient({
 
       <DataTable
         columns={columns}
-        data={initialSubmissions}
+        data={rows}
         getRowId={(row) => row.id}
         emptyTitle={emptyTitle}
         emptyDescription={emptyDescription}

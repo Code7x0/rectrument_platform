@@ -74,6 +74,18 @@ export async function transitionSubmissionStatus(
     console.error("Failed to publish submission notification", error);
   }
 
+  // Joined → Eligible for Payout (TalentSocio business milestone).
+  if (input.toStatus === "joined") {
+    try {
+      const { markPayoutEligibleOnJoined } = await import(
+        "@/features/payouts/services/payouts.service"
+      );
+      await markPayoutEligibleOnJoined(updated, input.actorUserId);
+    } catch (error) {
+      console.error("Failed to mark payout eligible on joined", error);
+    }
+  }
+
   return updated;
 }
 

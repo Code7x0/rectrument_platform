@@ -8,6 +8,7 @@ export {
   InvalidPayoutTransitionError,
   listPayouts,
   listPayoutsForPartner,
+  markPayoutEligibleOnJoined,
   summarizePartnerEarnings,
   updatePayoutNotes,
   updatePayoutStatus,

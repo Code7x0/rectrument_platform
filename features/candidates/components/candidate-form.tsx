@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   candidateFormSchema,
   type CandidateFormValues,
@@ -35,22 +34,25 @@ export function CandidateForm({
   submitLabel = "Submit Candidate",
 }: CandidateFormProps) {
   const resumeRef = useRef<HTMLInputElement>(null);
+  const [resumeName, setResumeName] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<CandidateFormValues>({
     resolver: zodResolver(candidateFormSchema) as Resolver<CandidateFormValues>,
+    mode: "onBlur",
     defaultValues: {
       fullName: "",
       email: "",
       phone: "",
-      currentCompany: "",
       currentLocation: "",
-      experience: "",
       currentCtc: "",
       expectedCtc: "",
       noticePeriod: "",
+      linkedIn: "",
+      currentCompany: "",
+      experience: "",
       skills: "",
       remarks: "",
       ...defaultValues,
@@ -71,24 +73,40 @@ export function CandidateForm({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="fullName">Full Name</Label>
-          <Input id="fullName" {...register("fullName")} />
+          <Label htmlFor="fullName">Candidate Name *</Label>
+          <Input
+            id="fullName"
+            autoComplete="name"
+            disabled={submitting}
+            {...register("fullName")}
+          />
           {errors.fullName ? (
             <p className="text-xs text-destructive">{errors.fullName.message}</p>
           ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" {...register("email")} />
+          <Label htmlFor="email">Email *</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            disabled={submitting}
+            {...register("email")}
+          />
           {errors.email ? (
             <p className="text-xs text-destructive">{errors.email.message}</p>
           ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" {...register("phone")} />
+          <Label htmlFor="phone">Phone Number *</Label>
+          <Input
+            id="phone"
+            autoComplete="tel"
+            disabled={submitting}
+            {...register("phone")}
+          />
           {errors.phone ? (
             <p className="text-xs text-destructive">{errors.phone.message}</p>
           ) : null}
@@ -96,58 +114,107 @@ export function CandidateForm({
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="candidate-resume-input">
-            Resume{resumeRequired ? "" : " (optional)"}
+            Resume{resumeRequired ? " *" : " (optional)"}
           </Label>
           <Input
             id="candidate-resume-input"
             ref={resumeRef}
             type="file"
+            disabled={submitting}
             accept=".pdf,.doc,.docx,application/pdf"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              if (file && file.size > 8 * 1024 * 1024) {
+                toast.error("Resume must be 8MB or smaller");
+                event.target.value = "";
+                setResumeName(null);
+                return;
+              }
+              const name = (file?.name ?? "").toLowerCase();
+              if (
+                file &&
+                !(
+                  name.endsWith(".pdf") ||
+                  name.endsWith(".doc") ||
+                  name.endsWith(".docx")
+                )
+              ) {
+                toast.error("Resume must be a PDF or Word file");
+                event.target.value = "";
+                setResumeName(null);
+                return;
+              }
+              setResumeName(file?.name ?? null);
+            }}
           />
+          {resumeName ? (
+            <p className="text-xs text-[#64748B]">Selected: {resumeName}</p>
+          ) : (
+            <p className="text-xs text-[#64748B]">PDF or Word · max 8MB</p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currentCompany">Current Company</Label>
-          <Input id="currentCompany" {...register("currentCompany")} />
+          <Label htmlFor="currentLocation">Current Location *</Label>
+          <Input
+            id="currentLocation"
+            disabled={submitting}
+            {...register("currentLocation")}
+          />
+          {errors.currentLocation ? (
+            <p className="text-xs text-destructive">
+              {errors.currentLocation.message}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currentLocation">Current Location</Label>
-          <Input id="currentLocation" {...register("currentLocation")} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="experience">Experience</Label>
-          <Input id="experience" {...register("experience")} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="noticePeriod">Notice Period</Label>
-          <Input id="noticePeriod" {...register("noticePeriod")} />
+          <Label htmlFor="noticePeriod">Notice Period *</Label>
+          <Input
+            id="noticePeriod"
+            placeholder="e.g. 30 days / Immediate"
+            disabled={submitting}
+            {...register("noticePeriod")}
+          />
+          {errors.noticePeriod ? (
+            <p className="text-xs text-destructive">
+              {errors.noticePeriod.message}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="currentCtc">Current CTC</Label>
-          <Input id="currentCtc" {...register("currentCtc")} />
+          <Input
+            id="currentCtc"
+            placeholder="Optional"
+            disabled={submitting}
+            {...register("currentCtc")}
+          />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="expectedCtc">Expected CTC</Label>
-          <Input id="expectedCtc" {...register("expectedCtc")} />
-        </div>
-
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="skills">Skills</Label>
           <Input
-            id="skills"
-            placeholder="Comma-separated"
-            {...register("skills")}
+            id="expectedCtc"
+            placeholder="Optional"
+            disabled={submitting}
+            {...register("expectedCtc")}
           />
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="remarks">Remarks</Label>
-          <Textarea id="remarks" rows={3} {...register("remarks")} />
+          <Label htmlFor="linkedIn">LinkedIn Profile (optional)</Label>
+          <Input
+            id="linkedIn"
+            type="url"
+            placeholder="https://linkedin.com/in/…"
+            disabled={submitting}
+            {...register("linkedIn")}
+          />
+          {errors.linkedIn ? (
+            <p className="text-xs text-destructive">{errors.linkedIn.message}</p>
+          ) : null}
         </div>
       </div>
 
@@ -163,7 +230,7 @@ export function CandidateForm({
           </Button>
         ) : null}
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Submitting…" : submitLabel}
+          {submitting ? "Uploading & submitting…" : submitLabel}
         </Button>
       </div>
     </form>

@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import {
   getAllocationById,
   updateAllocation,
@@ -43,6 +45,15 @@ import {
 } from "@/lib/airtable/fields";
 import { listPartnerOptions } from "@/services/lookups";
 
+/** Request-scoped: one full Candidates/Submissions scan per RSC request. */
+const loadAllSubmissionsCached = cache(async () =>
+  findSubmissionsSafe({
+    sort: [
+      { field: SUBMISSIONS_TABLE_FIELDS.submissionDate, direction: "desc" },
+    ],
+  }),
+);
+
 async function withEnrichment(
   submissions: Submission[],
   includePartnerIdentity = false,
@@ -51,11 +62,16 @@ async function withEnrichment(
     return submissions;
   }
 
+  const candidatesMode = getSubmissionsMode() === "candidates";
   const uniqueCandidateIds = [...new Set(submissions.map((s) => s.candidateId))];
   const uniqueJobIds = [...new Set(submissions.map((s) => s.jobId))];
 
+  // Candidates mode already stores the person name on the submission row —
+  // skip N+1 candidate finds (major cost on large tables).
   const [candidates, jobs, partners] = await Promise.all([
-    Promise.all(uniqueCandidateIds.map((id) => getCandidateById(id))),
+    candidatesMode
+      ? Promise.resolve([] as Array<Candidate | null>)
+      : Promise.all(uniqueCandidateIds.map((id) => getCandidateById(id))),
     Promise.all(uniqueJobIds.map((id) => getJobById(id))),
     listPartnerOptions(includePartnerIdentity ? "identity" : "operational"),
   ]);
@@ -123,7 +139,11 @@ export type SubmitCandidateResult =
 export async function listSubmissions(
   filters: SubmissionListFilters = {},
 ): Promise<Submission[]> {
-  const { includePartnerIdentity = false, ...listFilters } = filters;
+  const {
+    includePartnerIdentity = false,
+    enrich = true,
+    ...listFilters
+  } = filters;
   const candidatesMode = getSubmissionsMode() === "candidates";
   const scopeInMemory =
     candidatesMode &&
@@ -139,12 +159,19 @@ export async function listSubmissions(
         allocationId: listFilters.allocationId,
       });
 
-  let rows = await findSubmissionsSafe({
-    ...(formula ? { filterByFormula: formula } : {}),
-    sort: [
-      { field: SUBMISSIONS_TABLE_FIELDS.submissionDate, direction: "desc" },
-    ],
-  });
+  // Prefer request-scoped full scan when filtering in memory or listing all.
+  let rows =
+    !formula
+      ? await loadAllSubmissionsCached()
+      : await findSubmissionsSafe({
+          filterByFormula: formula,
+          sort: [
+            {
+              field: SUBMISSIONS_TABLE_FIELDS.submissionDate,
+              direction: "desc",
+            },
+          ],
+        });
 
   if (listFilters.partnerId) {
     rows = rows.filter((row) => row.partnerId === listFilters.partnerId);
@@ -154,6 +181,10 @@ export async function listSubmissions(
   }
   if (listFilters.allocationId) {
     rows = rows.filter((row) => row.allocationId === listFilters.allocationId);
+  }
+
+  if (!enrich) {
+    return rows;
   }
 
   return withEnrichment(rows, includePartnerIdentity);
@@ -355,6 +386,7 @@ export async function submitCandidateForAllocation(
           currentCtc: payload.form.currentCtc || undefined,
           expectedCtc: payload.form.expectedCtc || undefined,
           noticePeriod: payload.form.noticePeriod || undefined,
+          linkedIn: payload.form.linkedIn?.trim() || undefined,
           skills: parseSkillsInput(payload.form.skills),
           remarks: payload.form.remarks?.trim() || undefined,
           jobId: payload.jobId,
@@ -402,6 +434,7 @@ export async function submitCandidateForAllocation(
           currentCtc: payload.form.currentCtc || undefined,
           expectedCtc: payload.form.expectedCtc || undefined,
           noticePeriod: payload.form.noticePeriod || undefined,
+          linkedIn: payload.form.linkedIn?.trim() || undefined,
           skills: parseSkillsInput(payload.form.skills),
           remarks: payload.form.remarks?.trim() || undefined,
         },

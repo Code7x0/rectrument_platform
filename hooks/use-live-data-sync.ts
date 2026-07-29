@@ -1,37 +1,43 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-const DEFAULT_INTERVAL_MS = 15_000;
+const DEFAULT_INTERVAL_MS = 60_000;
+const MIN_REFRESH_GAP_MS = 25_000;
 
 /**
  * Soft real-time sync for Airtable-backed RSC pages.
  *
- * Airtable has no webhook in this stack. Polling + focus/visibility refresh
- * keeps dashboards, candidate lists, and counts aligned with the live base
- * without requiring a manual browser refresh — including edits made directly
- * in Airtable.
+ * Throttled polling + focus refresh — avoids the previous 15s full-app
+ * refresh storm that made navigation feel stuck waiting on Airtable.
  */
 export function useLiveDataSync(intervalMs = DEFAULT_INTERVAL_MS): void {
   const router = useRouter();
+  const lastRefreshAt = useRef(0);
 
   useEffect(() => {
-    function refresh() {
-      if (document.visibilityState === "visible") {
-        router.refresh();
+    function refresh(force = false) {
+      if (document.visibilityState !== "visible") {
+        return;
       }
+      const now = Date.now();
+      if (!force && now - lastRefreshAt.current < MIN_REFRESH_GAP_MS) {
+        return;
+      }
+      lastRefreshAt.current = now;
+      router.refresh();
     }
 
-    const timer = window.setInterval(refresh, intervalMs);
+    const timer = window.setInterval(() => refresh(false), intervalMs);
 
     function onFocus() {
-      refresh();
+      refresh(false);
     }
 
     function onVisibility() {
       if (document.visibilityState === "visible") {
-        refresh();
+        refresh(false);
       }
     }
 

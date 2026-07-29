@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import {
   DOMAIN_EMPLOYMENT_TYPE_TO_AIRTABLE,
   DOMAIN_JOB_PRIORITY_TO_AIRTABLE,
@@ -162,7 +164,9 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
   return applySearchFilter(enriched, search);
 }
 
-export async function getJobById(jobId: string): Promise<Job | null> {
+export const getJobById = cache(async function getJobById(
+  jobId: string,
+): Promise<Job | null> {
   const job = await findJobById(jobId);
   if (!job) {
     return null;
@@ -170,7 +174,7 @@ export async function getJobById(jobId: string): Promise<Job | null> {
 
   const [enriched] = await withEnrichment([job]);
   return enriched ?? null;
-}
+});
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
   const { jobCode } = await allocateNextJobCodeForClient(input.clientId);

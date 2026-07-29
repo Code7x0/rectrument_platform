@@ -81,17 +81,7 @@ export interface CreateNotificationInput {
   activityId?: string | null;
   /** When true, also attempt email if preferences allow. */
   sendEmail?: boolean;
-  emailTemplate?:
-    | "approval"
-    | "rejection"
-    | "invitation"
-    | "welcome"
-    | "account_activated"
-    | "password_setup"
-    | "candidate_joined"
-    | "payout_approved"
-    | "partner_registration_submitted"
-    | "job_assigned";
+  emailTemplate?: import("@/services/email/types").EmailTemplateId;
   emailData?: Record<string, string>;
 }
 

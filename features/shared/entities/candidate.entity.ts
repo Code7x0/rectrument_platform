@@ -16,6 +16,7 @@ export interface CandidateEntity {
   currentCtc: string | null;
   expectedCtc: string | null;
   noticePeriod: string | null;
+  linkedIn: string | null;
   skills: string[];
   remarks: string | null;
   createdAt: string | null;
@@ -31,6 +32,7 @@ export interface CreateCandidateInput {
   currentCtc?: string;
   expectedCtc?: string;
   noticePeriod?: string;
+  linkedIn?: string;
   skills?: string[];
   remarks?: string;
 }

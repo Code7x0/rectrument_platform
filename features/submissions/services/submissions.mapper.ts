@@ -158,6 +158,7 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
   currentCtc?: string;
   expectedCtc?: string;
   noticePeriod?: string;
+  linkedIn?: string;
   skills?: string[];
   remarks?: string;
   jobId: string;
@@ -190,6 +191,12 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
   }
   if (input.noticePeriod) {
     fields[SUBMISSIONS_TABLE_FIELDS.noticePeriod] = input.noticePeriod;
+  }
+  if (input.linkedIn) {
+    const url = input.linkedIn.startsWith("http")
+      ? input.linkedIn
+      : `https://${input.linkedIn}`;
+    fields[SUBMISSIONS_TABLE_FIELDS.linkedIn] = url;
   }
   if (input.remarks) {
     fields[SUBMISSIONS_TABLE_FIELDS.remarks] = input.remarks;

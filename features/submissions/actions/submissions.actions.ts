@@ -25,13 +25,14 @@ function revalidateSubmissionPaths() {
   revalidatePath("/partner");
   revalidatePath("/partner/candidates");
   revalidatePath("/partner/jobs");
+  revalidatePath("/partner/payments");
   revalidatePath("/admin/candidates");
   revalidatePath("/admin");
+  revalidatePath("/admin/payouts");
   revalidatePath("/super-admin");
   revalidatePath("/account-manager/candidates");
   revalidatePath("/account-manager");
-  revalidatePath("/admin/allocations");
-  revalidatePath("/account-manager/allocations");
+  revalidatePath("/account-manager/payouts");
 }
 
 async function parseResumeFromFormData(
@@ -44,6 +45,19 @@ async function parseResumeFromFormData(
 
   if (file.size > 8 * 1024 * 1024) {
     throw new Error("Resume must be 8MB or smaller");
+  }
+
+  const name = (file.name || "resume.pdf").toLowerCase();
+  const allowedExt = [".pdf", ".doc", ".docx"];
+  const hasAllowedExt = allowedExt.some((ext) => name.endsWith(ext));
+  const allowedMime = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/octet-stream",
+  ]);
+  if (!hasAllowedExt || (file.type && !allowedMime.has(file.type))) {
+    throw new Error("Resume must be a PDF or Word document (.pdf, .doc, .docx)");
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -116,6 +130,7 @@ export async function submitCandidateAction(
       currentCtc: String(formData.get("currentCtc") ?? ""),
       expectedCtc: String(formData.get("expectedCtc") ?? ""),
       noticePeriod: String(formData.get("noticePeriod") ?? ""),
+      linkedIn: String(formData.get("linkedIn") ?? ""),
       skills: String(formData.get("skills") ?? ""),
       remarks: String(formData.get("remarks") ?? ""),
     };

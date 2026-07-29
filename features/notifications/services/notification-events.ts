@@ -244,6 +244,41 @@ export async function notifyJobAssigned(input: {
   });
 }
 
+export async function notifyJobUnassigned(input: {
+  partnerId: string;
+  jobTitle: string;
+  jobId: string;
+  allocationId: string;
+}): Promise<void> {
+  const partnerUserId = await findPartnerUserId(input.partnerId);
+  if (!partnerUserId) {
+    return;
+  }
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    process.env.APP_URL?.replace(/\/$/, "") ||
+    "http://localhost:3000";
+  const jobsUrl = `${baseUrl}/partner/jobs`;
+
+  await publishNotification({
+    recipientUserId: partnerUserId,
+    title: "Job unassigned",
+    description: `You have been unassigned from ${input.jobTitle}.`,
+    type: "job",
+    category: "jobs",
+    priority: "high",
+    entityType: "allocation",
+    entityId: input.allocationId,
+    actionUrl: "/partner/jobs",
+    sendEmail: true,
+    emailTemplate: "job_unassigned",
+    emailData: {
+      jobTitle: input.jobTitle,
+      jobsUrl,
+    },
+  });
+}
+
 export async function notifyAllocationCreated(input: {
   accountManagerId: string | null;
   partnerCode: string;

@@ -276,6 +276,42 @@ export async function ensurePayoutForSubmission(
   }
 }
 
+/**
+ * Business milestone: Joined → Eligible for Payout.
+ * Idempotent — safe to call from the workflow transition.
+ */
+export async function markPayoutEligibleOnJoined(
+  submission: Submission,
+  actorUserId: string,
+): Promise<Payout | null> {
+  if (submission.status !== "joined") {
+    return null;
+  }
+
+  try {
+    let payout = await ensurePayoutForSubmission(submission);
+    if (!payout) {
+      return null;
+    }
+
+    if (payout.payoutStatus !== "not_eligible") {
+      return payout;
+    }
+
+    return await updatePayoutStatus({
+      payoutId: payout.id,
+      toStatus: "eligible",
+      actorUserId,
+      role: "admin",
+      eligibleDate: new Date().toISOString().slice(0, 10),
+      notes: "Auto-eligible: candidate marked Joined",
+    });
+  } catch (error) {
+    console.error("markPayoutEligibleOnJoined skipped", error);
+    return null;
+  }
+}
+
 export async function createPayout(input: CreatePayoutInput): Promise<Payout> {
   const existing = await getPayoutBySubmissionId(input.submissionId);
   if (existing) {
@@ -311,6 +347,13 @@ async function validatePayoutBusinessRules(
 
   if (submission.status === "rejected" && toStatus !== "not_eligible") {
     throw new Error("Rejected submissions cannot become payout eligible");
+  }
+
+  // Business rule: Joined → Eligible for Payout (docs/10_BUSINESS_RULES_UPDATE.md).
+  if (toStatus === "eligible" && submission.status !== "joined") {
+    throw new Error(
+      "Payout becomes eligible only after the candidate has Joined",
+    );
   }
 
   if (requiresAmount(toStatus)) {

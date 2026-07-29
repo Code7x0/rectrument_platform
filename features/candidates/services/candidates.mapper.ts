@@ -68,6 +68,7 @@ export function mapCandidateRecord(record: {
     currentCtc: readCurrentCtc(fields),
     expectedCtc: asString(fields[CANDIDATES_TABLE_FIELDS.expectedCtc]),
     noticePeriod: asString(fields[CANDIDATES_TABLE_FIELDS.noticePeriod]),
+    linkedIn: asString(fields[CANDIDATES_TABLE_FIELDS.linkedIn]),
     skills: asSkills(fields[CANDIDATES_TABLE_FIELDS.skills]),
     remarks:
       asString(fields[CANDIDATES_TABLE_FIELDS.remarks]) ??
@@ -104,6 +105,9 @@ export function toAirtableCreateFields(
   }
   if (input.noticePeriod) {
     fields[CANDIDATES_TABLE_FIELDS.noticePeriod] = input.noticePeriod;
+  }
+  if (input.linkedIn) {
+    fields[CANDIDATES_TABLE_FIELDS.linkedIn] = input.linkedIn;
   }
   if (input.skills?.length) {
     fields[CANDIDATES_TABLE_FIELDS.skills] = input.skills.join(", ");

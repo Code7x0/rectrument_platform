@@ -10,7 +10,6 @@ import {
 } from "@/features/payouts/services";
 import {
   listPartnerSubmissions,
-  listReviewQueueSubmissions,
   listSubmissions,
 } from "@/features/submissions/services";
 import { listPartnerWorkTasks } from "@/features/tasks/services";
@@ -19,7 +18,10 @@ import { listUsers } from "@/services/users/users.service";
 import { getUsersSummary } from "@/features/users/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { JOB_STATUS_LABELS } from "@/features/jobs/types";
-import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import {
+  REVIEWABLE_SUBMISSION_STATUSES,
+  SUBMISSION_STATUS_LABELS,
+} from "@/features/shared/entities";
 import { PAYOUT_STATUS_LABELS } from "@/features/payouts/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { mapActivitiesToFeed } from "@/features/dashboard/services/activity-feed";
@@ -294,7 +296,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     allJobs,
     partners,
     allDocuments,
-    reviewQueue,
     payouts,
     submissions,
     activity,
@@ -308,7 +309,6 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       [],
     ),
     settledSource("documents", listDocuments(), []),
-    settledSource("reviewQueue", listReviewQueueSubmissions(), []),
     settledSource("payouts", listPayouts({ includePartnerIdentity: true }), []),
     settledSource(
       "submissions",
@@ -331,6 +331,11 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       },
     ),
   ]);
+
+  // Same source of truth as Candidates page — derive review queue in memory.
+  const reviewQueue = submissions.filter((row) =>
+    REVIEWABLE_SUBMISSION_STATUSES.includes(row.status),
+  );
 
   const jobs = allJobs.filter((job) => job.status === "open");
   const documents = allDocuments.filter(
@@ -502,31 +507,31 @@ export async function getAccountManagerDashboardData(
   });
   const jobIds = jobs.map((j) => j.id);
 
-  const [allocations, reviewQueue, allSubmissions, activity] =
-    await Promise.all([
-      listAllocations({
-        includePartnerIdentity: false,
-        jobIds,
+  const [allocations, allSubmissions, activity] = await Promise.all([
+    listAllocations({
+      includePartnerIdentity: false,
+      jobIds,
+    }),
+    jobIds.length === 0
+      ? Promise.resolve([])
+      : listSubmissions().then((rows) =>
+          rows.filter((s) => jobIds.includes(s.jobId)),
+        ),
+    settledSource(
+      "activities",
+      listRecentActivities(10, {
+        entityTypes: ["submission", "payout"],
       }),
-      listReviewQueueSubmissions({ jobIds }),
-      jobIds.length === 0
-        ? Promise.resolve([])
-        : listSubmissions().then((rows) =>
-            rows.filter((s) => jobIds.includes(s.jobId)),
-          ),
-      settledSource(
-        "activities",
-        listRecentActivities(10, {
-          entityTypes: ["submission", "payout"],
-        }),
-        [],
-      ),
-    ]);
+      [],
+    ),
+  ]);
 
   const assignedJobs = jobs.filter((j) => j.status === "open");
   const myAllocations = allocations;
   const mySubmissions = allSubmissions;
-  const myReviews = reviewQueue;
+  const myReviews = mySubmissions.filter((s) =>
+    REVIEWABLE_SUBMISSION_STATUSES.includes(s.status),
+  );
 
   const interviews = mySubmissions.filter((s) => s.status === "interview");
   const offers = mySubmissions.filter((s) => s.status === "offer");

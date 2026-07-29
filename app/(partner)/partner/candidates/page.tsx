@@ -3,7 +3,6 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { getPayoutMapForPartner } from "@/features/payouts/services";
-import { ensurePayoutForSubmission } from "@/features/payouts/services/payouts.service";
 import { PartnerSubmissionsPageClient } from "@/features/submissions/components";
 import { listPartnerSubmissions } from "@/features/submissions/services";
 import type { Payout } from "@/features/payouts/types";
@@ -29,13 +28,11 @@ export default async function PartnerCandidatesPage() {
     redirect("/unauthorized");
   }
 
-  const submissions = await listPartnerSubmissions(session.partnerId);
+  const [submissions, payoutMap] = await Promise.all([
+    listPartnerSubmissions(session.partnerId),
+    getPayoutMapForPartner(session.partnerId),
+  ]);
 
-  await Promise.all(
-    submissions.map((submission) => ensurePayoutForSubmission(submission)),
-  );
-
-  const payoutMap = await getPayoutMapForPartner(session.partnerId);
   const payoutsBySubmission: Record<string, Payout> = Object.fromEntries(
     payoutMap.entries(),
   );

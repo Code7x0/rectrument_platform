@@ -16,4 +16,6 @@ export interface SubmissionListFilters {
   search?: string;
   /** Admin/SA only — AM/partner paths must leave this false. */
   includePartnerIdentity?: boolean;
+  /** When false, skip job/partner name enrichment (counts / dashboards). */
+  enrich?: boolean;
 }

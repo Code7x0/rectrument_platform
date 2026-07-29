@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { CANDIDATES_TABLE_FIELDS } from "@/lib/airtable/fields";
 import {
   findCandidateById,
@@ -15,11 +17,11 @@ import type {
 } from "@/features/candidates/types";
 import { getUploadService, type UploadedFile } from "@/services/uploads";
 
-export async function getCandidateById(
+export const getCandidateById = cache(async function getCandidateById(
   candidateId: string,
 ): Promise<Candidate | null> {
   return findCandidateById(candidateId);
-}
+});
 
 /**
  * Duplicate detection by email and/or phone.

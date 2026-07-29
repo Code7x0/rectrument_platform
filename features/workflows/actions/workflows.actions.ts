@@ -22,10 +22,14 @@ export type ActionResult<T = unknown> =
 function revalidateReviewPaths() {
   revalidatePath("/account-manager/candidates");
   revalidatePath("/account-manager");
+  revalidatePath("/account-manager/payouts");
   revalidatePath("/admin/candidates");
   revalidatePath("/admin");
+  revalidatePath("/admin/payouts");
   revalidatePath("/partner/candidates");
   revalidatePath("/partner");
+  revalidatePath("/partner/payments");
+  revalidatePath("/super-admin");
 }
 
 /**

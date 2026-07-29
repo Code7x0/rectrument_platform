@@ -12,6 +12,7 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
   partner_registration_submitted:
     "New Partner Registration – Approval Required",
   job_assigned: "New Job Assigned – TalentSocio",
+  job_unassigned: "Job Unassignment Notice – TalentSocio",
 };
 
 /**
@@ -131,6 +132,19 @@ export function renderBody(
         "",
         "Sign in to the Recruiting Partner Platform to read the job description, download attachments, and submit candidates.",
         data.jobsUrl ? `Open your jobs: ${data.jobsUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "job_unassigned":
+      return [
+        `Hi ${data.name ?? data.partnerName ?? "there"},`,
+        "",
+        `You have been unassigned from ${data.jobTitle ?? "a job"}.`,
+        "",
+        "This role will no longer appear on your Assigned Jobs list. If you believe this was a mistake, contact your Account Manager.",
+        data.jobsUrl ? `View remaining jobs: ${data.jobsUrl}` : "",
         "",
         "TalentSocio Team",
       ]

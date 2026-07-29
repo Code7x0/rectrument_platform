@@ -107,7 +107,7 @@ async function withEnrichment(
     loadPartnerMetaMap(allocations.map((row) => row.partnerId)),
     getAllocationsMode() === "job_partners"
       ? import("@/features/submissions/services").then(async ({ listSubmissions }) => {
-          const rows = await listSubmissions();
+          const rows = await listSubmissions({ enrich: false });
           const counts = new Map<string, number>();
           for (const row of rows) {
             const key = `${row.jobId}::${row.partnerId}`;
@@ -347,7 +347,10 @@ export async function allocatePartner(
     partnerId: input.partnerId,
     includeArchived: false,
   });
-  if (existing.length > 0) {
+  const alreadyActive = existing.some((row) =>
+    ACTIVE_ALLOCATION_STATUSES.includes(row.status),
+  );
+  if (alreadyActive) {
     throw new Error(
       "This talent partner is already allocated to the job",
     );
@@ -407,11 +410,32 @@ export async function updateAllocation(
   return allocation;
 }
 
-/** Soft-delete: Status = Archived. */
+/** Soft-delete: Status = Archived (or remove Jobs.Partners link in job_partners mode). */
 export async function archiveAllocation(
   allocationId: string,
 ): Promise<Allocation> {
-  return updateAllocation(allocationId, { status: "archived" });
+  const existing = await getAllocationById(allocationId, {
+    includePartnerIdentity: false,
+  });
+  const archived = await updateAllocation(allocationId, { status: "archived" });
+
+  if (existing && existing.status !== "archived") {
+    try {
+      const { notifyJobUnassigned } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      await notifyJobUnassigned({
+        partnerId: existing.partnerId,
+        jobTitle: existing.jobTitle ?? "Job",
+        jobId: existing.jobId,
+        allocationId: existing.id,
+      });
+    } catch (error) {
+      console.error("Failed to notify partner of job unassignment", error);
+    }
+  }
+
+  return archived;
 }
 
 /**

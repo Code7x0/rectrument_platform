@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ export function SubmitCandidateDialog({
   onCompleted,
 }: SubmitCandidateDialogProps) {
   const router = useRouter();
+  const submittingLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [pendingValues, setPendingValues] =
     useState<CandidateFormValues | null>(null);
@@ -46,20 +47,27 @@ export function SubmitCandidateDialog({
     resumeFile: File | null,
     options?: { existingCandidateId?: string; reuseConfirmed?: boolean },
   ) {
+    if (submittingLock.current) {
+      return;
+    }
+    submittingLock.current = true;
+
     const formData = new FormData();
     formData.set("jobId", jobId);
     formData.set("allocationId", allocationId);
     formData.set("fullName", values.fullName);
     formData.set("email", values.email);
     formData.set("phone", values.phone);
-    formData.set("currentCompany", values.currentCompany ?? "");
     formData.set("currentLocation", values.currentLocation ?? "");
-    formData.set("experience", values.experience ?? "");
     formData.set("currentCtc", values.currentCtc ?? "");
     formData.set("expectedCtc", values.expectedCtc ?? "");
     formData.set("noticePeriod", values.noticePeriod ?? "");
-    formData.set("skills", values.skills ?? "");
-    formData.set("remarks", values.remarks ?? "");
+    formData.set("linkedIn", values.linkedIn ?? "");
+    // Unused on the simplified form — keep empty for Airtable compatibility.
+    formData.set("currentCompany", "");
+    formData.set("experience", "");
+    formData.set("skills", "");
+    formData.set("remarks", "");
 
     if (options?.existingCandidateId) {
       formData.set("existingCandidateId", options.existingCandidateId);
@@ -96,9 +104,10 @@ export function SubmitCandidateDialog({
       resetDuplicateState();
       onOpenChange(false);
       onCompleted?.();
+      // Navigate once — destination RSC load is fresh; avoid double refresh.
       router.push("/partner/candidates");
-      router.refresh();
     } finally {
+      submittingLock.current = false;
       setSubmitting(false);
     }
   }
@@ -120,20 +129,27 @@ export function SubmitCandidateDialog({
       <FormDialog
         open={open}
         onOpenChange={(next) => {
+          if (submitting) {
+            return;
+          }
           if (!next) {
             resetDuplicateState();
           }
           onOpenChange(next);
         }}
         title="Submit Candidate"
-        description={`Submit a profile for ${jobTitle}. We’ll check for duplicates by email and phone.`}
+        description={`Quick submit for ${jobTitle}. Required fields take under a minute.`}
         className="sm:max-w-xl"
       >
         <CandidateForm
           key={`${jobId}-${allocationId}-${open ? "open" : "closed"}`}
           submitting={submitting}
           resumeRequired
-          onCancel={() => onOpenChange(false)}
+          onCancel={() => {
+            if (!submitting) {
+              onOpenChange(false);
+            }
+          }}
           onSubmit={(values, file) => postSubmission(values, file)}
         />
       </FormDialog>

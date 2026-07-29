@@ -124,12 +124,20 @@ export async function assertPartnerOwnsJob(
     throw new ScopeDeniedError();
   }
   const { listAllocations } = await import("@/features/allocations/services");
+  const { ACTIVE_ALLOCATION_STATUSES } = await import(
+    "@/features/shared/entities"
+  );
   const rows = await listAllocations({
     partnerId,
     jobId,
-    includeArchived: true,
+    includeArchived: false,
   });
-  if (rows.length === 0) {
-    throw new ScopeDeniedError("Job is not allocated to you");
+  const active = rows.some((row) =>
+    ACTIVE_ALLOCATION_STATUSES.includes(row.status),
+  );
+  if (!active) {
+    throw new ScopeDeniedError(
+      "You are not assigned to this job (or the assignment was removed).",
+    );
   }
 }
