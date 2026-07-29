@@ -42,7 +42,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "manage_partners",
     "archive_partners",
     "view_allocations",
-    // Admin may unassign partners from jobs (oversight); allocation create stays AM/SA.
+    "manage_allocations",
     "archive_allocations",
     "view_submissions",
     "view_documents",

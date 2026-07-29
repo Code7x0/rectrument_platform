@@ -20,7 +20,7 @@ Account Manager
 - Airtable `Jobs` table (`AIRTABLE_JOBS_TABLE`) — includes **Assigned Account Manager**
 - Clients + Account Managers lookups
 - Auth: `view_jobs`, `manage_jobs` (Admin create/edit)
-- Allocations: AM-only via `manage_allocations`
+- Allocations: Admin / SA / AM via `manage_allocations`
 
 ## Rules
 

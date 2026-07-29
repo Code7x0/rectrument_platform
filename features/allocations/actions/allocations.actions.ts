@@ -43,14 +43,14 @@ function revalidateAllocationPaths() {
 
 /**
  * Create allocation from a Job.
- * Account Managers only — Admin never allocates talent partners.
+ * Super Admin, Admin, and Account Managers may allocate talent partners.
  */
 export async function allocatePartnerAction(
   raw: AllocatePartnerFormValues,
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_allocations");
-    await requireRole(["super_admin", "account_manager"]);
+    await requireRole(["super_admin", "admin", "account_manager"]);
 
     const parsed = allocatePartnerFormSchema.safeParse(raw);
 
@@ -67,8 +67,8 @@ export async function allocatePartnerAction(
       await assertAccountManagerOwnsJob(session, data.jobId);
     }
 
-    // Super Admin must not stamp their user id as the job's AM — keep the
-    // job/client Account Owner. Only AMs set accountManagerId from session.
+    // Account Managers stamp their scope id. Admin/SA keep the job/client
+    // Account Owner (do not overwrite with staff user id).
     const allocation = await allocatePartner({
       jobId: data.jobId,
       partnerId: data.partnerId,
@@ -106,7 +106,7 @@ export async function updateAllocationAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_allocations");
-    await requireRole(["super_admin", "account_manager"]);
+    await requireRole(["super_admin", "admin", "account_manager"]);
     if (session.role === "account_manager") {
       await assertAccountManagerOwnsAllocation(session, allocationId);
     }
