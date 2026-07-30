@@ -10,6 +10,7 @@ import { CandidateForm } from "@/features/candidates/components/candidate-form";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 import type { Candidate } from "@/features/candidates/types";
 import { submitCandidateAction } from "@/features/submissions/actions/submissions.actions";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface SubmitCandidateDialogProps {
   open: boolean;
@@ -104,6 +105,7 @@ export function SubmitCandidateDialog({
       resetDuplicateState();
       onOpenChange(false);
       onCompleted?.();
+      signalLiveDataChange();
       // Navigate once — destination RSC load is fresh; avoid double refresh.
       router.push("/partner/candidates");
     } finally {

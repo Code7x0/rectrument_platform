@@ -22,6 +22,10 @@ export interface SubmissionEntity {
   submissionCode: string | null;
   candidateId: string;
   candidateName: string | null;
+  /** Resume attachment URL when available (enriched / candidates mode). */
+  resumeUrl: string | null;
+  /** LinkedIn profile URL when available. */
+  linkedIn: string | null;
   jobId: string;
   jobTitle: string | null;
   /** Business Job ID (AB_001) — enriched. */

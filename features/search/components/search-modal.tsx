@@ -86,7 +86,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
     }
     const handle = window.setTimeout(() => {
       runSearch(query, filter);
-    }, 220);
+    }, 450);
     return () => window.clearTimeout(handle);
   }, [query, filter, open, runSearch]);
 

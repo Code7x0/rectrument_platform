@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { listAccountManagerOptions } from "@/services/lookups";
 import { listJobs } from "@/features/jobs/services";
 import { listSubmissions } from "@/features/submissions/services";
@@ -21,6 +23,13 @@ import type {
   UpdateClientInput,
 } from "@/features/clients/types";
 import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
+
+/** Request-scoped full clients scan. */
+const loadAllClientsCached = cache(async () =>
+  findClients({
+    sort: [{ field: CLIENTS_TABLE_FIELDS.name, direction: "asc" }],
+  }),
+);
 
 async function withAccountManagerNames(clients: Client[]): Promise<Client[]> {
   if (clients.length === 0) {
@@ -66,10 +75,12 @@ export async function listClients(
     accountManagerId: undefined,
   });
 
-  const rows = await findClients({
-    ...(formula ? { filterByFormula: formula } : {}),
-    sort: [{ field: CLIENTS_TABLE_FIELDS.name, direction: "asc" }],
-  });
+  const rows = formula
+    ? await findClients({
+        filterByFormula: formula,
+        sort: [{ field: CLIENTS_TABLE_FIELDS.name, direction: "asc" }],
+      })
+    : await loadAllClientsCached();
 
   let enriched = await withAccountManagerNames(rows);
   if (accountManagerId?.trim()) {
@@ -80,14 +91,16 @@ export async function listClients(
   return applySearch(enriched, search);
 }
 
-export async function getClientById(clientId: string): Promise<Client | null> {
+export const getClientById = cache(async function getClientById(
+  clientId: string,
+): Promise<Client | null> {
   const client = await findClientById(clientId);
   if (!client) {
     return null;
   }
   const [enriched] = await withAccountManagerNames([client]);
   return enriched ?? null;
-}
+});
 
 export async function createClient(input: CreateClientInput): Promise<Client> {
   const created = await insertClient(toAirtableCreateFields(input));
@@ -95,6 +108,20 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   if (!client) {
     throw new Error("Failed to create client");
   }
+
+  if (client.accountManagerId) {
+    const { notifyAccountManagerAssignedToClient } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    void notifyAccountManagerAssignedToClient({
+      accountManagerId: client.accountManagerId,
+      clientName: client.name,
+      clientId: client.id,
+    }).catch((error) => {
+      console.error("[notifications] AM client assign failed", error);
+    });
+  }
+
   return client;
 }
 
@@ -102,11 +129,44 @@ export async function updateClient(
   clientId: string,
   input: UpdateClientInput,
 ): Promise<Client> {
+  const existing = await findClientById(clientId);
   const updated = await patchClient(clientId, toAirtableUpdateFields(input));
   const [client] = await withAccountManagerNames([updated]);
   if (!client) {
     throw new Error("Failed to update client");
   }
+
+  if (input.accountManagerId !== undefined) {
+    const previousAmId = existing?.accountManagerId ?? null;
+    const nextAmId = client.accountManagerId;
+    if (previousAmId !== nextAmId) {
+      const {
+        notifyAccountManagerAssignedToClient,
+        notifyAccountManagerRemovedFromClient,
+      } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      if (previousAmId) {
+        void notifyAccountManagerRemovedFromClient({
+          accountManagerId: previousAmId,
+          clientName: client.name,
+          clientId,
+        }).catch((error) => {
+          console.error("[notifications] AM client unassign failed", error);
+        });
+      }
+      if (nextAmId) {
+        void notifyAccountManagerAssignedToClient({
+          accountManagerId: nextAmId,
+          clientName: client.name,
+          clientId,
+        }).catch((error) => {
+          console.error("[notifications] AM client assign failed", error);
+        });
+      }
+    }
+  }
+
   return client;
 }
 

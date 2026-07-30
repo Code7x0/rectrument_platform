@@ -4,6 +4,7 @@
  */
 
 import {
+  findAccountManagerUserId,
   findPartnerUserId,
   notifyRole,
   publishNotification,
@@ -17,6 +18,14 @@ function safe(promise: Promise<unknown>): void {
   void promise.catch((error) => {
     console.error("[notifications] event failed", error);
   });
+}
+
+function appBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    process.env.APP_URL?.replace(/\/$/, "") ||
+    "http://localhost:3000"
+  );
 }
 
 export function notifyRegistrationSubmitted(input: {
@@ -163,6 +172,13 @@ export function notifyRoleChanged(input: {
       entityType: "user",
       entityId: input.userId,
       actionUrl: "/notifications",
+      sendEmail: true,
+      emailTemplate: "role_changed",
+      emailData: {
+        name: input.userName,
+        fromRole: getRoleLabel(input.fromRole),
+        toRole: getRoleLabel(input.toRole),
+      },
     }),
   );
   safe(
@@ -214,21 +230,19 @@ export async function notifyJobAssigned(input: {
   jobTitle: string;
   jobId: string;
   allocationId: string;
+  jobCode?: string | null;
 }): Promise<void> {
   const partnerUserId = await findPartnerUserId(input.partnerId);
   if (!partnerUserId) {
     return;
   }
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    process.env.APP_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000";
-  const jobsUrl = `${baseUrl}/partner/jobs`;
+  const jobsUrl = `${appBaseUrl()}/partner/jobs`;
+  const label = input.jobCode?.trim() || input.jobTitle;
 
   await publishNotification({
     recipientUserId: partnerUserId,
     title: "New job assigned",
-    description: `You were allocated to ${input.jobTitle}.`,
+    description: `You have been assigned Job ${label}.`,
     type: "job",
     category: "jobs",
     priority: "high",
@@ -238,7 +252,7 @@ export async function notifyJobAssigned(input: {
     sendEmail: true,
     emailTemplate: "job_assigned",
     emailData: {
-      jobTitle: input.jobTitle,
+      jobTitle: label,
       jobsUrl,
     },
   });
@@ -254,16 +268,12 @@ export async function notifyJobUnassigned(input: {
   if (!partnerUserId) {
     return;
   }
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    process.env.APP_URL?.replace(/\/$/, "") ||
-    "http://localhost:3000";
-  const jobsUrl = `${baseUrl}/partner/jobs`;
+  const jobsUrl = `${appBaseUrl()}/partner/jobs`;
 
   await publishNotification({
     recipientUserId: partnerUserId,
     title: "Job unassigned",
-    description: `You have been unassigned from ${input.jobTitle}.`,
+    description: `You have been removed from Job ${input.jobTitle}.`,
     type: "job",
     category: "jobs",
     priority: "high",
@@ -279,6 +289,126 @@ export async function notifyJobUnassigned(input: {
   });
 }
 
+export async function notifyAccountManagerAssignedToClient(input: {
+  accountManagerId: string;
+  clientName: string;
+  clientId: string;
+}): Promise<void> {
+  const userId = await findAccountManagerUserId(input.accountManagerId);
+  if (!userId) {
+    return;
+  }
+  const clientsUrl = `${appBaseUrl()}/account-manager/clients`;
+  await publishNotification({
+    recipientUserId: userId,
+    title: "Client assigned",
+    description: `You have been assigned Client ${input.clientName}.`,
+    type: "system",
+    category: "system",
+    priority: "high",
+    entityType: "system",
+    entityId: input.clientId,
+    actionUrl: `/account-manager/clients/${input.clientId}`,
+    sendEmail: true,
+    emailTemplate: "client_assigned",
+    emailData: {
+      clientName: input.clientName,
+      clientsUrl,
+    },
+  });
+}
+
+export async function notifyAccountManagerRemovedFromClient(input: {
+  accountManagerId: string;
+  clientName: string;
+  clientId: string;
+}): Promise<void> {
+  const userId = await findAccountManagerUserId(input.accountManagerId);
+  if (!userId) {
+    return;
+  }
+  const clientsUrl = `${appBaseUrl()}/account-manager/clients`;
+  await publishNotification({
+    recipientUserId: userId,
+    title: "Client unassigned",
+    description: `You have been removed from Client ${input.clientName}.`,
+    type: "system",
+    category: "system",
+    priority: "high",
+    entityType: "system",
+    entityId: input.clientId,
+    actionUrl: "/account-manager/clients",
+    sendEmail: true,
+    emailTemplate: "client_unassigned",
+    emailData: {
+      clientName: input.clientName,
+      clientsUrl,
+    },
+  });
+}
+
+export async function notifyAccountManagerAssignedToJob(input: {
+  accountManagerId: string;
+  jobTitle: string;
+  jobId: string;
+  jobCode?: string | null;
+}): Promise<void> {
+  const userId = await findAccountManagerUserId(input.accountManagerId);
+  if (!userId) {
+    return;
+  }
+  const label = input.jobCode?.trim() || input.jobTitle;
+  const jobsUrl = `${appBaseUrl()}/account-manager/jobs`;
+  await publishNotification({
+    recipientUserId: userId,
+    title: "Job assigned",
+    description: `You have been assigned Job ${label}.`,
+    type: "job",
+    category: "jobs",
+    priority: "high",
+    entityType: "job",
+    entityId: input.jobId,
+    actionUrl: "/account-manager/jobs",
+    sendEmail: true,
+    emailTemplate: "manager_job_assigned",
+    emailData: {
+      jobTitle: label,
+      jobsUrl,
+    },
+  });
+}
+
+export async function notifyAccountManagerRemovedFromJob(input: {
+  accountManagerId: string;
+  jobTitle: string;
+  jobId: string;
+  jobCode?: string | null;
+}): Promise<void> {
+  const userId = await findAccountManagerUserId(input.accountManagerId);
+  if (!userId) {
+    return;
+  }
+  const label = input.jobCode?.trim() || input.jobTitle;
+  const jobsUrl = `${appBaseUrl()}/account-manager/jobs`;
+  await publishNotification({
+    recipientUserId: userId,
+    title: "Job unassigned",
+    description: `You have been removed from Job ${label}.`,
+    type: "job",
+    category: "jobs",
+    priority: "high",
+    entityType: "job",
+    entityId: input.jobId,
+    actionUrl: "/account-manager/jobs",
+    sendEmail: true,
+    emailTemplate: "manager_job_unassigned",
+    emailData: {
+      jobTitle: label,
+      jobsUrl,
+    },
+  });
+}
+
 export async function notifyAllocationCreated(input: {
   accountManagerId: string | null;
   partnerCode: string;
@@ -288,8 +418,12 @@ export async function notifyAllocationCreated(input: {
   if (!input.accountManagerId) {
     return;
   }
+  const userId = await findAccountManagerUserId(input.accountManagerId);
+  if (!userId) {
+    return;
+  }
   await publishNotification({
-    recipientUserId: input.accountManagerId,
+    recipientUserId: userId,
     title: "New allocation",
     description: `${input.partnerCode} allocated to ${input.jobTitle}.`,
     type: "allocation",
@@ -307,18 +441,29 @@ export async function notifyCandidateSubmitted(input: {
   jobTitle: string;
   submissionId: string;
 }): Promise<void> {
+  const reviewUrl = `${appBaseUrl()}/account-manager/candidates`;
   if (input.accountManagerId) {
-    await publishNotification({
-      recipientUserId: input.accountManagerId,
-      title: "New candidate submitted",
-      description: `${input.candidateName} submitted for ${input.jobTitle}.`,
-      type: "candidate",
-      category: "candidates",
-      priority: "high",
-      entityType: "submission",
-      entityId: input.submissionId,
-      actionUrl: "/account-manager/candidates",
-    });
+    const userId = await findAccountManagerUserId(input.accountManagerId);
+    if (userId) {
+      await publishNotification({
+        recipientUserId: userId,
+        title: "New candidate submitted",
+        description: `${input.candidateName} submitted for ${input.jobTitle}.`,
+        type: "candidate",
+        category: "candidates",
+        priority: "high",
+        entityType: "submission",
+        entityId: input.submissionId,
+        actionUrl: "/account-manager/candidates",
+        sendEmail: true,
+        emailTemplate: "candidate_submitted",
+        emailData: {
+          candidateName: input.candidateName,
+          jobTitle: input.jobTitle,
+          reviewUrl,
+        },
+      });
+    }
   }
   await notifyRole("admin", {
     title: "Pending candidate review",
@@ -404,6 +549,11 @@ export async function notifyDocumentVerified(input: {
     entityType: "partner_document",
     entityId: input.documentId,
     actionUrl: "/partner/documents",
+    sendEmail: true,
+    emailTemplate: "document_verified",
+    emailData: {
+      documentType: input.documentType,
+    },
   });
 }
 
@@ -427,6 +577,12 @@ export async function notifyDocumentRejected(input: {
     entityType: "partner_document",
     entityId: input.documentId,
     actionUrl: "/partner/documents",
+    sendEmail: true,
+    emailTemplate: "document_rejected",
+    emailData: {
+      documentType: input.documentType,
+      reason: input.reason,
+    },
   });
 }
 
@@ -511,6 +667,12 @@ export async function notifyPayoutStatusChanged(input: {
       entityType: "payout",
       entityId: input.payoutId,
       actionUrl: "/partner/payments",
+      sendEmail: true,
+      emailTemplate: "payout_paid",
+      emailData: {
+        candidateName: input.candidateName,
+        amount: input.amountLabel ?? "",
+      },
     });
   }
 }

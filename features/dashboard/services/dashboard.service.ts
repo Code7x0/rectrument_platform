@@ -111,9 +111,8 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
   const activeUsers = users.filter((u) => u.status === "active").length;
   const inactiveUsers = users.filter((u) => u.status !== "active").length;
   const talentPartners = partners.filter((p) => p.status === "active").length;
-  // Same source of truth as Admin Candidates + Submission Count: linked submissions.
-  const submissionCount = submissions.length;
-  const candidateCount = submissionCount;
+  // Same source of truth as Admin Candidates list.
+  const candidateCount = submissions.length;
 
   const recentInvitations = users
     .filter((u) => u.registrationStatus === "invitation_pending")
@@ -182,17 +181,10 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
       },
       {
         id: "candidates",
-        label: "Candidate Count",
+        label: "Candidates Submitted",
         value: candidateCount,
         href: "/admin/candidates",
-        hint: "Airtable Candidates rows",
-      },
-      {
-        id: "submissions",
-        label: "Submission Count",
-        value: submissionCount,
-        href: "/admin/candidates",
-        hint: "Airtable submission rows",
+        hint: "Profiles in the hiring pipeline",
       },
       {
         id: "partners",
@@ -585,13 +577,13 @@ export async function getAccountManagerDashboardData(
       },
       {
         id: "submissions",
-        label: "Submissions",
+        label: "Candidates Submitted",
         value: mySubmissions.length,
         href: "/account-manager/candidates",
       },
       {
         id: "allocations",
-        label: "Partner Allocations",
+        label: "Talent Partners Allocated",
         value: myAllocations.filter((a) => a.status !== "archived").length,
         href: "/account-manager/allocations",
       },

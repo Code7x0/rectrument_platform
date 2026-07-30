@@ -45,6 +45,7 @@ export async function createJobAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin"]);
     const parsed = jobFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -61,6 +62,7 @@ export async function createJobAction(
 
     revalidatePath("/admin/jobs");
     revalidatePath("/account-manager/jobs");
+    revalidatePath("/notifications");
 
     return { success: true, data: job };
   } catch (error) {
@@ -78,6 +80,7 @@ export async function updateJobAction(
 ): Promise<ActionResult> {
   try {
     await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin"]);
     const parsed = jobFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -92,6 +95,7 @@ export async function updateJobAction(
 
     revalidatePath("/admin/jobs");
     revalidatePath("/account-manager/jobs");
+    revalidatePath("/notifications");
 
     return { success: true, data: job };
   } catch (error) {
@@ -106,6 +110,7 @@ export async function updateJobAction(
 export async function archiveJobAction(jobId: string): Promise<ActionResult> {
   try {
     await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin"]);
     const job = await archiveJob(jobId);
 
     revalidatePath("/admin/jobs");

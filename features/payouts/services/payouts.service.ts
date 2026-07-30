@@ -31,7 +31,7 @@ import type {
   PayoutStatus,
   UpdatePayoutInput,
 } from "@/features/payouts/types";
-import { getSubmissionById } from "@/features/submissions/services";
+import { getSubmissionById, listSubmissions } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
 import { recordActivity } from "@/features/workflows/services/activity.service";
 
@@ -107,12 +107,13 @@ async function withEnrichment(
   const amMap = new Map(accountManagers.map((am) => [am.id, am.label]));
 
   const submissionIds = [...new Set(payouts.map((p) => p.submissionId))];
-  const submissions = await Promise.all(
-    submissionIds.map((id) => getSubmissionById(id)),
-  );
+  const allSubmissions =
+    submissionIds.length > 0
+      ? await listSubmissions({ enrich: false })
+      : [];
   const submissionMap = new Map(
-    submissions
-      .filter((s): s is Submission => Boolean(s))
+    allSubmissions
+      .filter((s) => submissionIds.includes(s.id))
       .map((s) => [s.id, s]),
   );
 

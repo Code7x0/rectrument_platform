@@ -30,8 +30,8 @@ export function DashboardShell({
   const [collapsed, setCollapsed] = useState(false);
   const navItems = getNavigationForRole(role);
 
-  // Keep Airtable-backed lists/dashboards fresh without hammering every 15s.
-  useLiveDataSync(60_000);
+  // Keep Airtable-backed lists/dashboards fresh via pulse + mutation signals.
+  useLiveDataSync();
 
   useEffect(() => {
     const stored = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);

@@ -26,6 +26,16 @@ export async function deriveNotificationsForViewer(input: {
     maxRecords: input.maxRecords ?? 40,
   });
 
+  let allowedJobIds: Set<string> | null = null;
+  if (input.accountManagerId) {
+    const { listJobs } = await import("@/features/jobs/services");
+    const ownedJobs = await listJobs({
+      accountManagerId: input.accountManagerId,
+      includeArchived: true,
+    });
+    allowedJobIds = new Set(ownedJobs.map((job) => job.id));
+  }
+
   const items: Notification[] = [];
   for (const record of records) {
     try {
@@ -34,6 +44,9 @@ export async function deriveNotificationsForViewer(input: {
         fields: record.fields as AirtableFields,
       });
       if (input.partnerId && submission.partnerId !== input.partnerId) {
+        continue;
+      }
+      if (allowedJobIds && !allowedJobIds.has(submission.jobId)) {
         continue;
       }
       const name =

@@ -208,14 +208,29 @@ export async function submitPartnerRegistration(
     applicantName: fullName,
   });
 
-  // Fan-out email to Super Admins (and Admins) — soft-fail, no Airtable writes.
+  // Fan-out email to Super Admins + Admins from Users table (primary),
+  // merged with optional env lists — never silently no-op when staff exist.
   const { getSuperAdminEmails, getAdminEmails } = await import(
     "@/lib/airtable/identity-mode"
   );
   const approvalUrl = `${appBaseUrl()}/admin/approvals`;
+  const [superAdmins, admins] = await Promise.all([
+    listUsers({ role: "super_admin", status: "active" }),
+    listUsers({ role: "admin", status: "active" }),
+  ]);
   const recipients = [
-    ...new Set([...getSuperAdminEmails(), ...getAdminEmails()]),
+    ...new Set([
+      ...superAdmins.map((u) => u.email).filter(Boolean),
+      ...admins.map((u) => u.email).filter(Boolean),
+      ...getSuperAdminEmails(),
+      ...getAdminEmails(),
+    ]),
   ];
+  if (recipients.length === 0) {
+    console.warn(
+      "[registration] No Super Admin/Admin emails found for registration fan-out",
+    );
+  }
   await Promise.all(
     recipients.map((to) =>
       sendEmailSafe({

@@ -8,6 +8,7 @@ import { allocatePartnerAction } from "@/features/allocations/actions/allocation
 import { AllocatePartnerForm } from "@/features/allocations/components/allocate-partner-form";
 import type { AllocatePartnerFormValues } from "@/features/allocations/schemas/allocation.schema";
 import type { Job } from "@/features/jobs/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import type { LookupOption } from "@/services/lookups";
 
 interface AllocatePartnerDialogProps {
@@ -37,6 +38,7 @@ export function AllocatePartnerDialog({
       }
 
       toast.success("Talent partner allocated");
+      signalLiveDataChange();
       onOpenChange(false);
       onCompleted();
     } finally {

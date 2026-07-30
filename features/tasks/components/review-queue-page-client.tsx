@@ -20,6 +20,7 @@ import { SubmissionStatusBadge } from "@/features/submissions/components/submiss
 import type { Submission } from "@/features/submissions/types";
 import { getReviewDetailAction } from "@/features/workflows/actions/review.actions";
 import { transitionSubmissionAction } from "@/features/workflows/actions/workflows.actions";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import {
   getAllowedTransitions,
   TRANSITION_ACTION_LABELS,
@@ -124,6 +125,7 @@ export function ReviewQueuePageClient({
       setSelected(null);
       setCandidate(null);
       setJob(null);
+      signalLiveDataChange();
       router.refresh();
     } finally {
       setTransitioning(false);
@@ -280,10 +282,12 @@ export function ReviewQueuePageClient({
                       value={candidate?.skills.join(", ") || null}
                     />
                   </div>
-                  {candidate?.resumeUrl ? (
+                  {(candidate?.resumeUrl || selected?.resumeUrl) ? (
                     <Button asChild variant="outline" size="sm">
                       <a
-                        href={candidate.resumeUrl}
+                        href={
+                          (candidate?.resumeUrl || selected?.resumeUrl) ?? "#"
+                        }
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -293,6 +297,19 @@ export function ReviewQueuePageClient({
                   ) : (
                     <p className="text-sm text-[#64748B]">No resume on file</p>
                   )}
+                  {(candidate?.linkedIn || selected?.linkedIn) ? (
+                    <Button asChild variant="outline" size="sm" className="ml-2">
+                      <a
+                        href={
+                          (candidate?.linkedIn || selected?.linkedIn) ?? "#"
+                        }
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        LinkedIn
+                      </a>
+                    </Button>
+                  ) : null}
                 </section>
 
                 <section className="space-y-3">

@@ -18,6 +18,7 @@ import {
   assignAccountManagerToClientAction,
   assignAccountManagerToJobAction,
 } from "@/features/account-managers/actions/account-managers.actions";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import type { LookupOption } from "@/services/lookups";
 
 export type AssignAmTarget =
@@ -214,6 +215,7 @@ export function AssignAccountManagerDialog({
                   );
                 }
                 onOpenChange(false);
+                signalLiveDataChange();
                 onCompleted?.();
               });
             }}

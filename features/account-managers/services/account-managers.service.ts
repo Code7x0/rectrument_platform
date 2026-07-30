@@ -2,7 +2,7 @@ import { getRecords, updateRecord } from "@/lib/airtable/client";
 import { getOptionalEnv } from "@/lib/api/env";
 import { isClientCompatMode } from "@/lib/airtable/compat";
 import { ACCOUNT_MANAGERS_TABLE_FIELDS } from "@/lib/airtable/fields";
-import { listClients, updateClient } from "@/features/clients/services";
+import { listClients } from "@/features/clients/services";
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -121,6 +121,7 @@ export async function assignAccountManagerToClient(input: {
   clientId: string;
   accountManagerId: string | null;
 }): Promise<void> {
+  const { updateClient } = await import("@/features/clients/services");
   await updateClient(input.clientId, {
     accountManagerId: input.accountManagerId ?? "",
   });

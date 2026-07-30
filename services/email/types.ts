@@ -13,9 +13,18 @@ export type EmailTemplateId =
   | "password_setup"
   | "candidate_joined"
   | "payout_approved"
+  | "payout_paid"
   | "partner_registration_submitted"
   | "job_assigned"
-  | "job_unassigned";
+  | "job_unassigned"
+  | "client_assigned"
+  | "client_unassigned"
+  | "manager_job_assigned"
+  | "manager_job_unassigned"
+  | "role_changed"
+  | "document_verified"
+  | "document_rejected"
+  | "candidate_submitted";
 
 export interface SendEmailInput {
   to: string;

@@ -32,6 +32,14 @@ function mapStatus(value: unknown): SubmissionStatus {
   );
 }
 
+function asAttachmentUrl(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const first = value[0] as { url?: string };
+  return typeof first.url === "string" ? first.url : null;
+}
+
 export function mapSubmissionRecord(record: {
   id: string;
   fields: AirtableFields;
@@ -63,6 +71,8 @@ export function mapSubmissionRecord(record: {
       })(),
       candidateId: record.id,
       candidateName: asString(fields[SUBMISSIONS_TABLE_FIELDS.candidateName]),
+      resumeUrl: asAttachmentUrl(fields[SUBMISSIONS_TABLE_FIELDS.resume]),
+      linkedIn: asString(fields[SUBMISSIONS_TABLE_FIELDS.linkedIn]),
       jobId,
       jobTitle: null,
       jobCode: null,
@@ -89,6 +99,8 @@ export function mapSubmissionRecord(record: {
     submissionCode: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionId]),
     candidateId,
     candidateName: null,
+    resumeUrl: null,
+    linkedIn: null,
     jobId,
     jobTitle: null,
     jobCode: null,

@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { getRecords, type AirtableFields } from "@/lib/airtable/client";
 import {
   asSelectList,
@@ -39,6 +41,13 @@ import { operationalPartnerLabel } from "@/features/partners/services/partner-pr
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
+
+/** Request-scoped full allocations scan — shared across workspace / list calls. */
+const loadAllAllocationsCached = cache(async () =>
+  findAllocations({
+    sort: [{ field: ALLOCATIONS_TABLE_FIELDS.assignedDate, direction: "desc" }],
+  }),
+);
 
 type PartnerMeta = {
   partnerCode: string;
@@ -274,10 +283,14 @@ export async function listAllocations(
     search: undefined,
   });
 
-  const rows = await findAllocations({
-    ...(formula ? { filterByFormula: formula } : {}),
-    sort: [{ field: ALLOCATIONS_TABLE_FIELDS.assignedDate, direction: "desc" }],
-  });
+  const rows = formula
+    ? await findAllocations({
+        filterByFormula: formula,
+        sort: [
+          { field: ALLOCATIONS_TABLE_FIELDS.assignedDate, direction: "desc" },
+        ],
+      })
+    : await loadAllAllocationsCached();
 
   let scoped = rows;
   if (jobId && jobId !== "all") {
@@ -377,6 +390,7 @@ export async function allocatePartner(
     await notifyJobAssigned({
       partnerId: allocation.partnerId,
       jobTitle: allocation.jobTitle ?? job.title,
+      jobCode: job.jobCode,
       jobId: allocation.jobId,
       allocationId: allocation.id,
     });

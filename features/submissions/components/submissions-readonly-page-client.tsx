@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ExternalLink, FileText } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
@@ -24,7 +24,7 @@ export function SubmissionsReadonlyPageClient({
   submissions,
   breadcrumbs,
   title = "Candidates",
-  description = "Read-only submission list. Status workflow ships with Account Manager Review Queue.",
+  description = "Submitted profiles for your scope. Open Resume or LinkedIn when available.",
 }: SubmissionsReadonlyPageClientProps) {
   return (
     <ContentContainer>
@@ -53,6 +53,30 @@ export function SubmissionsReadonlyPageClient({
                     {row.jobTitle ?? "Job"}
                     {row.partnerName ? ` · ${row.partnerName}` : ""}
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                    {row.resumeUrl ? (
+                      <a
+                        href={row.resumeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-[#2563EB] hover:underline"
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        Resume
+                      </a>
+                    ) : null}
+                    {row.linkedIn ? (
+                      <a
+                        href={row.linkedIn}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-[#2563EB] hover:underline"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        LinkedIn
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
                 <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-xs font-medium text-[#334155]">
                   {SUBMISSION_STATUS_LABELS[row.status]}

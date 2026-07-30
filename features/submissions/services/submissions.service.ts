@@ -95,6 +95,8 @@ async function withEnrichment(
     return {
       ...row,
       candidateName: candidate?.fullName ?? row.candidateName ?? null,
+      resumeUrl: candidate?.resumeUrl ?? row.resumeUrl ?? null,
+      linkedIn: candidate?.linkedIn ?? row.linkedIn ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,
       jobPriority: job?.priority ?? null,

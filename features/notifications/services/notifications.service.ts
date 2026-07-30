@@ -288,6 +288,74 @@ export const getUnreadNotificationCount = cache(
   },
 );
 
+/**
+ * Cheap fingerprint for soft real-time polling (latest + unread only).
+ */
+export async function getSyncFingerprint(userId: string): Promise<{
+  fingerprint: string;
+  unread: number;
+}> {
+  try {
+    if (!isNotificationsStorageAvailable()) {
+      const user = await getUserById(userId);
+      const derived = await deriveNotificationsForViewer({
+        recipientUserId: userId,
+        partnerId: user?.partnerId,
+        accountManagerId: user?.accountManagerId,
+        maxRecords: 5,
+      });
+      const unread = derived.filter((row) => row.readStatus === "unread").length;
+      const head = derived[0];
+      return {
+        unread,
+        fingerprint: [unread, head?.id ?? "", head?.createdAt ?? ""].join("|"),
+      };
+    }
+
+    const recipientFormula = buildNotificationsFilterFormula({
+      recipientUserId: userId,
+      archived: false,
+    });
+    const unreadFormula = buildNotificationsFilterFormula({
+      recipientUserId: userId,
+      readStatus: "unread",
+      archived: false,
+    });
+
+    const [latest, unreadRows] = await Promise.all([
+      findNotifications({
+        filterByFormula: recipientFormula,
+        sort: [
+          { field: NOTIFICATIONS_TABLE_FIELDS.createdAt, direction: "desc" },
+        ],
+        maxRecords: 1,
+      }),
+      findNotifications({
+        filterByFormula: unreadFormula,
+        maxRecords: 50,
+      }),
+    ]);
+
+    const head = latest[0];
+    const unread = unreadRows.length;
+    return {
+      unread,
+      fingerprint: [
+        unread,
+        head?.id ?? "",
+        head?.createdAt ?? "",
+        head?.readStatus ?? "",
+      ].join("|"),
+    };
+  } catch (error) {
+    console.error("[notifications] sync fingerprint failed", error);
+    return {
+      unread: 0,
+      fingerprint: `err-${Date.now()}`,
+    };
+  }
+}
+
 export async function getNotificationForUser(
   notificationId: string,
   userId: string,
@@ -383,6 +451,48 @@ export async function findPartnerUserId(
 ): Promise<string | null> {
   const users = await listUsers({ role: "partner" });
   return users.find((u) => u.partnerId === partnerId)?.id ?? null;
+}
+
+/**
+ * Resolve Users-table id for an Account Managers directory record.
+ * Job/Client.accountManagerId is an AM-table id — notifications must use Users.id.
+ * Fallback: match Account Managers.Email → Users.email when the link field is empty.
+ */
+export async function findAccountManagerUserId(
+  accountManagerId: string,
+): Promise<string | null> {
+  const users = await listUsers({ role: "account_manager" });
+  const byLink = users.find((u) => u.accountManagerId === accountManagerId);
+  if (byLink) {
+    return byLink.id;
+  }
+
+  try {
+    const { getOptionalEnv } = await import("@/lib/api/env");
+    const { getRecords } = await import("@/lib/airtable/client");
+    const { ACCOUNT_MANAGERS_TABLE_FIELDS } = await import(
+      "@/lib/airtable/fields"
+    );
+    const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
+    const table =
+      !raw || raw === "Account" ? "Account Managers" : raw;
+    const records = await getRecords(table, {
+      filterByFormula: `RECORD_ID() = '${accountManagerId.replace(/'/g, "\\'")}'`,
+      maxRecords: 1,
+    });
+    const emailRaw = records[0]?.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.email];
+    const email =
+      typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : null;
+    if (!email) {
+      return null;
+    }
+    return (
+      users.find((u) => u.email.trim().toLowerCase() === email)?.id ?? null
+    );
+  } catch (error) {
+    console.error("[notifications] AM email fallback failed", error);
+    return null;
+  }
 }
 
 export async function notifyRole(

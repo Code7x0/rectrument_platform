@@ -3,51 +3,127 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-const DEFAULT_INTERVAL_MS = 60_000;
-const MIN_REFRESH_GAP_MS = 25_000;
+import {
+  LIVE_DATA_CHANGED_EVENT,
+  LIVE_DATA_CHANNEL,
+} from "@/lib/live-sync";
+
+/** Cheap pulse poll — only full RSC refresh when the fingerprint changes. */
+const PULSE_INTERVAL_MS = 8_000;
+/** Safety-net full refresh even if pulse is quiet (Airtable direct edits). */
+const FULL_REFRESH_INTERVAL_MS = 45_000;
+const MIN_FULL_REFRESH_GAP_MS = 4_000;
 
 /**
  * Soft real-time sync for Airtable-backed RSC pages.
  *
- * Throttled polling + focus refresh — avoids the previous 15s full-app
- * refresh storm that made navigation feel stuck waiting on Airtable.
+ * Strategy:
+ * 1. Poll /api/sync/pulse every 8s (lightweight unread fingerprint)
+ * 2. Full router.refresh() only when pulse changes, on focus, or after mutations
+ * 3. Safety-net full refresh every 45s while the tab is visible
  */
-export function useLiveDataSync(intervalMs = DEFAULT_INTERVAL_MS): void {
+export function useLiveDataSync(): void {
   const router = useRouter();
-  const lastRefreshAt = useRef(0);
+  const lastFullRefreshAt = useRef(0);
+  const lastPulse = useRef<string | null>(null);
 
   useEffect(() => {
-    function refresh(force = false) {
+    let cancelled = false;
+
+    function fullRefresh(force = false) {
       if (document.visibilityState !== "visible") {
         return;
       }
       const now = Date.now();
-      if (!force && now - lastRefreshAt.current < MIN_REFRESH_GAP_MS) {
+      if (!force && now - lastFullRefreshAt.current < MIN_FULL_REFRESH_GAP_MS) {
         return;
       }
-      lastRefreshAt.current = now;
+      lastFullRefreshAt.current = now;
       router.refresh();
     }
 
-    const timer = window.setInterval(() => refresh(false), intervalMs);
+    async function checkPulse() {
+      if (document.visibilityState !== "visible" || cancelled) {
+        return;
+      }
+      try {
+        const response = await fetch("/api/sync/pulse", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return;
+        }
+        const data = (await response.json()) as {
+          fingerprint?: string;
+        };
+        const next = data.fingerprint ?? "";
+        if (lastPulse.current === null) {
+          lastPulse.current = next;
+          return;
+        }
+        if (next !== lastPulse.current) {
+          lastPulse.current = next;
+          fullRefresh(true);
+        }
+      } catch {
+        // Network blip — ignore; safety-net refresh still runs
+      }
+    }
+
+    const pulseTimer = window.setInterval(checkPulse, PULSE_INTERVAL_MS);
+    const fullTimer = window.setInterval(
+      () => fullRefresh(false),
+      FULL_REFRESH_INTERVAL_MS,
+    );
+
+    void checkPulse();
 
     function onFocus() {
-      refresh(false);
+      void checkPulse();
+      fullRefresh(false);
     }
 
     function onVisibility() {
       if (document.visibilityState === "visible") {
-        refresh(false);
+        void checkPulse();
+        fullRefresh(false);
       }
+    }
+
+    function onLocalSignal() {
+      fullRefresh(true);
+    }
+
+    function onStorage(event: StorageEvent) {
+      if (event.key === LIVE_DATA_CHANGED_EVENT) {
+        fullRefresh(true);
+      }
+    }
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel(LIVE_DATA_CHANNEL);
+      channel.onmessage = () => fullRefresh(true);
+    } catch {
+      channel = null;
     }
 
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener(LIVE_DATA_CHANGED_EVENT, onLocalSignal);
+    window.addEventListener("storage", onStorage);
 
     return () => {
-      window.clearInterval(timer);
+      cancelled = true;
+      window.clearInterval(pulseTimer);
+      window.clearInterval(fullTimer);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener(LIVE_DATA_CHANGED_EVENT, onLocalSignal);
+      window.removeEventListener("storage", onStorage);
+      channel?.close();
     };
-  }, [router, intervalMs]);
+  }, [router]);
 }

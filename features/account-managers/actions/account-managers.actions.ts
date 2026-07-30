@@ -18,11 +18,14 @@ function revalidateAmPaths(clientId?: string) {
   revalidatePath("/admin/account-managers");
   revalidatePath("/admin/clients");
   revalidatePath("/account-manager/clients");
+  revalidatePath("/account-manager/jobs");
   revalidatePath("/admin/jobs");
   revalidatePath("/super-admin");
   revalidatePath("/admin");
+  revalidatePath("/notifications");
   if (clientId) {
     revalidatePath(`/admin/clients/${clientId}`);
+    revalidatePath(`/account-manager/clients/${clientId}`);
   }
 }
 

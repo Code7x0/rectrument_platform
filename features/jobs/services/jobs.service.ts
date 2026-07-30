@@ -105,6 +105,13 @@ async function syncClientAccountOwner(
   });
 }
 
+/** Request-scoped full jobs scan. */
+const loadAllJobsCached = cache(async () =>
+  findJobs({
+    sort: [{ field: JOBS_TABLE_FIELDS.createdAt, direction: "desc" }],
+  }),
+);
+
 export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
   const { search, accountManagerId, clientId, ...rest } = filters;
 
@@ -136,10 +143,12 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
     search: undefined,
   });
 
-  const jobs = await findJobs({
-    ...(formula ? { filterByFormula: formula } : {}),
-    sort: [{ field: JOBS_TABLE_FIELDS.createdAt, direction: "desc" }],
-  });
+  const jobs = formula
+    ? await findJobs({
+        filterByFormula: formula,
+        sort: [{ field: JOBS_TABLE_FIELDS.createdAt, direction: "desc" }],
+      })
+    : await loadAllJobsCached();
 
   let enriched = await withEnrichment(jobs);
 
@@ -194,6 +203,21 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
     throw new Error("Failed to create job");
   }
 
+  const amId = input.accountManagerId?.trim() || job.accountManagerId;
+  if (amId) {
+    const { notifyAccountManagerAssignedToJob } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    void notifyAccountManagerAssignedToJob({
+      accountManagerId: amId,
+      jobTitle: job.title,
+      jobId: job.id,
+      jobCode: job.jobCode,
+    }).catch((error) => {
+      console.error("[notifications] AM job assign failed", error);
+    });
+  }
+
   return job;
 }
 
@@ -229,6 +253,39 @@ export async function updateJob(
         clientId,
         input.accountManagerId.trim() || null,
       );
+    }
+
+    const previousAmId = existing?.accountManagerId ?? null;
+    const nextAmId = input.accountManagerId.trim() || null;
+    if (previousAmId !== nextAmId) {
+      const {
+        notifyAccountManagerAssignedToJob,
+        notifyAccountManagerRemovedFromJob,
+      } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      const jobTitle = updated.title || existing?.title || "Job";
+      const jobCode = updated.jobCode || existing?.jobCode || null;
+      if (previousAmId) {
+        void notifyAccountManagerRemovedFromJob({
+          accountManagerId: previousAmId,
+          jobTitle,
+          jobId,
+          jobCode,
+        }).catch((error) => {
+          console.error("[notifications] AM job unassign failed", error);
+        });
+      }
+      if (nextAmId) {
+        void notifyAccountManagerAssignedToJob({
+          accountManagerId: nextAmId,
+          jobTitle,
+          jobId,
+          jobCode,
+        }).catch((error) => {
+          console.error("[notifications] AM job assign failed", error);
+        });
+      }
     }
   }
 

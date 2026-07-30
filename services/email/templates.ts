@@ -9,10 +9,19 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
   password_setup: "Set up your password",
   candidate_joined: "Your candidate has joined",
   payout_approved: "Payout eligible for payment",
+  payout_paid: "Payout marked as paid",
   partner_registration_submitted:
     "New Partner Registration – Approval Required",
   job_assigned: "New Job Assigned – TalentSocio",
   job_unassigned: "Job Unassignment Notice – TalentSocio",
+  client_assigned: "Client Assigned – TalentSocio",
+  client_unassigned: "Client Unassignment Notice – TalentSocio",
+  manager_job_assigned: "Job Assigned – TalentSocio",
+  manager_job_unassigned: "Job Unassignment Notice – TalentSocio",
+  role_changed: "Your role has been updated",
+  document_verified: "Document verified – TalentSocio",
+  document_rejected: "Document rejected – TalentSocio",
+  candidate_submitted: "New candidate submitted – TalentSocio",
 };
 
 /**
@@ -145,6 +154,114 @@ export function renderBody(
         "",
         "This role will no longer appear on your Assigned Jobs list. If you believe this was a mistake, contact your Account Manager.",
         data.jobsUrl ? `View remaining jobs: ${data.jobsUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "client_assigned":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `You have been assigned Client ${data.clientName ?? "a client"}.`,
+        "",
+        "Open your Clients list to review open jobs and pipeline.",
+        data.clientsUrl ? `Open clients: ${data.clientsUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "client_unassigned":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `You have been removed from Client ${data.clientName ?? "a client"}.`,
+        "",
+        "That client and its jobs will no longer appear on your dashboard.",
+        data.clientsUrl ? `View remaining clients: ${data.clientsUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "manager_job_assigned":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `You have been assigned Job ${data.jobTitle ?? "an open role"}.`,
+        "",
+        "Allocate Talent Partners and review candidate submissions from your Jobs list.",
+        data.jobsUrl ? `Open jobs: ${data.jobsUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "manager_job_unassigned":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `You have been removed from Job ${data.jobTitle ?? "a job"}.`,
+        "",
+        "That job will no longer appear in your assigned workload.",
+        data.jobsUrl ? `View remaining jobs: ${data.jobsUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "role_changed":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `Your role has changed from ${data.fromRole ?? "previous"} to ${data.toRole ?? "new"}.`,
+        "",
+        "Sign in again if your dashboard or permissions look different.",
+        "",
+        "TalentSocio Team",
+      ].join("\n");
+    case "document_verified":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `Your ${data.documentType ?? "document"} was verified.`,
+        "",
+        "You can continue submitting candidates on your allocated jobs.",
+        "",
+        "TalentSocio Team",
+      ].join("\n");
+    case "document_rejected":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `Your ${data.documentType ?? "document"} was rejected.`,
+        data.reason ? `Reason: ${data.reason}` : "",
+        "",
+        "Please re-upload a corrected document from My Documents.",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "payout_paid":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `Payment for ${data.candidateName ?? "your candidate"} was marked paid${data.amount ? ` (${data.amount})` : ""}.`,
+        "",
+        "Open My Earnings for details.",
+        "",
+        "TalentSocio Team",
+      ].join("\n");
+    case "candidate_submitted":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `${data.candidateName ?? "A candidate"} was submitted for ${data.jobTitle ?? "a job"}.`,
+        "",
+        "Open your Candidates / Review Queue to review the profile.",
+        data.reviewUrl ? `Review: ${data.reviewUrl}` : "",
         "",
         "TalentSocio Team",
       ]

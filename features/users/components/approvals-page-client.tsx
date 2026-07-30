@@ -21,6 +21,7 @@ import {
 import type { PendingPartnerApplication } from "@/features/users/types";
 import { IDENTITY_VISIBILITY_LABELS } from "@/features/users/types";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface ApprovalsPageClientProps {
   applications: PendingPartnerApplication[];
@@ -119,6 +120,7 @@ export function ApprovalsPageClient({
                   current.filter((item) => item.user.id !== row.user.id),
                 );
                 setSelected(null);
+                signalLiveDataChange();
               });
             }}
           >
@@ -277,6 +279,7 @@ export function ApprovalsPageClient({
             );
             setRejectTarget(null);
             setSelected(null);
+            signalLiveDataChange();
           });
         }}
       />
