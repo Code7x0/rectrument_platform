@@ -25,14 +25,19 @@ import type {
   SearchFilterChip,
   SearchResult,
 } from "@/features/search/types";
+import {
+  searchPlaceholderForRole,
+} from "@/features/search/types";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types";
 
 interface SearchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  role: UserRole;
 }
 
-export function SearchModal({ open, onOpenChange }: SearchModalProps) {
+export function SearchModal({ open, onOpenChange, role }: SearchModalProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -142,7 +147,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search clients, jobs, partners…"
+            placeholder={searchPlaceholderForRole(role)}
             className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             aria-autocomplete="list"
             aria-controls="global-search-results"
@@ -158,7 +163,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
         </div>
 
         <div className="border-b border-[#F1F5F9] px-4 py-3">
-          <SearchFilterChips value={filter} onChange={setFilter} />
+          <SearchFilterChips value={filter} onChange={setFilter} role={role} />
         </div>
 
         <div

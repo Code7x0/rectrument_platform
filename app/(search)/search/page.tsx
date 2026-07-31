@@ -33,6 +33,7 @@ export default async function SearchPage({
       initialQuery={query}
       initialFilter={filter}
       initial={initial}
+      role={session.role}
     />
   );
 }

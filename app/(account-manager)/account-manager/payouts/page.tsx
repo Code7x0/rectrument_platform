@@ -5,8 +5,10 @@ import {
   roleHasPermission,
   resolveAccountManagerScopeId,
 } from "@/lib/auth";
+import { listAccountManagerJobIds } from "@/lib/auth/scope";
 import { PayoutsPageClient } from "@/features/payouts/components";
 import { listPayouts } from "@/features/payouts/services";
+import { listAllocations } from "@/features/allocations/services";
 import {
   listPartnerOptions,
 } from "@/services/lookups";
@@ -25,13 +27,23 @@ export default async function AccountManagerPayoutsPage() {
     redirect("/unauthorized");
   }
 
-  const [payouts, partners] = await Promise.all([
+  const jobIds = await listAccountManagerJobIds(accountManagerId);
+
+  const [payouts, allPartners, allocations] = await Promise.all([
     listPayouts({
       includePartnerIdentity: false,
       accountManagerId,
     }),
     listPartnerOptions("operational"),
+    listAllocations({ jobIds, includeArchived: true }),
   ]);
+
+  const assignedPartnerIds = new Set(
+    allocations.map((row) => row.partnerId).filter(Boolean),
+  );
+  const partners = allPartners.filter((partner) =>
+    assignedPartnerIds.has(partner.id),
+  );
 
   return (
     <PayoutsPageClient

@@ -1,21 +1,33 @@
 "use client";
 
-import { SEARCH_FILTER_CHIPS, type SearchFilterChip } from "@/features/search/types";
+import {
+  SEARCH_FILTER_CHIPS,
+  searchFilterChipsForRole,
+  type SearchFilterChip,
+} from "@/features/search/types";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types";
 
 interface SearchFilterChipsProps {
   value: SearchFilterChip;
   onChange: (value: SearchFilterChip) => void;
+  role?: UserRole;
 }
 
-export function SearchFilterChips({ value, onChange }: SearchFilterChipsProps) {
+export function SearchFilterChips({
+  value,
+  onChange,
+  role,
+}: SearchFilterChipsProps) {
+  const chips = role ? searchFilterChipsForRole(role) : SEARCH_FILTER_CHIPS;
+
   return (
     <div
       className="flex gap-2 overflow-x-auto pb-1"
       role="tablist"
       aria-label="Search filters"
     >
-      {SEARCH_FILTER_CHIPS.map((chip) => {
+      {chips.map((chip) => {
         const active = value === chip.id;
         return (
           <button

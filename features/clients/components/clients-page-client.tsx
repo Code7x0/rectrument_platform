@@ -30,16 +30,24 @@ interface ClientsPageClientProps {
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
-function applyFilters(clients: Client[], filters: ClientListFilters): Client[] {
+function applyFilters(
+  clients: Client[],
+  filters: ClientListFilters,
+  options?: { hideClientName?: boolean },
+): Client[] {
   return clients.filter((client) => {
     if (filters.search?.trim()) {
       const q = filters.search.trim().toLowerCase();
-      const matches =
-        client.name.toLowerCase().includes(q) ||
-        (client.clientCode?.toLowerCase().includes(q) ?? false) ||
-        (client.industry?.toLowerCase().includes(q) ?? false) ||
-        (client.primaryContact?.toLowerCase().includes(q) ?? false);
-      if (!matches) {
+      const matchesCode =
+        client.clientCode?.toLowerCase().includes(q) ?? false;
+      const matchesIndustry =
+        client.industry?.toLowerCase().includes(q) ?? false;
+      const matchesContact =
+        client.primaryContact?.toLowerCase().includes(q) ?? false;
+      const matchesName = options?.hideClientName
+        ? false
+        : client.name.toLowerCase().includes(q);
+      if (!(matchesCode || matchesIndustry || matchesContact || matchesName)) {
         return false;
       }
     }
@@ -84,20 +92,29 @@ export function ClientsPageClient({
   const [archiving, setArchiving] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  const isAmPath = basePath === "/account-manager/clients";
+
   const clientOptions = useMemo<LookupOption[]>(
     () =>
       initialClients
         .filter((c) => c.status !== "archived")
         .map((c) => ({
           id: c.id,
-          label: c.clientCode ? `${c.clientCode} — ${c.name}` : c.name,
+          label: c.clientCode
+            ? isAmPath
+              ? c.clientCode
+              : `${c.clientCode} — ${c.name}`
+            : isAmPath
+              ? c.id
+              : c.name,
         })),
-    [initialClients],
+    [initialClients, isAmPath],
   );
 
   const filtered = useMemo(
-    () => applyFilters(initialClients, filters),
-    [initialClients, filters],
+    () =>
+      applyFilters(initialClients, filters, { hideClientName: isAmPath }),
+    [initialClients, filters, isAmPath],
   );
 
   function refresh() {
@@ -129,8 +146,8 @@ export function ClientsPageClient({
       <PageHeader
         title="Clients"
         description={
-          basePath === "/account-manager/clients"
-            ? "Your assigned clients. Open a workspace to edit details, or manage talent partners on that client’s jobs."
+          isAmPath
+            ? "Your assigned clients by Client ID. Open a workspace to manage jobs and talent partners."
             : "Hiring companies and their workspaces. Assign an Account Manager to own each client."
         }
         actions={
@@ -162,7 +179,7 @@ export function ClientsPageClient({
       <div className="grid gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 md:grid-cols-3">
         <Input
           value={filters.search ?? ""}
-          placeholder="Search clients"
+          placeholder={isAmPath ? "Search Client ID, industry…" : "Search clients"}
           onChange={(e) =>
             setFilters({ ...filters, search: e.target.value })
           }
@@ -189,6 +206,7 @@ export function ClientsPageClient({
         loading={pending}
         canUpdate={canUpdate}
         canArchive={canArchive}
+        hideClientName={isAmPath}
         onOpenWorkspace={(client) =>
           router.push(`${basePath}/${client.id}`)
         }
@@ -224,7 +242,8 @@ export function ClientsPageClient({
         client={editClient}
         accountManagers={accountManagers}
         canDelete={canDelete}
-        lockAccountManager={basePath === "/account-manager/clients"}
+        lockAccountManager={isAmPath}
+        hideClientName={isAmPath}
         onOpenChange={(open) => {
           if (!open) {
             setEditClient(null);
@@ -262,7 +281,11 @@ export function ClientsPageClient({
             setArchiveTarget(null);
           }
         }}
-        entityName={archiveTarget?.name ?? "this client"}
+        entityName={
+          isAmPath
+            ? (archiveTarget?.clientCode ?? "this client")
+            : (archiveTarget?.name ?? "this client")
+        }
         entityLabel="client"
         loading={archiving}
         onConfirm={confirmArchive}

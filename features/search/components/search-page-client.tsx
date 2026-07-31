@@ -20,17 +20,23 @@ import type {
   GlobalSearchResponse,
   SearchFilterChip,
 } from "@/features/search/types";
+import {
+  searchPlaceholderForRole,
+} from "@/features/search/types";
+import type { UserRole } from "@/types";
 
 interface SearchPageClientProps {
   initialQuery: string;
   initialFilter: SearchFilterChip;
   initial: GlobalSearchResponse | null;
+  role: UserRole;
 }
 
 export function SearchPageClient({
   initialQuery,
   initialFilter,
   initial,
+  role,
 }: SearchPageClientProps) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
@@ -88,12 +94,12 @@ export function SearchPageClient({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search…"
+            placeholder={searchPlaceholderForRole(role)}
             className="h-11 rounded-xl pl-9"
             autoFocus
           />
         </div>
-        <SearchFilterChips value={filter} onChange={setFilter} />
+        <SearchFilterChips value={filter} onChange={setFilter} role={role} />
       </div>
 
       {pending ? <SearchSkeleton rows={8} /> : null}

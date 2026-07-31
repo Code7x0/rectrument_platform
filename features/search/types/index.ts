@@ -2,6 +2,8 @@
  * Global Search — permission-aware orchestration over existing modules.
  */
 
+import type { UserRole } from "@/types";
+
 export type SearchEntityType =
   | "client"
   | "job"
@@ -97,6 +99,38 @@ export const SEARCH_FILTER_CHIPS: Array<{
   { id: "notifications", label: "Notifications" },
   { id: "settings", label: "Settings" },
 ];
+
+/** Chips each role is allowed to use — keeps search UI aligned with RBAC. */
+export function searchFilterChipsForRole(
+  role: UserRole,
+): Array<{ id: SearchFilterChip; label: string }> {
+  const allowed = new Set<SearchFilterChip>(["all", "jobs", "candidates", "payouts", "activities", "notifications", "settings"]);
+
+  if (role === "partner") {
+    allowed.add("documents");
+  } else if (role === "account_manager") {
+    allowed.add("clients");
+    // AM may search partners already allocated to their jobs (codes only).
+    allowed.add("partners");
+  } else {
+    allowed.add("clients");
+    allowed.add("partners");
+    allowed.add("documents");
+  }
+
+  return SEARCH_FILTER_CHIPS.filter((chip) => allowed.has(chip.id));
+}
+
+export function searchPlaceholderForRole(role: UserRole): string {
+  switch (role) {
+    case "partner":
+      return "Search your jobs, candidates, payouts…";
+    case "account_manager":
+      return "Search your clients, jobs, candidates…";
+    default:
+      return "Search clients, jobs, partners…";
+  }
+}
 
 export const SEARCH_GROUP_LABELS: Record<SearchResultGroupId, string> = {
   clients: "Clients",

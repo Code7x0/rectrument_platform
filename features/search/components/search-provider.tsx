@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { SearchModal } from "@/features/search/components/search-modal";
+import type { UserRole } from "@/types";
 
 interface SearchContextValue {
   open: boolean;
@@ -21,7 +22,13 @@ interface SearchContextValue {
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
-export function SearchProvider({ children }: { children: ReactNode }) {
+export function SearchProvider({
+  children,
+  role,
+}: {
+  children: ReactNode;
+  role: UserRole;
+}) {
   const [open, setOpen] = useState(false);
   // Keep the dialog out of the tree until first open — avoids Radix portal
   // teardown races with React 19 during dashboard route transitions.
@@ -70,7 +77,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     <SearchContext.Provider value={value}>
       {children}
       {hasOpened ? (
-        <SearchModal open={open} onOpenChange={setOpen} />
+        <SearchModal open={open} onOpenChange={setOpen} role={role} />
       ) : null}
     </SearchContext.Provider>
   );

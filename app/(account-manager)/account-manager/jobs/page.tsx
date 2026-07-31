@@ -44,15 +44,31 @@ export default async function AccountManagerJobsPage() {
       getJobLocations(),
     ]);
 
+  const codeByClientId = new Map(
+    assignedClients.map((client) => [
+      client.id,
+      client.clientCode?.trim() || null,
+    ]),
+  );
+
   const clients = assignedClients.map((client) => ({
     id: client.id,
-    label: client.name,
+    label: client.clientCode?.trim() || client.id,
     accountManagerId: client.accountManagerId,
+  }));
+
+  // AM surfaces use Client ID only — never commercial client names.
+  const jobsForAm = jobs.map((job) => ({
+    ...job,
+    clientName:
+      (job.clientId ? codeByClientId.get(job.clientId) : null) ??
+      job.jobCode?.split("_")[0] ??
+      null,
   }));
 
   return (
     <JobsPageClient
-      initialJobs={jobs}
+      initialJobs={jobsForAm}
       clients={clients}
       accountManagers={accountManagers}
       partners={partners}

@@ -22,6 +22,8 @@ interface ClientDialogProps {
   accountManagers: LookupOption[];
   canDelete?: boolean;
   lockAccountManager?: boolean;
+  /** Account Managers must not see commercial client names. */
+  hideClientName?: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
 }
@@ -33,6 +35,7 @@ export function ClientDialog({
   accountManagers,
   canDelete = false,
   lockAccountManager = false,
+  hideClientName = false,
   onOpenChange,
   onCompleted,
 }: ClientDialogProps) {
@@ -81,6 +84,10 @@ export function ClientDialog({
     }
   }
 
+  const displayLabel = hideClientName
+    ? (client?.clientCode ?? "this client")
+    : (client?.name ?? "this client");
+
   return (
     <>
       <FormDialog
@@ -90,7 +97,9 @@ export function ClientDialog({
         description={
           mode === "create"
             ? "Add a hiring company to the platform."
-            : "Update client details."
+            : hideClientName
+              ? "Update operational details for this Client ID."
+              : "Update client details."
         }
       >
         <ClientForm
@@ -99,6 +108,7 @@ export function ClientDialog({
           initialClient={mode === "edit" ? client : null}
           submitting={submitting || deleting}
           lockAccountManager={lockAccountManager}
+          hideClientName={hideClientName}
           submitLabel={mode === "create" ? "Create Client" : "Save Changes"}
           onCancel={() => onOpenChange(false)}
           onSubmit={handleSubmit}
@@ -113,7 +123,7 @@ export function ClientDialog({
       <DeleteDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        entityName={client?.name ?? "this client"}
+        entityName={displayLabel}
         entityLabel="client"
         loading={deleting}
         onConfirm={confirmDelete}

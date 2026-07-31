@@ -1,5 +1,6 @@
 export {
   applySubmissionStatusChange,
+  deleteSubmission,
   getSubmissionById,
   listPartnerSubmissions,
   listReviewQueueSubmissions,

@@ -33,7 +33,8 @@ function revalidateReviewPaths() {
 }
 
 /**
- * AM-only status transition via Workflow Service.
+ * Status transition via Workflow Service.
+ * Admin / Super Admin: any submission. Account Manager: owned jobs only.
  */
 export async function transitionSubmissionAction(
   submissionId: string,
@@ -42,7 +43,7 @@ export async function transitionSubmissionAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("review_candidates");
-    await requireRole(["account_manager"]);
+    await requireRole(["account_manager", "admin", "super_admin"]);
     await assertAccountManagerOwnsSubmission(session, submissionId);
 
     const submission = await transitionSubmissionStatus({

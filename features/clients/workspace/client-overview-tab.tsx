@@ -25,14 +25,22 @@ function Detail({
 interface ClientOverviewTabProps {
   client: Client;
   stats: ClientWorkspaceStats;
+  /** Account Managers see Client ID, not commercial name. */
+  hideClientName?: boolean;
 }
 
-export function ClientOverviewTab({ client, stats }: ClientOverviewTabProps) {
+export function ClientOverviewTab({
+  client,
+  stats,
+  hideClientName = false,
+}: ClientOverviewTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
         <ClientStatusBadge status={client.status} />
-        <span className="text-sm text-[#64748B]">{client.clientCode}</span>
+        <span className="text-sm font-medium text-[#0F172A]">
+          {client.clientCode ?? "—"}
+        </span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -55,9 +63,14 @@ export function ClientOverviewTab({ client, stats }: ClientOverviewTabProps) {
 
       <WorkspaceSection title="Client Details">
         <div className="grid gap-4 sm:grid-cols-2">
+          {!hideClientName ? (
+            <Detail label="Client Name" value={client.name} />
+          ) : null}
           <Detail label="Industry" value={client.industry} />
           <Detail label="Primary Contact" value={client.primaryContact} />
-          <Detail label="Account Manager" value={client.accountManagerName} />
+          {!hideClientName ? (
+            <Detail label="Account Manager" value={client.accountManagerName} />
+          ) : null}
           <Detail label="Website" value={client.website} />
           <Detail label="Status" value={client.status} />
         </div>

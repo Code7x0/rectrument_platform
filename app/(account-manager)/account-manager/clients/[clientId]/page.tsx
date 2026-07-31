@@ -78,7 +78,12 @@ export default async function AccountManagerClientWorkspacePage({
     }),
     Promise.resolve([{ id: accountManagerId, label: "You" }]),
     listClientOptions().then((rows) =>
-      rows.filter((row) => row.accountManagerId === accountManagerId),
+      rows
+        .filter((row) => row.accountManagerId === accountManagerId)
+        .map((row) => ({
+          ...row,
+          label: row.clientCode?.trim() || row.id,
+        })),
     ),
     listPartnerOptions("operational"),
   ]);
@@ -117,7 +122,7 @@ export default async function AccountManagerClientWorkspacePage({
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },
         { label: "Clients", href: "/account-manager/clients" },
-        { label: client.name },
+        { label: client.clientCode?.trim() || "Client" },
       ]}
     />
   );

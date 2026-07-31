@@ -49,7 +49,7 @@ export function DashboardShell({
   }
 
   return (
-    <SearchProvider>
+    <SearchProvider role={role}>
       <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
         <Navbar
           items={navItems}

@@ -4,9 +4,14 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 
 import { revalidatePath } from "next/cache";
 
-import { requirePermission } from "@/lib/auth";
+import { requirePermission, requireRole } from "@/lib/auth";
+import {
+  assertAccountManagerOwnsSubmission,
+  ScopeDeniedError,
+} from "@/lib/auth/scope";
 import { candidateFormSchema } from "@/features/candidates/schemas/candidate.schema";
 import {
+  deleteSubmission,
   stageResumeFile,
   submitCandidateForAllocation,
 } from "@/features/submissions/services";
@@ -201,6 +206,33 @@ export async function submitCandidateAction(
       success: false,
       message:
         actionErrorMessage(error, "Unable to submit candidate"),
+    };
+  }
+}
+
+/**
+ * Permanently delete a candidate submission.
+ * Admin / Super Admin: any. Account Manager: owned jobs only.
+ */
+export async function deleteSubmissionAction(
+  submissionId: string,
+): Promise<ActionResult> {
+  try {
+    const session = await requirePermission("delete_candidates");
+    await requireRole(["account_manager", "admin", "super_admin"]);
+    await assertAccountManagerOwnsSubmission(session, submissionId);
+
+    await deleteSubmission(submissionId);
+    revalidateSubmissionPaths();
+
+    return { success: true, data: { id: submissionId } };
+  } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to delete candidate"),
     };
   }
 }

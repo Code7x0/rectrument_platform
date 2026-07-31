@@ -99,15 +99,24 @@ export function ClientWorkspacePageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <WorkspaceShell
-        title={client.name}
-        subtitle={client.industry}
+        title={
+          isAmPath
+            ? (client.clientCode?.trim() || "Client")
+            : client.name
+        }
+        subtitle={
+          isAmPath
+            ? (client.industry ?? undefined)
+            : [client.clientCode, client.industry].filter(Boolean).join(" · ") ||
+              undefined
+        }
         tabs={tabs}
         activeTab={tab}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <ActivityDrawer
               entityRef={{ kind: "client", id: client.id }}
-              title={`${client.name} activity`}
+              title={`${isAmPath ? (client.clientCode ?? "Client") : client.name} activity`}
               initial={activityTimeline}
             />
             {canUpdate && client.status !== "archived" ? (
@@ -120,7 +129,11 @@ export function ClientWorkspacePageClient({
         }
       >
         {tab === "overview" ? (
-          <ClientOverviewTab client={client} stats={stats} />
+          <ClientOverviewTab
+            client={client}
+            stats={stats}
+            hideClientName={isAmPath}
+          />
         ) : null}
         {tab === "jobs" ? (
           <ClientJobsTab
@@ -157,6 +170,7 @@ export function ClientWorkspacePageClient({
         client={client}
         accountManagers={accountManagers}
         lockAccountManager={isAmPath}
+        hideClientName={isAmPath}
         onOpenChange={setEditOpen}
         onCompleted={() => router.refresh()}
       />

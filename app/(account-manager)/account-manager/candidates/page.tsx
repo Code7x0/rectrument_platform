@@ -47,6 +47,8 @@ export default async function AccountManagerReviewQueuePage() {
     <ReviewQueuePageClient
       initialSubmissions={submissions}
       canTransition={roleHasPermission(session.role, "review_candidates")}
+      canDelete={roleHasPermission(session.role, "delete_candidates")}
+      hideClientName
       title="Candidates"
       description="All submissions on your assigned jobs. Update status as candidates move through the pipeline."
       emptyTitle="No candidates yet"

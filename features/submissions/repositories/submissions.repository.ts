@@ -1,5 +1,6 @@
 import {
   createRecord,
+  deleteRecord,
   findRecord,
   getRecords,
   updateRecord,
@@ -127,4 +128,9 @@ export async function patchSubmission(
     id: record.id,
     fields: record.fields as AirtableFields,
   });
+}
+
+/** Permanently remove a Candidates/Submissions row from Airtable. */
+export async function destroySubmission(recordId: string): Promise<void> {
+  await deleteRecord(getTableName(), recordId);
 }

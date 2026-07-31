@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye } from "lucide-react";
+import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -18,6 +18,7 @@ import type { Job } from "@/features/jobs/types";
 import { JOB_PRIORITY_LABELS } from "@/features/jobs/types";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import type { Submission } from "@/features/submissions/types";
+import { deleteSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { getReviewDetailAction } from "@/features/workflows/actions/review.actions";
 import { transitionSubmissionAction } from "@/features/workflows/actions/workflows.actions";
 import { signalLiveDataChange } from "@/lib/live-sync";
@@ -32,6 +33,8 @@ import { formatDate } from "@/lib/utils";
 interface ReviewQueuePageClientProps {
   initialSubmissions: Submission[];
   canTransition: boolean;
+  canDelete?: boolean;
+  hideClientName?: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -59,6 +62,8 @@ function Detail({
 export function ReviewQueuePageClient({
   initialSubmissions,
   canTransition,
+  canDelete = false,
+  hideClientName = false,
   breadcrumbs,
   emptyTitle = "No submissions to review",
   emptyDescription = "New partner submissions will appear here.",
@@ -75,6 +80,8 @@ export function ReviewQueuePageClient({
     null,
   );
   const [transitioning, setTransitioning] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setRows(initialSubmissions);
@@ -129,6 +136,33 @@ export function ReviewQueuePageClient({
       router.refresh();
     } finally {
       setTransitioning(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) {
+      return;
+    }
+    const targetId = deleteTarget.id;
+    setDeleting(true);
+    try {
+      const result = await deleteSubmissionAction(targetId);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success("Candidate deleted");
+      setRows((current) => current.filter((row) => row.id !== targetId));
+      setDeleteTarget(null);
+      if (selected?.id === targetId) {
+        setSelected(null);
+        setCandidate(null);
+        setJob(null);
+      }
+      signalLiveDataChange();
+      router.refresh();
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -191,19 +225,32 @@ export function ReviewQueuePageClient({
         header: "Actions",
         align: "right",
         cell: (row) => (
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            aria-label="Review submission"
-            onClick={() => void openReview(row)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              aria-label="Review submission"
+              onClick={() => void openReview(row)}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            {canDelete ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label="Delete candidate"
+                onClick={() => setDeleteTarget(row)}
+              >
+                <Trash2 className="h-4 w-4 text-[#B91C1C]" />
+              </Button>
+            ) : null}
+          </div>
         ),
       },
     ],
-    [],
+    [canDelete],
   );
 
   const nextStatuses = selected ? getAllowedTransitions(selected.status) : [];
@@ -329,7 +376,9 @@ export function ReviewQueuePageClient({
                       label="Partner Code"
                       value={selected.partnerCode}
                     />
-                    <Detail label="Client" value={job?.clientName} />
+                    {!hideClientName ? (
+                      <Detail label="Client" value={job?.clientName} />
+                    ) : null}
                     <Detail label="Location" value={job?.location} />
                     <Detail
                       label="Partner"
@@ -376,6 +425,19 @@ export function ReviewQueuePageClient({
               </div>
             ) : null}
 
+            {canDelete ? (
+              <div className="border-t border-[#E2E8F0] pt-4">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => setDeleteTarget(selected)}
+                >
+                  Delete candidate
+                </Button>
+              </div>
+            ) : null}
+
             <div className="border-t border-[#E2E8F0] pt-4">
               <EntityActivityInline
                 entityRef={{ kind: "submission", id: selected.id }}
@@ -403,6 +465,25 @@ export function ReviewQueuePageClient({
         variant={pendingStatus === "rejected" ? "destructive" : "default"}
         loading={transitioning}
         onConfirm={confirmTransition}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Delete candidate"
+        description={
+          deleteTarget
+            ? `Permanently delete ${deleteTarget.candidateName ?? "this candidate"}? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleting}
+        onConfirm={confirmDelete}
       />
     </ContentContainer>
   );

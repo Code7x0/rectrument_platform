@@ -172,16 +172,29 @@ async function searchClients(
 
   return clients
     .map((client) => {
-      const match = matchScore(query, [
-        { value: client.name, field: "name" },
-        { value: client.clientCode, field: "code" },
-        { value: client.industry, field: "industry" },
-        { value: client.primaryContact, field: "contact" },
-      ]);
+      const isAm = session.role === "account_manager";
+      const match = matchScore(
+        query,
+        isAm
+          ? [
+              { value: client.clientCode, field: "code" },
+              { value: client.industry, field: "industry" },
+            ]
+          : [
+              { value: client.name, field: "name" },
+              { value: client.clientCode, field: "code" },
+              { value: client.industry, field: "industry" },
+              { value: client.primaryContact, field: "contact" },
+            ],
+      );
       return makeResult({
         id: client.id,
-        title: client.name,
-        subtitle: client.industry ?? client.clientCode,
+        title: isAm
+          ? (client.clientCode?.trim() || "Client")
+          : client.name,
+        subtitle: isAm
+          ? (client.industry ?? null)
+          : (client.industry ?? client.clientCode),
         entityType: "client",
         status: client.status,
         score: match.score,
@@ -219,16 +232,28 @@ async function searchJobs(
 
   return jobs
     .map((job) => {
-      const match = matchScore(query, [
-        { value: job.title, field: "title" },
-        { value: job.jobCode, field: "code" },
-        { value: job.clientName, field: "client" },
-        { value: job.location, field: "location" },
-      ]);
+      const isAm = session.role === "account_manager";
+      const match = matchScore(
+        query,
+        isAm
+          ? [
+              { value: job.title, field: "title" },
+              { value: job.jobCode, field: "code" },
+              { value: job.location, field: "location" },
+            ]
+          : [
+              { value: job.title, field: "title" },
+              { value: job.jobCode, field: "code" },
+              { value: job.clientName, field: "client" },
+              { value: job.location, field: "location" },
+            ],
+      );
       return makeResult({
         id: job.id,
         title: job.title,
-        subtitle: job.clientName ?? job.jobCode,
+        subtitle: isAm
+          ? (job.jobCode ?? null)
+          : (job.clientName ?? job.jobCode),
         entityType: "job",
         status: job.status,
         score: match.score,

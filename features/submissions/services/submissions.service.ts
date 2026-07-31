@@ -19,6 +19,7 @@ import {
   findSubmissionsSafe,
   insertSubmission,
   patchSubmission,
+  destroySubmission,
 } from "@/features/submissions/repositories/submissions.repository";
 import {
   buildSubmissionsFilterFormula,
@@ -531,4 +532,37 @@ export async function stageResumeFile(file: {
   size: number;
 }): Promise<UploadedFile> {
   return getUploadService().upload(file);
+}
+
+/**
+ * Permanently delete a candidate submission (and linked payout row when stored).
+ */
+export async function deleteSubmission(submissionId: string): Promise<void> {
+  const submission = await findSubmissionById(submissionId);
+  if (!submission) {
+    throw new Error("Candidate not found");
+  }
+
+  try {
+    const { getPayoutBySubmissionId } = await import(
+      "@/features/payouts/services"
+    );
+    const { deleteRecord } = await import("@/lib/airtable/client");
+    const { getOptionalAirtableTableName } = await import(
+      "@/lib/airtable/tables"
+    );
+    const { isDerivedPayoutId } = await import(
+      "@/features/payouts/services/payouts.derived"
+    );
+
+    const payout = await getPayoutBySubmissionId(submissionId);
+    const payoutsTable = getOptionalAirtableTableName("payoutsTable");
+    if (payout && payoutsTable && !isDerivedPayoutId(payout.id)) {
+      await deleteRecord(payoutsTable, payout.id);
+    }
+  } catch (error) {
+    console.error("Failed to remove linked payout before candidate delete", error);
+  }
+
+  await destroySubmission(submissionId);
 }

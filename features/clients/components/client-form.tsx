@@ -21,6 +21,8 @@ interface ClientFormProps {
   submitting?: boolean;
   /** When true, Account Manager field is read-only (Account Manager role). */
   lockAccountManager?: boolean;
+  /** When true, hide commercial client name (Account Manager role). */
+  hideClientName?: boolean;
   onSubmit: (values: ClientFormValues) => Promise<void> | void;
   onCancel?: () => void;
   onDelete?: () => void;
@@ -56,6 +58,7 @@ export function ClientForm({
   initialClient,
   submitting = false,
   lockAccountManager = false,
+  hideClientName = false,
   onSubmit,
   onCancel,
   onDelete,
@@ -72,13 +75,29 @@ export function ClientForm({
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-      <div className="space-y-2">
-        <Label htmlFor="name">Client Name</Label>
-        <Input id="name" {...register("name")} />
-        {errors.name ? (
-          <p className="text-xs text-destructive">{errors.name.message}</p>
-        ) : null}
-      </div>
+      {hideClientName ? (
+        <div className="space-y-2">
+          <Label htmlFor="clientCodeDisplay">Client ID</Label>
+          <Input
+            id="clientCodeDisplay"
+            value={initialClient?.clientCode ?? "—"}
+            readOnly
+            disabled
+          />
+          <input type="hidden" {...register("name")} />
+          <p className="text-xs text-[#64748B]">
+            Client name is hidden for Account Managers. Use Client ID only.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="name">Client Name</Label>
+          <Input id="name" {...register("name")} />
+          {errors.name ? (
+            <p className="text-xs text-destructive">{errors.name.message}</p>
+          ) : null}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">

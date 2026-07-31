@@ -31,9 +31,10 @@ export default async function AdminCandidatesPage() {
   return (
     <ReviewQueuePageClient
       initialSubmissions={submissions}
-      canTransition={false}
+      canTransition={roleHasPermission(session.role, "review_candidates")}
+      canDelete={roleHasPermission(session.role, "delete_candidates")}
       title="Candidates"
-      description="All partner submissions across clients and jobs. Account Managers update interview status."
+      description="All partner submissions across clients and jobs. Update status as interviews progress."
       emptyTitle="No candidates found"
       emptyDescription="When Talent Partners submit profiles against allocated jobs, they appear here."
       breadcrumbs={[

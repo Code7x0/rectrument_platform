@@ -81,6 +81,7 @@ export type Permission =
   | "archive_allocations"
   | "view_own_allocations"
   | "review_candidates"
+  | "delete_candidates"
   | "view_submissions"
   | "view_documents"
   | "verify_documents"
