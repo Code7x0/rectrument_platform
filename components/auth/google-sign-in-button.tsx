@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { useSignIn } from "@clerk/nextjs/legacy";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -45,9 +47,29 @@ function GoogleGlyph({ className }: { className?: string }) {
   );
 }
 
+function clerkErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return "Unable to start Google sign-in. Try again.";
+  }
+  const err = error as {
+    errors?: Array<{ longMessage?: string; message?: string; code?: string }>;
+    message?: string;
+  };
+  const first = err.errors?.[0];
+  const detail =
+    first?.longMessage || first?.message || err.message || first?.code;
+  if (detail?.trim()) {
+    return detail.trim();
+  }
+  return "Unable to start Google sign-in. Try again.";
+}
+
 /**
  * Google-only sign-in — email/password is not offered in the product UI.
  * Enable Google OAuth in the Clerk dashboard for this to work.
+ *
+ * If a Clerk session already exists (e.g. after /unauthorized), continue to
+ * the app callback instead of starting a second OAuth (which throws).
  */
 export function GoogleSignInButton({
   completeRedirectUrl = ROUTES.authCallback,
@@ -56,24 +78,68 @@ export function GoogleSignInButton({
   size = "lg",
   variant = "default",
 }: GoogleSignInButtonProps) {
-  const { signIn, isLoaded } = useSignIn();
+  const router = useRouter();
+  const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const { signOut } = useClerk();
+  const { signIn, isLoaded: signInLoaded } = useSignIn();
   const [pending, setPending] = useState(false);
 
+  const ready = authLoaded && signInLoaded;
+
+  async function startGoogleOAuth() {
+    if (!signIn) {
+      throw new Error(
+        "Sign-in is not ready. Refresh the page, or sign out and try again.",
+      );
+    }
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    await signIn.authenticateWithRedirect({
+      strategy: "oauth_google",
+      redirectUrl: `${origin}/sign-in/sso-callback`,
+      redirectUrlComplete: completeRedirectUrl.startsWith("http")
+        ? completeRedirectUrl
+        : `${origin}${completeRedirectUrl}`,
+      oidcPrompt: "select_account",
+    });
+  }
+
   async function handleClick() {
-    if (!isLoaded || !signIn || pending) {
+    if (!ready || pending) {
       return;
     }
 
     setPending(true);
     try {
-      await signIn.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sign-in/sso-callback",
-        redirectUrlComplete: completeRedirectUrl,
-      });
+      // Stuck Clerk session after /unauthorized — finish app routing, don't
+      // start a second OAuth (Clerk throws and shows the red toast).
+      if (isSignedIn) {
+        router.replace(completeRedirectUrl);
+        return;
+      }
+
+      await startGoogleOAuth();
     } catch (error) {
       console.error("[auth] Google sign-in failed", error);
-      toast.error("Unable to start Google sign-in. Try again.");
+      const message = clerkErrorMessage(error).toLowerCase();
+      const sessionConflict =
+        message.includes("already signed") ||
+        message.includes("session") ||
+        message.includes("signed in");
+
+      if (sessionConflict || isSignedIn) {
+        try {
+          await signOut({ redirectUrl: "/sign-in" });
+          toast.message("Signed out. Click Continue with Google again.");
+        } catch (signOutError) {
+          console.error("[auth] sign-out after OAuth failure", signOutError);
+          toast.error(clerkErrorMessage(error));
+        }
+        setPending(false);
+        return;
+      }
+
+      toast.error(clerkErrorMessage(error));
       setPending(false);
     }
   }
@@ -84,11 +150,17 @@ export function GoogleSignInButton({
       size={size}
       variant={variant}
       className={cn("w-full gap-2", className)}
-      disabled={!isLoaded || pending}
+      disabled={!ready || pending}
       onClick={() => void handleClick()}
     >
       <GoogleGlyph className="h-4 w-4" />
-      {pending ? "Redirecting…" : label}
+      {pending
+        ? isSignedIn
+          ? "Continuing…"
+          : "Redirecting…"
+        : isSignedIn
+          ? "Continue to app"
+          : label}
     </Button>
   );
 }

@@ -49,12 +49,14 @@ export function AuthPageShell({ children }: AuthPageShellProps) {
 export function AuthPrimaryLink({
   href,
   children,
+  variant = "default",
 }: {
   href: string;
   children: ReactNode;
+  variant?: "default" | "outline" | "secondary" | "ghost" | "link";
 }) {
   return (
-    <Button asChild>
+    <Button asChild variant={variant}>
       <a href={href}>{children}</a>
     </Button>
   );

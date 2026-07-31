@@ -74,21 +74,26 @@ function mapPartnerStatus(raw: string | null): {
   registrationStatus: RegistrationStatus;
 } {
   const normalized = (raw ?? "").trim().toLowerCase();
+  // Do not use includes("active") — that matches "inactive".
   if (
     normalized === "active" ||
     normalized === "preferred" ||
-    normalized === "approved"
+    normalized === "approved" ||
+    normalized === "verified" ||
+    normalized.includes("preferred")
   ) {
     return { status: "active", registrationStatus: "active" };
   }
   if (
     normalized === "probation" ||
     normalized === "pending" ||
-    normalized === "under review"
+    normalized === "under review" ||
+    normalized.includes("pending") ||
+    normalized.includes("probation")
   ) {
     return { status: "inactive", registrationStatus: "pending" };
   }
-  if (normalized === "rejected") {
+  if (normalized === "rejected" || normalized.includes("reject")) {
     return { status: "inactive", registrationStatus: "rejected" };
   }
   // Empty / unknown → treat as pending so approved rows with odd labels
@@ -197,6 +202,7 @@ function mapPartnerAsUser(record: {
   const fields = record.fields;
   const email =
     asString(fields[PARTNERS_TABLE_FIELDS.email]) ??
+    asString(fields[PARTNERS_TABLE_FIELDS.personalEmail]) ??
     asString(fields["Personal Email"]);
   if (!email) {
     return null;
@@ -319,8 +325,77 @@ function mergeElevatedEnvUsers(users: User[]): User[] {
   return [...byEmail.values()];
 }
 
+function normalizeEmail(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function partnerRecordEmails(fields: AirtableFields): string[] {
+  const emails = [
+    asString(fields[PARTNERS_TABLE_FIELDS.email]),
+    asString(fields[PARTNERS_TABLE_FIELDS.personalEmail]),
+    asString(fields["Personal Email"]),
+    asString(fields["Official Email ID"]),
+  ]
+    .map((value) => normalizeEmail(value))
+    .filter(Boolean);
+  return [...new Set(emails)];
+}
+
+/**
+ * Fallback when Airtable LOWER() formulas fail or emails have whitespace.
+ * Scans Partners rows and matches Official Email ID + Personal Email.
+ */
+async function findPartnerByEmailScan(
+  normalizedEmail: string,
+): Promise<User | null> {
+  const coreFields = [
+    PARTNERS_TABLE_FIELDS.email,
+    PARTNERS_TABLE_FIELDS.name,
+    PARTNERS_TABLE_FIELDS.companyName,
+    PARTNERS_TABLE_FIELDS.status,
+    PARTNERS_TABLE_FIELDS.phone,
+    PARTNERS_TABLE_FIELDS.city,
+    PARTNERS_TABLE_FIELDS.specialization,
+  ];
+
+  async function loadPartners() {
+    try {
+      return await getRecords(partnersTable(), {
+        fields: [...coreFields, PARTNERS_TABLE_FIELDS.personalEmail],
+      });
+    } catch (error) {
+      // Personal Email may be missing on some locked bases — retry without it.
+      console.warn(
+        "[client-identity] Partner scan with Personal Email failed; retrying",
+        error instanceof Error ? error.message : error,
+      );
+      return getRecords(partnersTable(), { fields: coreFields });
+    }
+  }
+
+  try {
+    const records = await loadPartners();
+    for (const record of records) {
+      const fields = record.fields as AirtableFields;
+      if (!partnerRecordEmails(fields).includes(normalizedEmail)) {
+        continue;
+      }
+      return mapPartnerAsUser({
+        id: record.id,
+        fields,
+      });
+    }
+  } catch (error) {
+    console.error("[client-identity] Partner email scan failed", error);
+  }
+  return null;
+}
+
 export async function clientFindUserByEmail(email: string): Promise<User | null> {
-  const normalized = email.trim().toLowerCase();
+  const normalized = normalizeEmail(email);
+  if (!normalized) {
+    return null;
+  }
   const elevated = resolveElevatedRole(normalized);
   if (elevated) {
     // Env allow-list is authoritative: never block login on Airtable status/outage.
@@ -328,7 +403,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
     try {
       const existing = await clientListUsers({});
       const match = existing.find(
-        (user) => user.email.toLowerCase() === normalized,
+        (user) => normalizeEmail(user.email) === normalized,
       );
       if (match) {
         return {
@@ -349,7 +424,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
 
   try {
     const amRecords = await getRecords(accountManagersTable(), {
-      filterByFormula: `LOWER({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}'`,
+      filterByFormula: `LOWER(TRIM({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}})) = '${escapeFormula(normalized)}'`,
       maxRecords: 1,
     });
     const am = amRecords[0];
@@ -367,7 +442,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
   // including it in one OR() formula can invalidate the whole lookup (422).
   try {
     const byOfficial = await getRecords(partnersTable(), {
-      filterByFormula: `LOWER({${PARTNERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}'`,
+      filterByFormula: `LOWER(TRIM({${PARTNERS_TABLE_FIELDS.email}})) = '${escapeFormula(normalized)}'`,
       maxRecords: 1,
     });
     const partner = byOfficial[0];
@@ -386,7 +461,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
 
   try {
     const byPersonal = await getRecords(partnersTable(), {
-      filterByFormula: `LOWER({${PARTNERS_TABLE_FIELDS.personalEmail}}) = '${escapeFormula(normalized)}'`,
+      filterByFormula: `LOWER(TRIM({${PARTNERS_TABLE_FIELDS.personalEmail}})) = '${escapeFormula(normalized)}'`,
       maxRecords: 1,
     });
     const partner = byPersonal[0];
@@ -402,6 +477,16 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
       "[client-identity] Partner Personal Email lookup skipped/failed",
       error instanceof Error ? error.message : error,
     );
+  }
+
+  // Formula miss / whitespace / casing edge cases — scan partner emails in memory.
+  const scanned = await findPartnerByEmailScan(normalized);
+  if (scanned) {
+    console.info("[client-identity] Partner matched via email scan", {
+      email: normalized,
+      partnerId: scanned.partnerId,
+    });
+    return scanned;
   }
 
   return null;
