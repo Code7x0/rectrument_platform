@@ -56,7 +56,7 @@ export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
   submitted: "Submitted",
   internal_review: "Internal Review",
   client_review: "Client Review",
-  interview: "Interview",
+  interview: "Interviewing",
   offer: "Offer",
   joined: "Joined",
   rejected: "Rejected",

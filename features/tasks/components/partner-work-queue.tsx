@@ -54,6 +54,8 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
             setSelected(null);
           }
         }}
+        partnerView
+        submittedProfiles={selected?.submittedProfiles ?? null}
         footer={
           <Button
             type="button"

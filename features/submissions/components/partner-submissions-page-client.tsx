@@ -1,11 +1,13 @@
 "use client";
 
-import { ClipboardList, ExternalLink, FileText } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, ExternalLink, FileText, X } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
 import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
 import type { Payout } from "@/features/payouts/types";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
@@ -16,12 +18,16 @@ interface PartnerSubmissionsPageClientProps {
   submissions: Submission[];
   payoutsBySubmission?: Record<string, Payout>;
   breadcrumbs: Array<{ label: string; href?: string }>;
+  filterJobId?: string | null;
+  filterJobLabel?: string | null;
 }
 
 export function PartnerSubmissionsPageClient({
   submissions,
   payoutsBySubmission = {},
   breadcrumbs,
+  filterJobId = null,
+  filterJobLabel = null,
 }: PartnerSubmissionsPageClientProps) {
   return (
     <ContentContainer>
@@ -31,10 +37,31 @@ export function PartnerSubmissionsPageClient({
         description="Profiles you have submitted. Reviews appear when Account Managers advance status."
       />
 
+      {filterJobId ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
+          <p className="text-sm text-[#1E3A8A]">
+            Showing submissions for{" "}
+            <span className="font-semibold">
+              {filterJobLabel ?? "this requisition"}
+            </span>
+          </p>
+          <Button asChild size="sm" variant="outline">
+            <Link href="/partner/candidates">
+              <X className="h-3.5 w-3.5" />
+              Clear filter
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
       {submissions.length === 0 ? (
         <EmptyState
-          title="No submissions yet"
-          description="Open Assigned Jobs, select a job, and submit a candidate."
+          title={filterJobId ? "No submissions for this job" : "No submissions yet"}
+          description={
+            filterJobId
+              ? "Submit a candidate from Assigned Jobs for this requisition."
+              : "Open Assigned Jobs, select a job, and submit a candidate."
+          }
           icon={<ClipboardList className="h-5 w-5" />}
         />
       ) : (

@@ -4,11 +4,9 @@ import {
   DOMAIN_EMPLOYMENT_TYPE_TO_AIRTABLE,
   DOMAIN_JOB_PRIORITY_TO_AIRTABLE,
   DOMAIN_JOB_STATUS_TO_AIRTABLE,
-  CLIENTS_TABLE_FIELDS,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { isClientCompatMode } from "@/lib/airtable/compat";
-import { patchClient } from "@/features/clients/repositories/clients.repository";
 import { allocateNextJobCodeForClient } from "@/features/shared/services/business-ids.service";
 import {
   listAccountManagerOptions,
@@ -54,11 +52,20 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
     accountManagers.map((am) => [am.id, am.label]),
   );
 
+  // Need Account Owner ids for inherit — lookup options are labels only.
+  const { listClients } = await import("@/features/clients/services");
+  const clientRows = await listClients({ includeArchived: true });
+  const clientOwnerById = new Map(
+    clientRows.map((client) => [client.id, client.accountManagerId]),
+  );
+
   return jobs.map((job) => {
     const client = job.clientId ? clientMap.get(job.clientId) : undefined;
-    // Locked client schema: AM lives on Clients.Account Owner, not Jobs.
+    // Prefer per-job AM (link field or [RP_AM] marker). Inherit Client
+    // Account Owner only when the job has no explicit assignment.
     const accountManagerId =
-      job.accountManagerId ?? client?.accountManagerId ?? null;
+      job.accountManagerId ??
+      (job.clientId ? clientOwnerById.get(job.clientId) ?? null : null);
 
     return {
       ...job,
@@ -68,6 +75,43 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
         ? (amMap.get(accountManagerId) ?? null)
         : null,
     };
+  });
+}
+
+/**
+ * AM job visibility:
+ * - Explicit per-job AM (field / [RP_AM] marker) always wins.
+ * - If this AM has ANY explicit job on a client, sibling jobs without an
+ *   explicit AM are NOT inherited via Client Account Owner (prevents
+ *   “assign one job → whole client” bleed).
+ * - Otherwise inherit Client Account Owner for unmarked jobs.
+ */
+function filterJobsForAccountManager(
+  originals: Job[],
+  enriched: Job[],
+  accountManagerId: string,
+): Job[] {
+  const explicitById = new Map(
+    originals.map((job) => [job.id, job.accountManagerId]),
+  );
+  const clientsWithExplicitAm = new Set(
+    originals
+      .filter(
+        (job) =>
+          job.accountManagerId === accountManagerId && Boolean(job.clientId),
+      )
+      .map((job) => job.clientId as string),
+  );
+
+  return enriched.filter((job) => {
+    const explicit = explicitById.get(job.id) ?? null;
+    if (explicit) {
+      return explicit === accountManagerId;
+    }
+    if (job.clientId && clientsWithExplicitAm.has(job.clientId)) {
+      return false;
+    }
+    return job.accountManagerId === accountManagerId;
   });
 }
 
@@ -86,25 +130,6 @@ function applySearchFilter(jobs: Job[], search?: string): Job[] {
   );
 }
 
-/**
- * On the locked client base, "assign job → AM" means setting the Client's
- * Account Owner (Jobs has no Assigned Account Manager column).
- * Pass null/empty to clear ownership.
- */
-async function syncClientAccountOwner(
-  clientId: string,
-  accountManagerId: string | null | undefined,
-): Promise<void> {
-  if (!isClientCompatMode()) {
-    return;
-  }
-  await patchClient(clientId, {
-    [CLIENTS_TABLE_FIELDS.accountManager]: accountManagerId
-      ? [accountManagerId]
-      : [],
-  });
-}
-
 /** Request-scoped full jobs scan. */
 const loadAllJobsCached = cache(async () =>
   findJobs({
@@ -114,25 +139,6 @@ const loadAllJobsCached = cache(async () =>
 
 export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
   const { search, accountManagerId, clientId, ...rest } = filters;
-
-  // Client mode: AM ownership is Clients.Account Owner — prefer client-id filter
-  // so we never return another manager's jobs from Airtable.
-  let clientScopedIds: Set<string> | null = null;
-  if (
-    isClientCompatMode() &&
-    accountManagerId &&
-    accountManagerId !== "all"
-  ) {
-    const { listClients } = await import("@/features/clients/services");
-    const owned = await listClients({
-      accountManagerId,
-      includeArchived: true,
-    });
-    clientScopedIds = new Set(owned.map((c) => c.id));
-    if (clientScopedIds.size === 0) {
-      return [];
-    }
-  }
 
   // Client mode: do not query missing Jobs.Assigned Account Manager, and do not
   // FIND(recId) on linked Client — ARRAYJOIN returns client names, not ids.
@@ -152,18 +158,11 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
 
   let enriched = await withEnrichment(jobs);
 
-  if (clientScopedIds) {
-    enriched = enriched.filter(
-      (job) => job.clientId != null && clientScopedIds!.has(job.clientId),
-    );
-  } else if (
-    isClientCompatMode() &&
+  if (
     accountManagerId &&
     accountManagerId !== "all"
   ) {
-    enriched = enriched.filter(
-      (job) => job.accountManagerId === accountManagerId,
-    );
+    enriched = filterJobsForAccountManager(jobs, enriched, accountManagerId);
   }
 
   if (isClientCompatMode() && clientId && clientId !== "all") {
@@ -190,12 +189,7 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
   const created = await insertJob(
     toAirtableCreateFields(input, valueMaps, { jobCode }),
   );
-  if (input.clientId) {
-    await syncClientAccountOwner(
-      input.clientId,
-      input.accountManagerId?.trim() || null,
-    );
-  }
+  // Per-job AM only ([RP_AM] marker) — do not set Clients.Account Owner.
 
   const [job] = await withEnrichment([created]);
 
@@ -244,17 +238,47 @@ export async function updateJob(
     );
   }
 
+  // Locked client Jobs have no AM link — store per-job AM in Comments [RP_AM].
+  if (isClientCompatMode() && input.accountManagerId !== undefined) {
+    const { upsertJobAmMarker, upsertJobIdMarker } = await import(
+      "@/lib/business-ids"
+    );
+    const { findRecord } = await import("@/lib/airtable/client");
+    const { getAirtableTableName } = await import("@/lib/airtable/tables");
+    let commentsRaw =
+      typeof fields[JOBS_TABLE_FIELDS.notes] === "string"
+        ? (fields[JOBS_TABLE_FIELDS.notes] as string)
+        : "";
+    try {
+      const record = await findRecord(
+        getAirtableTableName("jobsTable"),
+        jobId,
+      );
+      const notesField = record.fields[JOBS_TABLE_FIELDS.notes];
+      if (typeof notesField === "string") {
+        commentsRaw = notesField;
+      }
+    } catch {
+      // fall through with fields/existing notes
+    }
+    if (!commentsRaw && existing?.notes) {
+      commentsRaw = existing.notes;
+    }
+    let next = upsertJobAmMarker(
+      commentsRaw,
+      input.accountManagerId.trim() || null,
+    );
+    if (existing?.jobCode) {
+      next = upsertJobIdMarker(next, existing.jobCode);
+    }
+    fields[JOBS_TABLE_FIELDS.notes] = next;
+  }
+
   const updated = await patchJob(jobId, fields);
 
-  if (input.accountManagerId !== undefined) {
-    const clientId = input.clientId ?? updated.clientId;
-    if (clientId) {
-      await syncClientAccountOwner(
-        clientId,
-        input.accountManagerId.trim() || null,
-      );
-    }
+  // Never sync Clients.Account Owner from a job AM change (that assigned the whole client).
 
+  if (input.accountManagerId !== undefined) {
     const previousAmId = existing?.accountManagerId ?? null;
     const nextAmId = input.accountManagerId.trim() || null;
     if (previousAmId !== nextAmId) {

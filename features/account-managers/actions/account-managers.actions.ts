@@ -53,8 +53,8 @@ export async function assignAccountManagerToClientAction(input: {
 }
 
 /**
- * Assign AM to a job (and its client Account Owner). Admin + Super Admin only.
- * Pass empty / null accountManagerId to unassign.
+ * Assign AM to a single job only. Admin + Super Admin.
+ * Does not change Clients.Account Owner (that would expose every job on the client).
  */
 export async function assignAccountManagerToJobAction(input: {
   jobId: string;

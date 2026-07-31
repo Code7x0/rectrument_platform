@@ -9,10 +9,10 @@ import {
 } from "@/lib/live-sync";
 
 /** Cheap pulse poll — only full RSC refresh when the fingerprint changes. */
-const PULSE_INTERVAL_MS = 6_000;
+const PULSE_INTERVAL_MS = 4_000;
 /** Safety-net full refresh even if pulse is quiet (Airtable direct edits). */
-const FULL_REFRESH_INTERVAL_MS = 90_000;
-const MIN_FULL_REFRESH_GAP_MS = 3_000;
+const FULL_REFRESH_INTERVAL_MS = 60_000;
+const MIN_FULL_REFRESH_GAP_MS = 2_500;
 
 /**
  * Soft real-time sync for Airtable-backed RSC pages.

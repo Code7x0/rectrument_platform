@@ -7,6 +7,7 @@ import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { listPartners } from "@/features/partners/services";
 import { toOperationalPartnerView } from "@/features/partners/services/partner-privacy";
 import { listPayouts } from "@/features/payouts/services";
+import { ACTIVE_ALLOCATION_STATUSES } from "@/features/shared/entities";
 import {
   matchScore,
   sortResults,
@@ -226,7 +227,11 @@ async function searchJobs(
     const allocations = await listAllocations({
       partnerId: session.partnerId,
     });
-    const jobIds = new Set(allocations.map((row) => row.jobId));
+    const jobIds = new Set(
+      allocations
+        .filter((row) => ACTIVE_ALLOCATION_STATUSES.includes(row.status))
+        .map((row) => row.jobId),
+    );
     jobs = jobs.filter((job) => jobIds.has(job.id));
   }
 

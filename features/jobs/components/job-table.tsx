@@ -66,9 +66,9 @@ export function JobTable({
       },
       {
         id: "accountManager",
-        header: "Account Manager",
+        header: "Account Manager ID",
         className: "text-[#64748B]",
-        cell: (job) => job.accountManagerName ?? "—",
+        cell: (job) => job.accountManagerId ?? "—",
       },
       {
         id: "hiringManager",

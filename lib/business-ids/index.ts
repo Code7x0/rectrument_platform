@@ -238,6 +238,74 @@ export function stripJobIdMarker(
   return cleaned || null;
 }
 
+/**
+ * Per-job Account Manager on the locked client Jobs table (no AM link column).
+ * Stored in Comments alongside [RP_JOBID] — does not change Airtable schema.
+ */
+export const JOB_AM_MARKER_PREFIX = "[RP_AM]";
+
+export function buildJobAmMarker(accountManagerId: string): string {
+  return `${JOB_AM_MARKER_PREFIX} ${accountManagerId.trim()}`;
+}
+
+export function parseJobAmMarker(
+  comments: string | null | undefined,
+): string | null {
+  if (!comments?.trim()) {
+    return null;
+  }
+  const match = /\[RP_AM\]\s+(rec[a-zA-Z0-9]+)\b/.exec(comments);
+  return match?.[1] ?? null;
+}
+
+/** Upsert or clear [RP_AM] line; preserves Job ID marker and other notes. */
+export function upsertJobAmMarker(
+  existing: string | null | undefined,
+  accountManagerId: string | null | undefined,
+): string {
+  const lines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => !line.trim().startsWith(JOB_AM_MARKER_PREFIX));
+
+  const amId = accountManagerId?.trim();
+  if (amId) {
+    // Keep [RP_JOBID] first when present.
+    const jobIdIdx = lines.findIndex((line) =>
+      line.trim().startsWith(JOB_ID_MARKER_PREFIX),
+    );
+    const marker = buildJobAmMarker(amId);
+    if (jobIdIdx >= 0) {
+      lines.splice(jobIdIdx + 1, 0, marker);
+    } else {
+      lines.unshift(marker);
+    }
+  }
+
+  return lines.filter((line, index) => line.trim() || index > 0).join("\n").trim();
+}
+
+export function stripJobAmMarker(
+  comments: string | null | undefined,
+): string | null {
+  if (!comments?.trim()) {
+    return null;
+  }
+  const cleaned = comments
+    .split("\n")
+    .filter((line) => !line.trim().startsWith(JOB_AM_MARKER_PREFIX))
+    .join("\n")
+    .trim();
+  return cleaned || null;
+}
+
+/** Strip all RP system markers from Comments for UI display. */
+export function stripJobSystemMarkers(
+  comments: string | null | undefined,
+): string | null {
+  return stripJobAmMarker(stripJobIdMarker(comments));
+}
+
 /** Prefer business code for UI; never show synthetic/rec fallbacks. */
 export function displayBusinessId(
   value: string | null | undefined,

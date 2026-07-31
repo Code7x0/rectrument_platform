@@ -49,10 +49,12 @@ export function AccountManagersPageClient({
   const columns = useMemo<DataTableColumn<AccountManagerDirectoryRow>[]>(
     () => [
       {
-        id: "name",
-        header: "Name",
+        id: "id",
+        header: "Account Manager ID",
         cell: (row) => (
-          <span className="font-medium text-[#0F172A]">{row.name}</span>
+          <span className="font-mono text-sm font-medium text-[#0F172A]">
+            {row.id}
+          </span>
         ),
       },
       {

@@ -13,9 +13,11 @@ import {
 } from "@/lib/airtable/fields";
 import {
   isValidJobCode,
+  parseJobAmMarker,
   parseJobIdMarker,
-  stripJobIdMarker,
+  stripJobSystemMarkers,
   upsertJobIdMarker,
+  upsertJobAmMarker,
 } from "@/lib/business-ids";
 import type {
   CreateJobInput,
@@ -113,7 +115,7 @@ function collectJobDocuments(fields: AirtableFields): Job["documents"] {
  * duplicate filenames into the description field.
  */
 function descriptionFromFields(fields: AirtableFields): string | null {
-  const notes = stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes]));
+  const notes = stripJobSystemMarkers(asString(fields[JOBS_TABLE_FIELDS.notes]));
   if (notes) {
     return notes;
   }
@@ -154,7 +156,9 @@ export function mapJobRecord(record: {
     title,
     clientId: asLinkedId(fields[JOBS_TABLE_FIELDS.client]),
     clientName: null,
-    accountManagerId: asLinkedId(fields[JOBS_TABLE_FIELDS.accountManager]),
+    accountManagerId:
+      asLinkedId(fields[JOBS_TABLE_FIELDS.accountManager]) ??
+      parseJobAmMarker(asString(fields[JOBS_TABLE_FIELDS.notes])),
     accountManagerName: null,
     hiringManager: asString(fields[JOBS_TABLE_FIELDS.hiringManager]),
     description: descriptionFromFields(fields),
@@ -171,7 +175,7 @@ export function mapJobRecord(record: {
     skills: asStringArray(fields[JOBS_TABLE_FIELDS.skills]),
     status:
       mapEnum(fields[JOBS_TABLE_FIELDS.status], AIRTABLE_JOB_STATUS) ?? "open",
-    notes: stripJobIdMarker(asString(fields[JOBS_TABLE_FIELDS.notes])),
+    notes: stripJobSystemMarkers(asString(fields[JOBS_TABLE_FIELDS.notes])),
     department: asString(fields[JOBS_TABLE_FIELDS.department]),
     interviewProcess: asString(fields[JOBS_TABLE_FIELDS.interviewProcess]),
     seniorityLevel: asString(fields[JOBS_TABLE_FIELDS.seniorityLevel]),
@@ -223,6 +227,9 @@ export function toAirtableCreateFields(
     if (!clientMode) {
       fields[JOBS_TABLE_FIELDS.jobId] = options.jobCode;
     }
+  }
+  if (clientMode && input.accountManagerId) {
+    commentsText = upsertJobAmMarker(commentsText, input.accountManagerId);
   }
   if (commentsText) {
     fields[JOBS_TABLE_FIELDS.notes] = commentsText;

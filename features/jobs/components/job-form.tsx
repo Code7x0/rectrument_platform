@@ -43,7 +43,6 @@ function jobToFormValues(job?: Job | null): JobFormValues {
       skills: "",
       status: "open",
       notes: "",
-      department: "",
     };
   }
 
@@ -62,7 +61,6 @@ function jobToFormValues(job?: Job | null): JobFormValues {
     skills: job.skills.join(", "),
     status: job.status === "archived" ? "open" : job.status,
     notes: job.notes ?? "",
-    department: job.department ?? "",
   };
 }
 
@@ -112,13 +110,13 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="accountManagerId">Assigned Account Manager</Label>
+          <Label htmlFor="accountManagerId">Assigned Account Manager *</Label>
           <Select
             id="accountManagerId"
             {...register("accountManagerId")}
             disabled={submitting}
           >
-            <option value="">Unassigned</option>
+            <option value="">Select Account Manager ID</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
                 {am.label}
@@ -126,8 +124,8 @@ export function JobForm({
             ))}
           </Select>
           <p className="text-xs text-[#64748B]">
-            Assigns this job&apos;s client to the Account Manager (Clients →
-            Account Owner). Choose Unassigned to clear ownership.
+            Assigns this job only (not every job for the client). Account Manager
+            IDs are shown instead of names.
           </p>
           {errors.accountManagerId ? (
             <p className="text-xs text-[#EF4444]">
@@ -227,15 +225,6 @@ export function JobForm({
             <option value="cancelled">Cancelled</option>
             <option value="filled">Filled</option>
           </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="department">Department</Label>
-          <Input
-            id="department"
-            {...register("department")}
-            disabled={submitting}
-          />
         </div>
 
         <div className="space-y-2 sm:col-span-2">

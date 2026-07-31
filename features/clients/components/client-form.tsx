@@ -121,24 +121,29 @@ export function ClientForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="accountManagerId">
-            Assign Account Manager
+            Account Manager ID *
           </Label>
           <Select
             id="accountManagerId"
             {...register("accountManagerId")}
             disabled={lockAccountManager || submitting}
           >
-            <option value="">Unassigned</option>
+            <option value="">Select Account Manager ID</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
                 {am.label}
               </option>
             ))}
           </Select>
+          {errors.accountManagerId ? (
+            <p className="text-xs text-destructive">
+              {errors.accountManagerId.message}
+            </p>
+          ) : null}
           <p className="text-xs text-[#64748B]">
             {lockAccountManager
               ? "You own this client. Only Admin / Super Admin can reassign ownership."
-              : "Sets the client Account Owner. Jobs under this client follow that AM."}
+              : "Sets the client Account Owner by Account Manager ID (not name)."}
           </p>
         </div>
         <div className="space-y-2">

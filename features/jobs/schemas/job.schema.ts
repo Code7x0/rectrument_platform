@@ -21,19 +21,18 @@ export const employmentTypeSchema = z.enum([
 export const jobFormSchema = z.object({
   title: z.string().trim().min(2, "Job title is required"),
   clientId: z.string().min(1, "Client is required"),
-  accountManagerId: z.string().optional().default(""),
+  accountManagerId: z.string().min(1, "Account Manager is required"),
   hiringManager: z.string().trim().optional(),
   description: z.string().trim().optional(),
-  location: z.string().trim().optional(),
+  location: z.string().trim().min(1, "Location is required"),
   employmentType: employmentTypeSchema.optional(),
-  experience: z.string().trim().optional(),
+  experience: z.string().trim().min(1, "Years of experience is required"),
   salary: z.string().trim().optional(),
   priority: jobPrioritySchema.optional(),
   openPositions: z.coerce.number().int().min(1, "At least 1 position"),
   skills: z.string().trim().optional(),
   status: jobStatusSchema,
   notes: z.string().trim().optional(),
-  department: z.string().trim().optional(),
 });
 
 export type JobFormValues = z.infer<typeof jobFormSchema>;

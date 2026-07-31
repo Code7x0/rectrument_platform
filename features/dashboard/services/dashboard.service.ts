@@ -715,7 +715,7 @@ export async function getPartnerDashboardData(
       },
       {
         id: "interviews",
-        label: "Interviews",
+        label: "Interviewing",
         value: interviews.length,
         href: "/partner/candidates",
       },
@@ -753,11 +753,11 @@ export async function getPartnerDashboardData(
     todaysWork: tasks.slice(0, 6).map((task) => ({
       id: task.id,
       title: task.jobTitle,
-      subtitle: task.clientName ?? "Client",
+      subtitle: task.jobCode ?? "Job",
       badge:
         task.remainingProfiles > 0
           ? `${task.remainingProfiles} remaining`
-          : "Complete",
+          : "Quota met",
       href: "/partner/jobs",
       meta: task.priority ?? undefined,
     })),

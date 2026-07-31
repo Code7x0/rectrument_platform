@@ -29,17 +29,11 @@ export async function listAccountManagerOptions(): Promise<LookupOption[]> {
       sort: [{ field: ACCOUNT_MANAGERS_TABLE_FIELDS.name, direction: "asc" }],
     });
 
-    return records
-      .map((record) => {
-        const label =
-          asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.name]) ??
-          asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.email]);
-        if (!label) {
-          return null;
-        }
-        return { id: record.id, label };
-      })
-      .filter((option): option is LookupOption => option !== null);
+    return records.map((record) => ({
+      // Client review: assignment UIs show Account Manager IDs, not names.
+      id: record.id,
+      label: record.id,
+    }));
   }
 
   const records = await getRecords(getAirtableTableName("usersTable"), {
@@ -47,15 +41,8 @@ export async function listAccountManagerOptions(): Promise<LookupOption[]> {
     sort: [{ field: USERS_TABLE_FIELDS.fullName, direction: "asc" }],
   });
 
-  return records
-    .map((record) => {
-      const label =
-        asString(record.fields[USERS_TABLE_FIELDS.fullName]) ??
-        asString(record.fields[USERS_TABLE_FIELDS.email]);
-      if (!label) {
-        return null;
-      }
-      return { id: record.id, label };
-    })
-    .filter((option): option is LookupOption => option !== null);
+  return records.map((record) => ({
+    id: record.id,
+    label: record.id,
+  }));
 }

@@ -35,7 +35,6 @@ function formValuesToInput(values: JobFormValues, createdById?: string) {
     skills: parseSkillsInput(values.skills),
     status: values.status === "archived" ? "open" : values.status,
     notes: values.notes || undefined,
-    department: values.department || undefined,
     createdById,
   };
 }

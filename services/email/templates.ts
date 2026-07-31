@@ -1,7 +1,7 @@
 import type { EmailTemplateId } from "@/services/email/types";
 
 export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
-  approval: "Your TalentSocio Partner Account Has Been Approved",
+  approval: "Welcome aboard — TalentSocio Partner Account Approved",
   rejection: "Update on your Talent Partner application",
   invitation: "You're invited to join the recruitment platform",
   welcome: "Welcome to the recruitment platform",
@@ -36,16 +36,15 @@ export function renderBody(
     case "approval": {
       const partnerName = data.partnerName ?? data.name ?? "there";
       return [
-        `Hello ${partnerName},`,
+        `Hi ${partnerName},`,
         "",
-        "Congratulations! Your TalentSocio Partner account has been approved.",
+        "Welcome aboard as our newest Talent Partner — we're thrilled to have you on the platform.",
         "",
-        "You can now sign in to the Recruiting Partner Platform using your registered email address.",
+        "We can't wait to see the great hires you'll help make happen!",
+        "",
         data.loginUrl ? `Sign in: ${data.loginUrl}` : "",
         "",
-        "If you experience any issues accessing your account, please contact the TalentSocio team.",
-        "",
-        "Best regards,",
+        "Cheers,",
         "TalentSocio Team",
       ]
         .filter(Boolean)
@@ -117,17 +116,17 @@ export function renderBody(
       ].join("\n");
     case "partner_registration_submitted":
       return [
-        "Hello,",
+        "Hello Chief,",
         "",
-        "A new Talent Partner registration requires your approval.",
+        "A new partner has registered, please review the request below:",
         "",
-        `Partner Name: ${data.partnerName ?? data.name ?? "—"}`,
-        `Experience: ${data.experience ?? "—"}`,
+        `Name: ${data.partnerName ?? data.name ?? "—"}`,
+        `Years of Experience: ${data.experience ?? "—"}`,
         `Specialization: ${data.specialization ?? data.skills ?? "—"}`,
         data.email ? `Email: ${data.email}` : "",
         "",
         data.approvalUrl
-          ? `Review & approve: ${data.approvalUrl}`
+          ? `👉 Approval Link: ${data.approvalUrl}`
           : "Open the Approvals page in the Admin console to review.",
         "",
         "TalentSocio Recruiting Platform",
