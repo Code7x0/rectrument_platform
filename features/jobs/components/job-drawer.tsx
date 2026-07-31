@@ -78,7 +78,7 @@ export function JobDrawer({
                 <Detail label="Client" value={job.clientName} />
                 <Detail
                   label="Assigned Account Manager"
-                  value={job.accountManagerId || job.accountManagerName}
+                  value={job.accountManagerName}
                 />
                 <Detail label="Hiring Manager" value={job.hiringManager} />
               </>

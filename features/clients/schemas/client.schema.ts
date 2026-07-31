@@ -7,7 +7,7 @@ export const clientFormSchema = z.object({
   industry: z.string().trim().optional(),
   website: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
   primaryContact: z.string().trim().optional(),
-  accountManagerId: z.string().min(1, "Account Manager is required"),
+  accountManagerId: z.string().optional(),
   status: clientStatusSchema.default("active"),
   notes: z.string().trim().optional(),
 });

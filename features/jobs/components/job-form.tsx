@@ -110,13 +110,13 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="accountManagerId">Assigned Account Manager *</Label>
+          <Label htmlFor="accountManagerId">Assigned Account Manager</Label>
           <Select
             id="accountManagerId"
             {...register("accountManagerId")}
             disabled={submitting}
           >
-            <option value="">Select Account Manager ID</option>
+            <option value="">Unassigned</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
                 {am.label}
@@ -124,8 +124,8 @@ export function JobForm({
             ))}
           </Select>
           <p className="text-xs text-[#64748B]">
-            Assigns this job only (not every job for the client). Account Manager
-            IDs are shown instead of names.
+            Assigns this job only (not every job for the client). Choose
+            Unassigned to clear.
           </p>
           {errors.accountManagerId ? (
             <p className="text-xs text-[#EF4444]">

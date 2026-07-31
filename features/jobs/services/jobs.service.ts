@@ -49,7 +49,10 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
   ]);
   const clientMap = new Map(clients.map((client) => [client.id, client]));
   const amMap = new Map(
-    accountManagers.map((am) => [am.id, am.label]),
+    accountManagers.map((am) => [
+      am.id,
+      { name: am.label, code: am.code ?? null },
+    ]),
   );
 
   // Need Account Owner ids for inherit — lookup options are labels only.
@@ -66,14 +69,14 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
     const accountManagerId =
       job.accountManagerId ??
       (job.clientId ? clientOwnerById.get(job.clientId) ?? null : null);
+    const amMeta = accountManagerId ? amMap.get(accountManagerId) : null;
 
     return {
       ...job,
       clientName: client?.label ?? null,
       accountManagerId,
-      accountManagerName: accountManagerId
-        ? (amMap.get(accountManagerId) ?? null)
-        : null,
+      // Admin/SA see names; code available via lookups for partner-facing UIs.
+      accountManagerName: amMeta?.name ?? null,
     };
   });
 }

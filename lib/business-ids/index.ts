@@ -114,6 +114,109 @@ export function allocateUniqueClientCode(
 }
 
 /**
+ * Account Manager business ID: short letters + last 2 phone digits.
+ * Example: Vinit Puri + …98 → VPR98 (first initial + first two of last name + digits).
+ * Shown to Talent Partners; Admin / Super Admin use names in the UI.
+ */
+export const AM_CODE_RE = /^[A-Z]{2,4}\d{2}(?:_\d+)?$/;
+
+export const AM_CODE_MARKER_PREFIX = "[RP_AMCODE]";
+
+export function isValidAmCode(value: string | null | undefined): boolean {
+  if (!value?.trim() || isSyntheticDisplayId(value)) {
+    return false;
+  }
+  return AM_CODE_RE.test(value.trim().toUpperCase());
+}
+
+export function buildAmCodeBase(
+  fullName: string | null | undefined,
+  phone: string | null | undefined,
+): string {
+  const parts = (fullName ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-zA-Z]/g, ""))
+    .filter(Boolean);
+
+  const consonants = (word: string) =>
+    word.replace(/[AEIOU]/gi, "").toUpperCase();
+
+  let letters = "AM";
+  if (parts.length === 1) {
+    const word = parts[0]!.toUpperCase();
+    letters = (word.slice(0, 3) + "X").slice(0, 3);
+  } else if (parts.length === 2) {
+    // Vinit Puri → V + PR (consonants of last name) → VPR
+    const first = parts[0]!.toUpperCase();
+    const last = parts[1]!.toUpperCase();
+    const lastChunk = ((consonants(last) || last) + last).slice(0, 2);
+    letters = `${first[0]}${lastChunk}`;
+  } else {
+    // John Michael Smith → JMS
+    const first = parts[0]!.toUpperCase();
+    const middle = parts[1]!.toUpperCase();
+    const last = parts[parts.length - 1]!.toUpperCase();
+    letters = `${first[0]}${middle[0]}${last[0]}`;
+  }
+
+  const digits = (phone ?? "").replace(/\D/g, "");
+  const last2 = (digits.slice(-2) || "00").padStart(2, "0");
+  return `${letters}${last2}`;
+}
+
+export function allocateUniqueAmCode(
+  base: string,
+  existingCodes: Iterable<string>,
+): string {
+  const normalizedBase = base.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const seed =
+    normalizedBase.length >= 4
+      ? normalizedBase.slice(0, 8)
+      : (normalizedBase + "AM00").slice(0, 5);
+
+  const taken = new Set(
+    [...existingCodes]
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean),
+  );
+
+  if (!taken.has(seed)) {
+    return seed;
+  }
+
+  let suffix = 2;
+  while (taken.has(`${seed}_${suffix}`)) {
+    suffix += 1;
+  }
+  return `${seed}_${suffix}`;
+}
+
+export function parseAmCodeMarker(
+  comments: string | null | undefined,
+): string | null {
+  if (!comments?.trim()) {
+    return null;
+  }
+  const match = /\[RP_AMCODE\]\s+([A-Z0-9_]+)\b/i.exec(comments);
+  const code = match?.[1]?.toUpperCase() ?? null;
+  return code && isValidAmCode(code) ? code : null;
+}
+
+export function upsertAmCodeMarker(
+  existing: string | null | undefined,
+  amCode: string,
+): string {
+  const marker = `${AM_CODE_MARKER_PREFIX} ${amCode.trim().toUpperCase()}`;
+  const lines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => !line.trim().startsWith(AM_CODE_MARKER_PREFIX));
+  lines.unshift(marker);
+  return lines.filter((line, index) => line.trim() || index > 0).join("\n").trim();
+}
+
+/**
  * Partner Code base: <FirstInitial><LastInitial>_<Last3DigitsOfMobile>
  * Example: Harini Narendran + 9840467254 → HN_254
  */

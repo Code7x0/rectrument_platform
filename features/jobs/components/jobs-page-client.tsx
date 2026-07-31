@@ -224,19 +224,23 @@ export function JobsPageClient({
         onArchive={setArchiveTarget}
         onAllocate={setAllocateJob}
         onViewPartners={setPartnersJob}
-        onAssignAm={(job) => {
-          setAssignAmTarget({
-            kind: "job",
-            jobId: job.id,
-            jobLabel: job.jobCode
-              ? `${job.jobCode} — ${job.title}`
-              : job.title,
-            clientId: job.clientId,
-            clientLabel: job.clientName,
-            accountManagerId: job.accountManagerId,
-          });
-          setAssignAmOpen(true);
-        }}
+        onAssignAm={
+          canManage
+            ? (job) => {
+                setAssignAmTarget({
+                  kind: "job",
+                  jobId: job.id,
+                  jobLabel: job.jobCode
+                    ? `${job.jobCode} — ${job.title}`
+                    : job.title,
+                  clientId: job.clientId,
+                  clientLabel: job.clientName,
+                  accountManagerId: job.accountManagerId,
+                });
+                setAssignAmOpen(true);
+              }
+            : undefined
+        }
       />
 
       <JobDialog

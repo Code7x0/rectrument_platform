@@ -20,6 +20,8 @@ export type AccountManagerDirectoryStatus = "active" | "inactive";
 
 export interface AccountManagerDirectoryRow {
   id: string;
+  /** Short business AM ID (e.g. VPR98) — for partner-facing reference. */
+  amCode: string;
   name: string;
   email: string;
   phone: string | null;
@@ -78,6 +80,10 @@ export async function listAccountManagersDirectory(): Promise<{
   }
 
   const rows: AccountManagerDirectoryRow[] = [];
+  const { ensureAccountManagerHasBusinessCode } = await import(
+    "@/features/shared/services/business-ids.service"
+  );
+
   for (const record of amRecords) {
     const email = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.email]);
     const name =
@@ -90,12 +96,28 @@ export async function listAccountManagersDirectory(): Promise<{
     const status = mapStatus(
       asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.status]),
     );
+    const phone = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]);
+    const comments = asString(
+      record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
+    );
+    let amCode = "—";
+    try {
+      amCode = await ensureAccountManagerHasBusinessCode({
+        id: record.id,
+        name,
+        phone,
+        comments,
+      });
+    } catch (error) {
+      console.error("[am-code] directory ensure failed", record.id, error);
+    }
     const linked = clientsByAm.get(record.id) ?? [];
     rows.push({
       id: record.id,
+      amCode,
       name,
       email,
-      phone: asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]),
+      phone,
       status,
       clientCount: linked.length,
       clientNames: linked.map((c) => c.name),

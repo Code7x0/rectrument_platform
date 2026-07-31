@@ -7,17 +7,28 @@ import { findClients } from "@/features/clients/repositories/clients.repository"
 import { findJobs } from "@/features/jobs/repositories/jobs.repository";
 import { findPartners } from "@/features/partners/repositories/partners.repository";
 import {
+  allocateUniqueAmCode,
   allocateUniqueClientCode,
   allocateUniquePartnerCode,
+  buildAmCodeBase,
   buildClientCodeBase,
   buildPartnerCodeBase,
   formatJobCode,
+  isValidAmCode,
   isValidClientCode,
   isValidPartnerCode,
   nextJobSequence,
+  parseAmCodeMarker,
+  upsertAmCodeMarker,
 } from "@/lib/business-ids";
-import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import {
+  ACCOUNT_MANAGERS_TABLE_FIELDS,
+  CLIENTS_TABLE_FIELDS,
+} from "@/lib/airtable/fields";
 import { patchClient } from "@/features/clients/repositories/clients.repository";
+import { getRecords, updateRecord } from "@/lib/airtable/client";
+import { getOptionalEnv } from "@/lib/api/env";
+import { asString, isClientCompatMode } from "@/lib/airtable/compat";
 
 export async function listExistingPartnerCodes(
   excludePartnerId?: string,
@@ -121,4 +132,76 @@ export async function allocateNextJobCodeForClient(
 
   const sequence = nextJobSequence(clientCode, codes);
   return { clientCode, jobCode: formatJobCode(clientCode, sequence) };
+}
+
+function amTableName(): string {
+  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
+  if (!raw || raw === "Account") {
+    return "Account Managers";
+  }
+  return raw;
+}
+
+export async function listExistingAmCodes(
+  excludeAmId?: string,
+): Promise<string[]> {
+  if (!isClientCompatMode() && !getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")) {
+    return [];
+  }
+  const records = await getRecords(amTableName(), {});
+  const codes: string[] = [];
+  for (const record of records) {
+    if (excludeAmId && record.id === excludeAmId) {
+      continue;
+    }
+    const fromMarker = parseAmCodeMarker(
+      asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments]),
+    );
+    if (fromMarker) {
+      codes.push(fromMarker);
+    }
+  }
+  return codes;
+}
+
+export async function allocateAmCodeForPerson(input: {
+  fullName: string | null | undefined;
+  phone: string | null | undefined;
+  excludeAmId?: string;
+}): Promise<string> {
+  const base = buildAmCodeBase(input.fullName, input.phone);
+  const existing = await listExistingAmCodes(input.excludeAmId);
+  return allocateUniqueAmCode(base, existing);
+}
+
+/**
+ * Ensure Account Manager has a short business ID in Comments ([RP_AMCODE]).
+ * Coexists with invite markers. No new Airtable columns.
+ */
+export async function ensureAccountManagerHasBusinessCode(input: {
+  id: string;
+  name: string | null | undefined;
+  phone: string | null | undefined;
+  comments: string | null | undefined;
+}): Promise<string> {
+  const expectedBase = buildAmCodeBase(input.name, input.phone);
+  const expectedLetters = expectedBase.replace(/\d.*$/, "");
+  const existing = parseAmCodeMarker(input.comments);
+  if (existing && isValidAmCode(existing)) {
+    const existingLetters = existing.replace(/\d.*$/, "");
+    // Keep stable codes that still match the name-derived letter prefix.
+    if (existingLetters === expectedLetters) {
+      return existing;
+    }
+  }
+  const amCode = await allocateAmCodeForPerson({
+    fullName: input.name,
+    phone: input.phone,
+    excludeAmId: input.id,
+  });
+  const nextComments = upsertAmCodeMarker(input.comments, amCode);
+  await updateRecord(amTableName(), input.id, {
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.comments]: nextComments,
+  });
+  return amCode;
 }

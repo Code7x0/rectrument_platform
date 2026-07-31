@@ -1,22 +1,18 @@
 import { getRecords } from "@/lib/airtable/client";
 import { getOptionalEnv } from "@/lib/api/env";
-import { isClientCompatMode } from "@/lib/airtable/compat";
+import { asString, isClientCompatMode } from "@/lib/airtable/compat";
 import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   USERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
+import { parseAmCodeMarker } from "@/lib/business-ids";
 
 import type { LookupOption } from "./types";
 
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
 /**
- * Active Account Managers.
- * Client base: Account Managers table (AIRTABLE_ACCOUNT_MANAGERS_TABLE).
- * App base: Users where Role = Account Manager.
+ * Active Account Managers for Admin / Super Admin pickers.
+ * label = display name; code = short business AM ID (for partners / reference).
  */
 export async function listAccountManagerOptions(): Promise<LookupOption[]> {
   const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
@@ -29,11 +25,40 @@ export async function listAccountManagerOptions(): Promise<LookupOption[]> {
       sort: [{ field: ACCOUNT_MANAGERS_TABLE_FIELDS.name, direction: "asc" }],
     });
 
-    return records.map((record) => ({
-      // Client review: assignment UIs show Account Manager IDs, not names.
-      id: record.id,
-      label: record.id,
-    }));
+    const { ensureAccountManagerHasBusinessCode } = await import(
+      "@/features/shared/services/business-ids.service"
+    );
+
+    const options: LookupOption[] = [];
+    for (const record of records) {
+      const name =
+        asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.name]) ??
+        asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.email]);
+      if (!name) {
+        continue;
+      }
+      const phone = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]);
+      const comments = asString(
+        record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
+      );
+      let code = parseAmCodeMarker(comments);
+      try {
+        code = await ensureAccountManagerHasBusinessCode({
+          id: record.id,
+          name,
+          phone,
+          comments,
+        });
+      } catch (error) {
+        console.error("[am-code] ensure failed", record.id, error);
+      }
+      options.push({
+        id: record.id,
+        label: name,
+        code: code ?? null,
+      });
+    }
+    return options;
   }
 
   const records = await getRecords(getAirtableTableName("usersTable"), {
@@ -41,8 +66,15 @@ export async function listAccountManagerOptions(): Promise<LookupOption[]> {
     sort: [{ field: USERS_TABLE_FIELDS.fullName, direction: "asc" }],
   });
 
-  return records.map((record) => ({
-    id: record.id,
-    label: record.id,
-  }));
+  return records
+    .map((record): LookupOption | null => {
+      const label =
+        asString(record.fields[USERS_TABLE_FIELDS.fullName]) ??
+        asString(record.fields[USERS_TABLE_FIELDS.email]);
+      if (!label) {
+        return null;
+      }
+      return { id: record.id, label, code: null };
+    })
+    .filter((option): option is LookupOption => option !== null);
 }
