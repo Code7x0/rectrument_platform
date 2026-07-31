@@ -43,6 +43,8 @@ export default async function AccountManagerAllocationsPage() {
       partners={partners}
       canManage={roleHasPermission(session.role, "manage_allocations")}
       canArchive={roleHasPermission(session.role, "archive_allocations")}
+      viewerUserId={session.userId}
+      viewerRole={session.role}
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },
         { label: "Allocations" },

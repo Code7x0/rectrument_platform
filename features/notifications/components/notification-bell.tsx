@@ -52,19 +52,19 @@ export function NotificationBell({
     [items],
   );
 
-  function markRead(id: string) {
+  function markReadOptimistic(id: string) {
+    setItems((current) =>
+      current.map((row) =>
+        row.id === id ? { ...row, readStatus: "read" as const } : row,
+      ),
+    );
+    setUnreadCount((count) => Math.max(0, count - 1));
     startTransition(async () => {
       const result = await markNotificationReadAction(id);
       if (!result.success) {
         toast.error(result.message);
         return;
       }
-      setItems((current) =>
-        current.map((row) =>
-          row.id === id ? { ...row, readStatus: "read" as const } : row,
-        ),
-      );
-      setUnreadCount((count) => Math.max(0, count - 1));
       router.refresh();
     });
   }
@@ -117,19 +117,19 @@ export function NotificationBell({
                 size="sm"
                 disabled={pending || unreadCount === 0}
                 onClick={() => {
+                  setItems((current) =>
+                    current.map((row) => ({
+                      ...row,
+                      readStatus: "read" as const,
+                    })),
+                  );
+                  setUnreadCount(0);
                   startTransition(async () => {
                     const result = await markAllNotificationsReadAction();
                     if (!result.success) {
                       toast.error(result.message);
                       return;
                     }
-                    setItems((current) =>
-                      current.map((row) => ({
-                        ...row,
-                        readStatus: "read" as const,
-                      })),
-                    );
-                    setUnreadCount(0);
                     router.refresh();
                   });
                 }}
@@ -154,15 +154,14 @@ export function NotificationBell({
                           item.readStatus === "unread" && "bg-[#F8FAFC]",
                         )}
                         onClick={() => {
-                          if (item.readStatus === "unread") {
-                            markRead(item.id);
-                          }
+                          const href =
+                            item.actionUrl?.trim() || "/notifications";
                           setOpen(false);
-                          if (item.actionUrl) {
-                            router.push(item.actionUrl);
-                          } else {
-                            router.push("/notifications");
+                          if (item.readStatus === "unread") {
+                            markReadOptimistic(item.id);
                           }
+                          // Navigate immediately — do not wait on mark-read.
+                          router.push(href);
                         }}
                       >
                         <span className="flex items-start justify-between gap-2">

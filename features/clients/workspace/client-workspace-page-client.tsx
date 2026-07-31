@@ -21,6 +21,7 @@ import type { Client, ClientWorkspaceStats } from "@/features/clients/types";
 import type { Job } from "@/features/jobs/types";
 import type { Submission } from "@/features/submissions/types";
 import type { LookupOption } from "@/services/lookups";
+import type { UserRole } from "@/types";
 
 export type ClientWorkspaceTabId =
   | "overview"
@@ -44,6 +45,8 @@ interface ClientWorkspacePageClientProps {
   canAllocate: boolean;
   /** Unassign partners from jobs under this client. */
   canManagePartners?: boolean;
+  viewerUserId?: string | null;
+  viewerRole?: UserRole | null;
   activityTimeline: TimelineListResult;
   basePath: "/admin/clients" | "/account-manager/clients";
   breadcrumbs: Array<{ label: string; href?: string }>;
@@ -63,6 +66,8 @@ export function ClientWorkspacePageClient({
   canManageJobs,
   canAllocate,
   canManagePartners = false,
+  viewerUserId = null,
+  viewerRole = null,
   activityTimeline,
   basePath,
   breadcrumbs,
@@ -150,6 +155,8 @@ export function ClientWorkspacePageClient({
           <ClientPartnersTab
             allocations={allocations}
             canUnassign={canManagePartners || canAllocate}
+            viewerUserId={viewerUserId}
+            viewerRole={viewerRole}
           />
         ) : null}
         {tab === "candidates" ? (

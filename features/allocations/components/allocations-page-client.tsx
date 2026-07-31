@@ -19,12 +19,16 @@ import type {
 } from "@/features/allocations/types";
 import type { LookupOption } from "@/services/lookups";
 import { signalLiveDataChange } from "@/lib/live-sync";
+import { canUnassignAllocation } from "@/features/allocations/lib/unassign-policy";
+import type { UserRole } from "@/types";
 
 interface AllocationsPageClientProps {
   initialAllocations: Allocation[];
   partners: LookupOption[];
   canManage: boolean;
   canArchive: boolean;
+  viewerUserId?: string | null;
+  viewerRole?: UserRole | null;
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
@@ -77,6 +81,8 @@ export function AllocationsPageClient({
   partners,
   canManage,
   canArchive,
+  viewerUserId = null,
+  viewerRole = null,
   breadcrumbs,
 }: AllocationsPageClientProps) {
   const router = useRouter();
@@ -142,6 +148,16 @@ export function AllocationsPageClient({
         loading={pending}
         canManage={canManage}
         canArchive={canArchive}
+        canArchiveRow={
+          viewerUserId && viewerRole
+            ? (row) =>
+                canUnassignAllocation({
+                  role: viewerRole,
+                  viewerUserId,
+                  allocation: row,
+                })
+            : undefined
+        }
         onView={setViewTarget}
         onEdit={setEditTarget}
         onArchive={setArchiveTarget}

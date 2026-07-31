@@ -441,7 +441,9 @@ export async function notifyCandidateSubmitted(input: {
   jobTitle: string;
   submissionId: string;
 }): Promise<void> {
-  const reviewUrl = `${appBaseUrl()}/account-manager/candidates`;
+  const amPath = `/account-manager/candidates?submissionId=${encodeURIComponent(input.submissionId)}`;
+  const adminPath = `/admin/candidates?submissionId=${encodeURIComponent(input.submissionId)}`;
+  const reviewUrl = `${appBaseUrl()}${amPath}`;
   if (input.accountManagerId) {
     const userId = await findAccountManagerUserId(input.accountManagerId);
     if (userId) {
@@ -454,7 +456,7 @@ export async function notifyCandidateSubmitted(input: {
         priority: "high",
         entityType: "submission",
         entityId: input.submissionId,
-        actionUrl: "/account-manager/candidates",
+        actionUrl: amPath,
         sendEmail: true,
         emailTemplate: "candidate_submitted",
         emailData: {
@@ -473,7 +475,7 @@ export async function notifyCandidateSubmitted(input: {
     priority: "medium",
     entityType: "submission",
     entityId: input.submissionId,
-    actionUrl: "/admin/candidates",
+    actionUrl: adminPath,
   });
   await notifyRole("super_admin", {
     title: "Pending candidate review",
@@ -483,7 +485,7 @@ export async function notifyCandidateSubmitted(input: {
     priority: "medium",
     entityType: "submission",
     entityId: input.submissionId,
-    actionUrl: "/admin/candidates",
+    actionUrl: adminPath,
   });
 }
 

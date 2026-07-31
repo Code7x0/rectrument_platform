@@ -25,8 +25,13 @@ export type ActionResult<T = unknown> =
   | { success: false; message: string };
 
 function revalidateNotificationPaths() {
+  revalidatePath("/", "layout");
   revalidatePath("/notifications");
   revalidatePath("/notifications/preferences");
+  revalidatePath("/admin");
+  revalidatePath("/super-admin");
+  revalidatePath("/account-manager");
+  revalidatePath("/partner");
 }
 
 export async function markNotificationReadAction(

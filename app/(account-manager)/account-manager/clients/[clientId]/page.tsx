@@ -118,6 +118,8 @@ export default async function AccountManagerClientWorkspacePage({
         session.role,
         "archive_allocations",
       )}
+      viewerUserId={session.userId}
+      viewerRole={session.role}
       basePath="/account-manager/clients"
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },

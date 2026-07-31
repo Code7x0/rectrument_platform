@@ -33,6 +33,8 @@ export default async function AdminAllocationsPage() {
       partners={partners}
       canManage={canManage}
       canArchive={canArchive}
+      viewerUserId={session.userId}
+      viewerRole={session.role}
       breadcrumbs={[
         {
           label: session.role === "super_admin" ? "Super Admin" : "Admin",

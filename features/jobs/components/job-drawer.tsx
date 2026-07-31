@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { Badge } from "@/components/ui/badge";
 import { EntityActivityInline } from "@/features/activity/components/entity-activity-inline";
 import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
 import {
@@ -56,6 +57,7 @@ export function JobDrawer({
 }: JobDrawerProps) {
   const descriptionText = job?.description?.trim() || null;
   const hasDocuments = Boolean(job && job.documents.length > 0);
+  const workMode = deriveJobWorkMode(job?.location);
 
   return (
     <DetailDrawer
@@ -66,8 +68,9 @@ export function JobDrawer({
     >
       {job ? (
         <div className="space-y-5">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <JobStatusBadge status={job.status} />
+            {workMode ? <Badge variant="secondary">{workMode}</Badge> : null}
             <span className="text-sm font-medium text-[#0F172A]">
               Job ID: {job.jobCode || "—"}
             </span>
@@ -85,7 +88,7 @@ export function JobDrawer({
               </>
             ) : null}
             <Detail label="Location" value={job.location} />
-            <Detail label="WFO / WFH" value={deriveJobWorkMode(job.location)} />
+            <Detail label="WFO / WFH" value={workMode} />
             <Detail
               label="Employment Type"
               value={

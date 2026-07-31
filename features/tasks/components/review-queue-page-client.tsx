@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -40,6 +40,8 @@ interface ReviewQueuePageClientProps {
   emptyDescription?: string;
   title?: string;
   description?: string;
+  /** Deep-link from notifications — open this submission on mount. */
+  initialSubmissionId?: string | null;
 }
 
 function Detail({
@@ -69,6 +71,7 @@ export function ReviewQueuePageClient({
   emptyDescription = "New partner submissions will appear here.",
   title,
   description,
+  initialSubmissionId = null,
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
@@ -82,6 +85,7 @@ export function ReviewQueuePageClient({
   const [transitioning, setTransitioning] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const openedDeepLink = useRef<string | null>(null);
 
   useEffect(() => {
     setRows(initialSubmissions);
@@ -105,6 +109,19 @@ export function ReviewQueuePageClient({
       setLoadingDetail(false);
     }
   }
+
+  useEffect(() => {
+    const targetId = initialSubmissionId?.trim();
+    if (!targetId || openedDeepLink.current === targetId) {
+      return;
+    }
+    const row = initialSubmissions.find((item) => item.id === targetId);
+    if (!row) {
+      return;
+    }
+    openedDeepLink.current = targetId;
+    void openReview(row);
+  }, [initialSubmissionId, initialSubmissions]);
 
   async function confirmTransition() {
     if (!selected || !pendingStatus) {

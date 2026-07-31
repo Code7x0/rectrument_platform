@@ -12,11 +12,13 @@ import {
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { mapSubmissionRecord } from "@/features/submissions/services/submissions.mapper";
 import type { Notification } from "@/features/notifications/types";
+import { getDismissedNotificationIds } from "@/features/notifications/lib/read-state";
 
 export async function deriveNotificationsForViewer(input: {
   recipientUserId: string;
   partnerId?: string | null;
   accountManagerId?: string | null;
+  role?: string | null;
   maxRecords?: number;
 }): Promise<Notification[]> {
   const records = await getRecords(getAirtableTableName("candidatesTable"), {
@@ -36,6 +38,14 @@ export async function deriveNotificationsForViewer(input: {
     allowedJobIds = new Set(ownedJobs.map((job) => job.id));
   }
 
+  const dismissed = await getDismissedNotificationIds();
+  const candidatesBase =
+    input.role === "partner"
+      ? "/partner/candidates"
+      : input.role === "account_manager"
+        ? "/account-manager/candidates"
+        : "/admin/candidates";
+
   const items: Notification[] = [];
   for (const record of records) {
     try {
@@ -52,8 +62,9 @@ export async function deriveNotificationsForViewer(input: {
       const name =
         asString(record.fields[CANDIDATES_TABLE_FIELDS.fullName]) ??
         "Candidate";
+      const id = `derived_notif_${record.id}`;
       items.push({
-        id: `derived_notif_${record.id}`,
+        id,
         notificationCode: null,
         recipientUserId: input.recipientUserId,
         title: `Candidate update: ${name}`,
@@ -63,8 +74,8 @@ export async function deriveNotificationsForViewer(input: {
         category: "candidates",
         entityType: "submission",
         entityId: submission.id,
-        actionUrl: null,
-        readStatus: "unread",
+        actionUrl: `${candidatesBase}?submissionId=${encodeURIComponent(submission.id)}`,
+        readStatus: dismissed.has(id) ? "read" : "unread",
         createdAt: submission.submissionDate,
         readAt: null,
         archived: false,

@@ -94,6 +94,8 @@ export default async function AdminClientWorkspacePage({
         session.role,
         "archive_allocations",
       )}
+      viewerUserId={session.userId}
+      viewerRole={session.role}
       basePath="/admin/clients"
       breadcrumbs={[
         {

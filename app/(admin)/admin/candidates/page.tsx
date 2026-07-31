@@ -9,7 +9,11 @@ import { listSubmissions } from "@/features/submissions/services";
  * Admin / Super Admin Candidates — full pipeline from Airtable Candidates
  * (including rejected / joined), not only the open review queue.
  */
-export default async function AdminCandidatesPage() {
+export default async function AdminCandidatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submissionId?: string }>;
+}) {
   noStore();
 
   const session = await getAppSession();
@@ -22,6 +26,9 @@ export default async function AdminCandidatesPage() {
     redirect("/forbidden");
   }
 
+  const params = await searchParams;
+  const submissionId = params.submissionId?.trim() || null;
+
   const submissions = await listSubmissions({ includePartnerIdentity: true });
   const homeLabel =
     session.role === "super_admin" ? "Super Admin" : "Admin";
@@ -31,6 +38,7 @@ export default async function AdminCandidatesPage() {
   return (
     <ReviewQueuePageClient
       initialSubmissions={submissions}
+      initialSubmissionId={submissionId}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
       title="Candidates"

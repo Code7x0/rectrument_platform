@@ -47,6 +47,9 @@ export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {workMode ? (
+            <Badge variant="secondary">{workMode}</Badge>
+          ) : null}
           {task.priority ? (
             <Badge
               variant={

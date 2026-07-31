@@ -13,6 +13,8 @@ interface AllocationTableProps {
   loading?: boolean;
   canManage: boolean;
   canArchive: boolean;
+  /** When set, further restricts which rows show Unassign. */
+  canArchiveRow?: (row: Allocation) => boolean;
   onView: (allocation: Allocation) => void;
   onEdit: (allocation: Allocation) => void;
   onArchive: (allocation: Allocation) => void;
@@ -23,6 +25,7 @@ export function AllocationTable({
   loading = false,
   canManage,
   canArchive,
+  canArchiveRow,
   onView,
   onEdit,
   onArchive,
@@ -88,7 +91,9 @@ export function AllocationTable({
           <AllocationActions
             allocation={row}
             canManage={canManage}
-            canArchive={canArchive}
+            canArchive={
+              canArchive && (canArchiveRow ? canArchiveRow(row) : true)
+            }
             onView={onView}
             onEdit={onEdit}
             onArchive={onArchive}
@@ -96,7 +101,7 @@ export function AllocationTable({
         ),
       },
     ],
-    [canArchive, canManage, onArchive, onEdit, onView],
+    [canArchive, canArchiveRow, canManage, onArchive, onEdit, onView],
   );
 
   return (

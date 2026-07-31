@@ -213,6 +213,7 @@ export async function listNotificationsForUser(
         recipientUserId: filters.recipientUserId,
         partnerId: user?.partnerId,
         accountManagerId: user?.accountManagerId,
+        role: user?.role,
       });
       if (filters.readStatus && filters.readStatus !== "all") {
         rows = rows.filter((row) => row.readStatus === filters.readStatus);
@@ -318,6 +319,7 @@ export const getUnreadNotificationCount = cache(
           recipientUserId: userId,
           partnerId: user?.partnerId,
           accountManagerId: user?.accountManagerId,
+          role: user?.role,
           maxRecords: 40,
         });
         return derived.filter((row) => row.readStatus === "unread").length;
@@ -376,6 +378,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
           recipientUserId: userId,
           partnerId: user?.partnerId,
           accountManagerId: user?.accountManagerId,
+          role: user?.role,
           maxRecords: 5,
         }),
         crmHeadPromise,
@@ -459,6 +462,45 @@ export async function markNotificationRead(
   notificationId: string,
   userId: string,
 ): Promise<Notification> {
+  const {
+    dismissNotificationIds,
+    isDerivedNotificationId,
+  } = await import("@/features/notifications/lib/read-state");
+
+  if (isDerivedNotificationId(notificationId)) {
+    await dismissNotificationIds([notificationId]);
+    const user = await getUserById(userId);
+    const derived = await deriveNotificationsForViewer({
+      recipientUserId: userId,
+      partnerId: user?.partnerId,
+      accountManagerId: user?.accountManagerId,
+      role: user?.role,
+    });
+    const row = derived.find((item) => item.id === notificationId);
+    if (row) {
+      return { ...row, readStatus: "read", readAt: new Date().toISOString() };
+    }
+    return {
+      id: notificationId,
+      notificationCode: null,
+      recipientUserId: userId,
+      title: "Notification",
+      description: null,
+      type: "system",
+      priority: "medium",
+      category: "system",
+      entityType: null,
+      entityId: null,
+      actionUrl: null,
+      readStatus: "read",
+      createdAt: null,
+      readAt: new Date().toISOString(),
+      archived: false,
+      metadata: null,
+      activityId: null,
+    };
+  }
+
   const row = await getNotificationForUser(notificationId, userId);
   if (!row) {
     throw new Error("Notification not found");
@@ -482,6 +524,27 @@ export async function markNotificationRead(
 export async function markAllNotificationsRead(
   userId: string,
 ): Promise<number> {
+  const {
+    dismissNotificationIds,
+  } = await import("@/features/notifications/lib/read-state");
+
+  if (!isNotificationsStorageAvailable()) {
+    const user = await getUserById(userId);
+    const derived = await deriveNotificationsForViewer({
+      recipientUserId: userId,
+      partnerId: user?.partnerId,
+      accountManagerId: user?.accountManagerId,
+      role: user?.role,
+    });
+    const unreadIds = derived
+      .filter((row) => row.readStatus === "unread")
+      .map((row) => row.id);
+    if (unreadIds.length > 0) {
+      await dismissNotificationIds(unreadIds);
+    }
+    return unreadIds.length;
+  }
+
   const formula = buildNotificationsFilterFormula({
     recipientUserId: userId,
     readStatus: "unread",

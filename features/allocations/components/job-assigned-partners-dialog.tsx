@@ -20,9 +20,12 @@ import type { Allocation } from "@/features/allocations/types";
 import type { Job } from "@/features/jobs/types";
 import { signalLiveDataChange } from "@/lib/live-sync";
 
+type PartnerRow = Allocation & { canUnassign?: boolean };
+
 interface JobAssignedPartnersDialogProps {
   open: boolean;
   job: Job | null;
+  /** Capability to unassign at all (Admin/SA/AM with permission). Per-row ownership still applies. */
   canUnassign: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted?: () => void;
@@ -30,6 +33,7 @@ interface JobAssignedPartnersDialogProps {
 
 /**
  * View talent partners allocated to a job; Admin/SA/AM can unassign.
+ * AMs may only unassign partners they personally assigned.
  * Unassign removes Jobs.Partners link so the job leaves the partner queue immediately.
  */
 export function JobAssignedPartnersDialog({
@@ -39,7 +43,7 @@ export function JobAssignedPartnersDialog({
   onOpenChange,
   onCompleted,
 }: JobAssignedPartnersDialogProps) {
-  const [rows, setRows] = useState<Allocation[]>([]);
+  const [rows, setRows] = useState<PartnerRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -60,7 +64,7 @@ export function JobAssignedPartnersDialog({
         setRows([]);
         return;
       }
-      setRows((result.data as Allocation[]) ?? []);
+      setRows((result.data as PartnerRow[]) ?? []);
     });
     return () => {
       cancelled = true;
@@ -80,7 +84,8 @@ export function JobAssignedPartnersDialog({
           <DialogTitle>Assigned Talent Partners</DialogTitle>
           <DialogDescription>
             Partners allocated to {jobLabel}. Unassigning removes this job from
-            that partner&apos;s Assigned Jobs immediately.
+            that partner&apos;s Assigned Jobs immediately. Account Managers can
+            only unassign partners they assigned.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,7 +112,7 @@ export function JobAssignedPartnersDialog({
                       .join(" · ") || row.status}
                   </p>
                 </div>
-                {canUnassign ? (
+                {canUnassign && row.canUnassign !== false ? (
                   <Button
                     type="button"
                     size="sm"

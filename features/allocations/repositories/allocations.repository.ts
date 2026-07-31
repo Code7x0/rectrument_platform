@@ -15,6 +15,11 @@ import {
   ALLOCATIONS_TABLE_FIELDS,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import {
+  parsePartnerAssignedByMap,
+  removePartnerAssignedByMarker,
+  upsertPartnerAssignedByMarker,
+} from "@/lib/business-ids";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { mapAllocationRecord } from "@/features/allocations/services/allocations.mapper";
 import { jobPartnerIds } from "@/features/jobs/services/jobs.mapper";
@@ -28,9 +33,14 @@ function getJobsTableName(): string {
   return getAirtableTableName("jobsTable");
 }
 
+function asNotes(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 function allocationFromJobPartner(
   jobId: string,
   partnerId: string,
+  assignedById: string | null = null,
 ): Allocation {
   const id = buildJobPartnerAllocationId(jobId, partnerId);
   return {
@@ -44,13 +54,24 @@ function allocationFromJobPartner(
     partnerCode: null,
     partnerName: null,
     accountManagerId: null,
-    assignedById: null,
+    assignedById,
     assignedDate: null,
     status: "assigned",
     expectedProfiles: 1,
     profilesSubmitted: 0,
     notes: null,
   };
+}
+
+function assignedByFromJobFields(
+  fields: AirtableFields,
+  partnerId: string,
+): string | null {
+  return (
+    parsePartnerAssignedByMap(asNotes(fields[JOBS_TABLE_FIELDS.notes])).get(
+      partnerId,
+    ) ?? null
+  );
 }
 
 async function findAllocationsFromJobPartners(
@@ -62,6 +83,7 @@ async function findAllocationsFromJobPartners(
       JOBS_TABLE_FIELDS.title,
       JOBS_TABLE_FIELDS.partners,
       JOBS_TABLE_FIELDS.status,
+      JOBS_TABLE_FIELDS.notes,
     ],
   });
 
@@ -69,7 +91,13 @@ async function findAllocationsFromJobPartners(
   for (const job of jobRecords) {
     const fields = job.fields as AirtableFields;
     for (const partnerId of jobPartnerIds(fields)) {
-      allocations.push(allocationFromJobPartner(job.id, partnerId));
+      allocations.push(
+        allocationFromJobPartner(
+          job.id,
+          partnerId,
+          assignedByFromJobFields(fields, partnerId),
+        ),
+      );
     }
   }
 
@@ -79,13 +107,13 @@ async function findAllocationsFromJobPartners(
   const partnerField = ALLOCATIONS_TABLE_FIELDS.partner;
   const jobField = ALLOCATIONS_TABLE_FIELDS.job;
   const partnerFind = new RegExp(
-    `FIND\\('(rec[A-Za-z0-9]+)', ARRAYJOIN\\(\\{${partnerField}\\}\\)\\)`,
+    `FIND\\('(rec[a-zA-Z0-9]+)', ARRAYJOIN\\(\\{${partnerField}\\}\\)\\)`,
   ).exec(formula);
   if (partnerFind?.[1]) {
     filtered = filtered.filter((row) => row.partnerId === partnerFind[1]);
   }
   const jobFind = new RegExp(
-    `FIND\\('(rec[A-Za-z0-9]+)', ARRAYJOIN\\(\\{${jobField}\\}\\)\\)`,
+    `FIND\\('(rec[a-zA-Z0-9]+)', ARRAYJOIN\\(\\{${jobField}\\}\\)\\)`,
   ).exec(formula);
   if (jobFind?.[1]) {
     filtered = filtered.filter((row) => row.jobId === jobFind[1]);
@@ -103,13 +131,15 @@ async function findAllocationFromJobPartners(
   }
   try {
     const job = await findRecord(getJobsTableName(), parsed.jobId);
-    const partners = jobPartnerIds(job.fields as AirtableFields);
+    const fields = job.fields as AirtableFields;
+    const partners = jobPartnerIds(fields);
     if (!partners.includes(parsed.partnerId)) {
       return null;
     }
     return allocationFromJobPartner(
       parsed.jobId,
       parsed.partnerId,
+      assignedByFromJobFields(fields, parsed.partnerId),
     );
   } catch {
     return null;
@@ -158,19 +188,39 @@ export async function insertAllocation(
   if (getAllocationsMode() === "job_partners") {
     const jobRaw = fields[ALLOCATIONS_TABLE_FIELDS.job];
     const partnerRaw = fields[ALLOCATIONS_TABLE_FIELDS.partner];
+    const assignedByRaw = fields[ALLOCATIONS_TABLE_FIELDS.assignedBy];
     const jobId = Array.isArray(jobRaw) ? jobRaw[0] : null;
     const partnerId = Array.isArray(partnerRaw) ? partnerRaw[0] : null;
+    const assignedById = Array.isArray(assignedByRaw)
+      ? assignedByRaw[0]
+      : typeof assignedByRaw === "string"
+        ? assignedByRaw
+        : null;
     if (typeof jobId !== "string" || typeof partnerId !== "string") {
       throw new Error("Job and Partner are required to allocate via Jobs.Partners");
     }
     const job = await findRecord(getJobsTableName(), jobId);
     const existing = jobPartnerIds(job.fields as AirtableFields);
+    const patch: AirtableFields = {};
     if (!existing.includes(partnerId)) {
-      await updateRecord(getJobsTableName(), jobId, {
-        [JOBS_TABLE_FIELDS.partners]: [...existing, partnerId],
-      });
+      patch[JOBS_TABLE_FIELDS.partners] = [...existing, partnerId];
     }
-    return allocationFromJobPartner(jobId, partnerId);
+    if (typeof assignedById === "string" && assignedById.trim()) {
+      const comments = asNotes(job.fields[JOBS_TABLE_FIELDS.notes]);
+      patch[JOBS_TABLE_FIELDS.notes] = upsertPartnerAssignedByMarker(
+        comments,
+        partnerId,
+        assignedById,
+      );
+    }
+    if (Object.keys(patch).length > 0) {
+      await updateRecord(getJobsTableName(), jobId, patch);
+    }
+    return allocationFromJobPartner(
+      jobId,
+      partnerId,
+      typeof assignedById === "string" ? assignedById : null,
+    );
   }
 
   const record = await createRecord(getTableName(), fields);
@@ -214,8 +264,13 @@ export async function patchAllocation(
         const partners = jobPartnerIds(job.fields as AirtableFields).filter(
           (id) => id !== parsed.partnerId,
         );
+        const comments = removePartnerAssignedByMarker(
+          asNotes(job.fields[JOBS_TABLE_FIELDS.notes]),
+          parsed.partnerId,
+        );
         await updateRecord(getJobsTableName(), parsed.jobId, {
           [JOBS_TABLE_FIELDS.partners]: partners,
+          [JOBS_TABLE_FIELDS.notes]: comments,
         });
       }
     }
@@ -230,6 +285,10 @@ export async function patchAllocation(
       profilesSubmitted,
       expectedProfiles,
       notes,
+      assignedById:
+        status === "archived" || status === "cancelled"
+          ? null
+          : current.assignedById,
     };
   }
 

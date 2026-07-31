@@ -15,7 +15,11 @@ import { listSubmissions } from "@/features/submissions/services";
  * AM Candidates — same source of truth as dashboard Submissions metric:
  * all linked submissions on owned jobs (not a separate cached counter).
  */
-export default async function AccountManagerReviewQueuePage() {
+export default async function AccountManagerReviewQueuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submissionId?: string }>;
+}) {
   noStore();
 
   const session = await getAppSession();
@@ -37,6 +41,9 @@ export default async function AccountManagerReviewQueuePage() {
     redirect("/unauthorized");
   }
 
+  const params = await searchParams;
+  const submissionId = params.submissionId?.trim() || null;
+
   const [jobIds, jobs] = await Promise.all([
     listAccountManagerJobIds(accountManagerId),
     listJobs({ accountManagerId, includeArchived: true }),
@@ -56,6 +63,7 @@ export default async function AccountManagerReviewQueuePage() {
   return (
     <ReviewQueuePageClient
       initialSubmissions={submissions}
+      initialSubmissionId={submissionId}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
       hideClientName

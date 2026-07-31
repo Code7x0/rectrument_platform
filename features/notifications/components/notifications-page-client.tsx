@@ -118,19 +118,19 @@ export function NotificationsPageClient({
             <Button
               disabled={pending || unreadCount === 0}
               onClick={() => {
+                setItems((current) =>
+                  current.map((row) => ({
+                    ...row,
+                    readStatus: "read" as const,
+                  })),
+                );
+                setUnreadCount(0);
                 startTransition(async () => {
                   const result = await markAllNotificationsReadAction();
                   if (!result.success) {
                     toast.error(result.message);
                     return;
                   }
-                  setItems((current) =>
-                    current.map((row) => ({
-                      ...row,
-                      readStatus: "read" as const,
-                    })),
-                  );
-                  setUnreadCount(0);
                   toast.success(`Marked ${result.data.count} as read`);
                   signalLiveDataChange();
                   router.refresh();
@@ -254,6 +254,14 @@ export function NotificationsPageClient({
                       variant="outline"
                       disabled={pending}
                       onClick={() => {
+                        setItems((current) =>
+                          current.map((row) =>
+                            row.id === item.id
+                              ? { ...row, readStatus: "read" as const }
+                              : row,
+                          ),
+                        );
+                        setUnreadCount((count) => Math.max(0, count - 1));
                         startTransition(async () => {
                           const result = await markNotificationReadAction(
                             item.id,
@@ -262,15 +270,8 @@ export function NotificationsPageClient({
                             toast.error(result.message);
                             return;
                           }
-                          setItems((current) =>
-                            current.map((row) =>
-                              row.id === item.id
-                                ? { ...row, readStatus: "read" as const }
-                                : row,
-                            ),
-                          );
-                          setUnreadCount((count) => Math.max(0, count - 1));
                           signalLiveDataChange();
+                          router.refresh();
                         });
                       }}
                     >

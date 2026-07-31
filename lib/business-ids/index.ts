@@ -441,7 +441,85 @@ export function stripJobAmMarker(
 export function stripJobSystemMarkers(
   comments: string | null | undefined,
 ): string | null {
-  return stripJobAmMarker(stripJobIdMarker(comments));
+  return stripPartnerAssignedByMarkers(
+    stripJobAmMarker(stripJobIdMarker(comments)),
+  );
+}
+
+/**
+ * Who allocated a partner on a job (job_partners mode — no Allocations table).
+ * One line per partner: `[RP_PARTNER_BY] <partnerRecId> <userRecId>`
+ */
+export const PARTNER_ASSIGNED_BY_PREFIX = "[RP_PARTNER_BY]";
+
+export function parsePartnerAssignedByMap(
+  comments: string | null | undefined,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  if (!comments?.trim()) {
+    return map;
+  }
+  for (const line of comments.split("\n")) {
+    const match =
+      /\[RP_PARTNER_BY\]\s+(rec[a-zA-Z0-9]+)\s+(rec[a-zA-Z0-9]+)\b/.exec(
+        line.trim(),
+      );
+    if (match?.[1] && match[2]) {
+      map.set(match[1], match[2]);
+    }
+  }
+  return map;
+}
+
+export function upsertPartnerAssignedByMarker(
+  existing: string | null | undefined,
+  partnerId: string,
+  assignedByUserId: string,
+): string {
+  const partner = partnerId.trim();
+  const userId = assignedByUserId.trim();
+  const lines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => {
+      const match =
+        /\[RP_PARTNER_BY\]\s+(rec[a-zA-Z0-9]+)\s+/.exec(line.trim());
+      return !(match?.[1] === partner);
+    });
+  if (partner && userId) {
+    lines.push(`${PARTNER_ASSIGNED_BY_PREFIX} ${partner} ${userId}`);
+  }
+  return lines.filter((line, index) => line.trim() || index > 0).join("\n").trim();
+}
+
+export function removePartnerAssignedByMarker(
+  existing: string | null | undefined,
+  partnerId: string,
+): string {
+  const partner = partnerId.trim();
+  const lines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => {
+      const match =
+        /\[RP_PARTNER_BY\]\s+(rec[a-zA-Z0-9]+)\s+/.exec(line.trim());
+      return !(match?.[1] === partner);
+    });
+  return lines.filter((line, index) => line.trim() || index > 0).join("\n").trim();
+}
+
+export function stripPartnerAssignedByMarkers(
+  comments: string | null | undefined,
+): string | null {
+  if (!comments?.trim()) {
+    return null;
+  }
+  const cleaned = comments
+    .split("\n")
+    .filter((line) => !line.trim().startsWith(PARTNER_ASSIGNED_BY_PREFIX))
+    .join("\n")
+    .trim();
+  return cleaned || null;
 }
 
 /** Prefer business code for UI; never show synthetic/rec fallbacks. */

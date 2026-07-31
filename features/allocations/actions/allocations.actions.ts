@@ -160,6 +160,33 @@ export async function archiveAllocationAction(
     if (session.role === "account_manager") {
       await assertAccountManagerOwnsAllocation(session, allocationId);
     }
+
+    const { getAllocationById } = await import(
+      "@/features/allocations/services"
+    );
+    const { canUnassignAllocation } = await import(
+      "@/features/allocations/lib/unassign-policy"
+    );
+    const existing = await getAllocationById(allocationId, {
+      includePartnerIdentity: false,
+    });
+    if (!existing) {
+      return { success: false, message: "Allocation not found" };
+    }
+    if (
+      !canUnassignAllocation({
+        role: session.role,
+        viewerUserId: session.userId,
+        allocation: existing,
+      })
+    ) {
+      return {
+        success: false,
+        message:
+          "You can only unassign talent partners that you assigned to this job",
+      };
+    }
+
     const allocation = await archiveAllocation(allocationId);
 
     revalidateAllocationPaths();
@@ -204,13 +231,24 @@ export async function listJobPartnerAllocationsAction(
     const { listAllocations } = await import(
       "@/features/allocations/services"
     );
+    const { canUnassignAllocation } = await import(
+      "@/features/allocations/lib/unassign-policy"
+    );
     const rows = await listAllocations({
       jobId,
       includeArchived: false,
       includePartnerIdentity:
         session.role === "admin" || session.role === "super_admin",
     });
-    return { success: true, data: rows };
+    const data = rows.map((row) => ({
+      ...row,
+      canUnassign: canUnassignAllocation({
+        role: session.role,
+        viewerUserId: session.userId,
+        allocation: row,
+      }),
+    }));
+    return { success: true, data };
   } catch (error) {
     if (error instanceof ScopeDeniedError) {
       return { success: false, message: error.message };
