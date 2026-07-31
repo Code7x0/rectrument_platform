@@ -43,27 +43,27 @@ export function DashboardQuickAction({
     <Link
       href={item.href}
       className={cn(
-        "group flex items-start gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 transition duration-200",
-        "hover:-translate-y-0.5 hover:border-[#CBD5E1] hover:shadow-md",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A] focus-visible:ring-offset-2",
+        "group flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-xs transition-ui",
+        "hover:-translate-y-0.5 hover:border-border hover:shadow-md",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className,
       )}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F1F5F9] text-[#0F172A] transition group-hover:bg-[#0F172A] group-hover:text-white">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground transition group-hover:bg-primary group-hover:text-primary-foreground">
         <Icon className="h-4 w-4" aria-hidden />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-[#0F172A]">
+        <span className="block text-sm font-semibold text-foreground">
           {item.label}
         </span>
         {item.description ? (
-          <span className="mt-0.5 block text-xs text-[#64748B]">
+          <span className="mt-0.5 block text-xs text-muted-foreground">
             {item.description}
           </span>
         ) : null}
       </span>
       <ArrowUpRight
-        className="ml-auto h-4 w-4 shrink-0 text-[#94A3B8] transition group-hover:text-[#0F172A]"
+        className="ml-auto h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-foreground"
         aria-hidden
       />
     </Link>

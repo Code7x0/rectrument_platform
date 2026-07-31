@@ -12,7 +12,7 @@ export function ContentContainer({
   className,
 }: ContentContainerProps) {
   return (
-    <div className={cn("mx-auto w-full max-w-7xl space-y-6", className)}>
+    <div className={cn("mx-auto w-full max-w-7xl space-y-6 px-1 sm:px-0", className)}>
       {children}
     </div>
   );

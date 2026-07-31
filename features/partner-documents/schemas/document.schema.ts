@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+  DOCUMENT_EXTENSIONS,
+  hasAllowedExtension,
+  isAllowedUploadMime,
+  normalizeUploadContentType,
+} from "@/lib/files/document-types";
+
 export const documentTypeSchema = z.enum(["pan", "aadhaar", "agreement"]);
 
 export const documentVerificationSchema = z.enum([
@@ -15,16 +22,12 @@ export const ALLOWED_DOCUMENT_MIME_TYPES = [
   "image/jpg",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/octet-stream",
+  "application/zip",
+  "application/x-zip-compressed",
 ] as const;
 
-export const ALLOWED_DOCUMENT_EXTENSIONS = [
-  ".pdf",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".doc",
-  ".docx",
-] as const;
+export const ALLOWED_DOCUMENT_EXTENSIONS = DOCUMENT_EXTENSIONS;
 
 export const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
 
@@ -50,17 +53,29 @@ export function validateDocumentFileMeta(input: {
     return "File must be 10 MB or smaller";
   }
 
-  const lower = input.filename.toLowerCase();
-  const hasExt = ALLOWED_DOCUMENT_EXTENSIONS.some((ext) =>
-    lower.endsWith(ext),
-  );
-  const hasMime = (ALLOWED_DOCUMENT_MIME_TYPES as readonly string[]).includes(
-    input.contentType,
-  );
+  const hasExt = hasAllowedExtension(input.filename, ALLOWED_DOCUMENT_EXTENSIONS);
+  const hasMime = isAllowedUploadMime(input.contentType);
 
+  // Extension is enough; MIME alone is enough for images without extension edge cases.
   if (!hasExt && !hasMime) {
     return "Allowed types: PDF, PNG, JPEG, DOC, DOCX";
   }
 
+  // Reject when extension says Word/PDF/image but MIME is clearly unrelated media.
+  if (hasExt) {
+    const raw = (input.contentType ?? "").trim().toLowerCase().split(";")[0]?.trim();
+    if (
+      raw &&
+      !isAllowedUploadMime(raw) &&
+      (raw.startsWith("video/") ||
+        raw.startsWith("audio/") ||
+        raw.startsWith("text/html"))
+    ) {
+      return "Allowed types: PDF, PNG, JPEG, DOC, DOCX";
+    }
+  }
+
   return null;
 }
+
+export { normalizeUploadContentType };

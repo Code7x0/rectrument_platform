@@ -22,6 +22,7 @@ import { JobFilters } from "@/features/jobs/components/job-filters";
 import { JobTable } from "@/features/jobs/components/job-table";
 import type { Job, JobListFilters } from "@/features/jobs/types";
 import type { LookupOption } from "@/services/lookups";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface JobsPageClientProps {
   initialJobs: Job[];
@@ -137,6 +138,7 @@ export function JobsPageClient({
   );
 
   function refresh() {
+    signalLiveDataChange();
     startTransition(() => {
       router.refresh();
     });

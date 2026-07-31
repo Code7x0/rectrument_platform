@@ -20,20 +20,20 @@ export function DashboardEmptyState({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] px-4 py-8 text-center",
+        "rounded-xl border border-dashed border-border bg-muted/40 px-4 py-8 text-center",
         className,
       )}
     >
-      <p className="text-sm font-medium text-[#0F172A]">{title}</p>
+      <p className="text-sm font-medium text-foreground">{title}</p>
       {description ? (
-        <p className="mx-auto mt-1 max-w-sm text-xs text-[#64748B]">
+        <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
           {description}
         </p>
       ) : null}
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="mt-3 inline-flex text-xs font-medium text-[#2563EB] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]"
+          className="mt-3 inline-flex text-xs font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {actionLabel}
         </Link>

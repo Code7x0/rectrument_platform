@@ -66,9 +66,13 @@ async function fileFromForm(
     throw new Error(`${key}: ${metaError}`);
   }
 
+  const { normalizeUploadContentType } = await import(
+    "@/lib/files/document-types"
+  );
+
   return {
     filename: file.name || key,
-    contentType: file.type || "application/octet-stream",
+    contentType: normalizeUploadContentType(file.name || key, file.type),
     data: Buffer.from(await file.arrayBuffer()),
     size: file.size,
   };

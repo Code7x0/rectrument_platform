@@ -38,7 +38,7 @@ export function Navbar({
     "Signed in user";
 
   return (
-    <header className="sticky top-0 z-40 flex h-[72px] items-center gap-3 border-b border-[#E2E8F0] bg-white px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-[3.75rem] items-center gap-3 border-b border-border bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:px-6">
       <MobileSidebar items={items} />
 
       <Button
@@ -57,7 +57,7 @@ export function Navbar({
       </Button>
 
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-[#0F172A]">
+        <p className="truncate text-sm font-semibold tracking-tight text-foreground">
           {APP_NAME}
         </p>
       </div>
@@ -76,7 +76,7 @@ export function Navbar({
 
         <div className="hidden items-center gap-2 sm:flex">
           <div className="text-right">
-            <p className="max-w-[140px] truncate text-sm font-medium text-[#0F172A]">
+            <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
               {displayName}
             </p>
             {role ? <RoleBadge role={role} /> : null}

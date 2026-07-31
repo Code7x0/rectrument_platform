@@ -262,7 +262,7 @@ function FileField({
       </Label>
       <Input
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
       />
     </div>

@@ -11,7 +11,7 @@ export function DashboardCard({ children, className }: DashboardCardProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5",
+        "rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5",
         className,
       )}
     >

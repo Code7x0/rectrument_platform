@@ -20,12 +20,12 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden h-[calc(100vh-4.5rem)] shrink-0 border-r border-[#E2E8F0] bg-white md:flex md:flex-col",
-        collapsed ? "w-20" : "w-[260px]",
+        "hidden h-[calc(100vh-3.75rem)] shrink-0 border-r border-border bg-card md:flex md:flex-col",
+        collapsed ? "w-[4.5rem]" : "w-[15.5rem]",
         className,
       )}
     >
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2.5">
         {items.map((item) => (
           <NavigationItem
             key={item.href}

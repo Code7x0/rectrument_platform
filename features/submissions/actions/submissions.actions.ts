@@ -48,27 +48,24 @@ async function parseResumeFromFormData(
     return null;
   }
 
-  if (file.size > 8 * 1024 * 1024) {
-    throw new Error("Resume must be 8MB or smaller");
+  const { normalizeUploadContentType, validateResumeFileMeta } = await import(
+    "@/lib/files/document-types"
+  );
+
+  const metaError = validateResumeFileMeta({
+    filename: file.name || "resume.pdf",
+    contentType: file.type,
+    size: file.size,
+  });
+  if (metaError) {
+    throw new Error(metaError);
   }
 
-  const name = (file.name || "resume.pdf").toLowerCase();
-  const allowedExt = [".pdf", ".doc", ".docx"];
-  const hasAllowedExt = allowedExt.some((ext) => name.endsWith(ext));
-  const allowedMime = new Set([
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/octet-stream",
-  ]);
-  if (!hasAllowedExt || (file.type && !allowedMime.has(file.type))) {
-    throw new Error("Resume must be a PDF or Word document (.pdf, .doc, .docx)");
-  }
-
+  const contentType = normalizeUploadContentType(file.name || "resume.pdf", file.type);
   const buffer = Buffer.from(await file.arrayBuffer());
   return stageResumeFile({
     filename: file.name || "resume.pdf",
-    contentType: file.type || "application/octet-stream",
+    contentType,
     data: buffer,
     size: file.size,
   });

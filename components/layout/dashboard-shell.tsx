@@ -50,7 +50,7 @@ export function DashboardShell({
 
   return (
     <SearchProvider role={role}>
-      <div className="flex min-h-screen flex-col bg-[#F8FAFC]">
+      <div className="flex min-h-screen flex-col page-shell">
         <Navbar
           items={navItems}
           collapsed={collapsed}

@@ -48,10 +48,18 @@ async function parseDocumentFile(formData: FormData) {
     throw new Error(metaError);
   }
 
+  const { normalizeUploadContentType } = await import(
+    "@/lib/files/document-types"
+  );
+  const contentType = normalizeUploadContentType(
+    file.name || "document",
+    file.type,
+  );
+
   const buffer = Buffer.from(await file.arrayBuffer());
   return stageDocumentFile({
     filename: file.name || "document",
-    contentType: file.type || "application/octet-stream",
+    contentType,
     data: buffer,
     size: file.size,
   });

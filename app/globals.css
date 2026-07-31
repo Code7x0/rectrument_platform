@@ -4,49 +4,65 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* UI spec palette: primary #2563EB, background #F8FAFC, text #0F172A */
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* Premium B2B SaaS palette — cool slate + blue accent (Linear/Stripe-like) */
+  --background: #f4f6f9;
+  --foreground: #0b1220;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #0b1220;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #2563eb;
+  --popover-foreground: #0b1220;
+  --primary: #1d4ed8;
   --primary-foreground: #ffffff;
   --secondary: #eef2ff;
-  --secondary-foreground: #2563eb;
-  --muted: #f1f5f9;
+  --secondary-foreground: #1e3a8a;
+  --muted: #eef2f7;
   --muted-foreground: #64748b;
-  --accent: #eef2ff;
-  --accent-foreground: #2563eb;
-  --destructive: #ef4444;
+  --accent: #e8eefc;
+  --accent-foreground: #1d4ed8;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+  --success: #059669;
+  --success-foreground: #ecfdf5;
+  --warning: #d97706;
+  --warning-foreground: #fffbeb;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #2563eb;
+  --ring: #1d4ed8;
   --radius: 0.75rem;
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.08), 0 2px 8px rgb(15 23 42 / 0.04);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: #0b1220;
+  --foreground: #f8fafc;
+  --card: #111827;
+  --card-foreground: #f8fafc;
+  --popover: #111827;
+  --popover-foreground: #f8fafc;
+  --primary: #60a5fa;
+  --primary-foreground: #0b1220;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #93c5fd;
+  --destructive: #f87171;
+  --destructive-foreground: #0b1220;
+  --success: #34d399;
+  --success-foreground: #022c22;
+  --warning: #fbbf24;
+  --warning-foreground: #422006;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #60a5fa;
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.45);
 }
 
 @theme inline {
@@ -66,6 +82,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -73,8 +93,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-app-mono), ui-monospace, monospace;
 }
 
 @layer base {
@@ -82,7 +106,39 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01" on, "cv11" on;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .surface-card {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-sm;
+  }
+
+  .surface-panel {
+    @apply rounded-xl border border-border bg-card shadow-xs;
+  }
+
+  .page-shell {
+    @apply bg-background;
+  }
+
+  .transition-ui {
+    @apply transition-all duration-150 ease-out;
   }
 }

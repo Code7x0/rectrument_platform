@@ -21,9 +21,11 @@ export function DashboardSection({
     <section className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-[#0F172A]">{title}</h2>
+          <h2 className="text-sm font-semibold tracking-tight text-foreground">
+            {title}
+          </h2>
           {description ? (
-            <p className="mt-0.5 text-xs text-[#64748B]">{description}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
           ) : null}
         </div>
         {action}

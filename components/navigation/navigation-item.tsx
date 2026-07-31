@@ -42,15 +42,20 @@ export function NavigationItem({
       onClick={onNavigate}
       title={collapsed ? item.title : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150",
+        "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-ui",
         collapsed && "justify-center px-2",
         active
-          ? "bg-[#EEF2FF] text-[#2563EB]"
-          : "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]",
+          ? "bg-accent text-accent-foreground shadow-xs"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
-      <Icon className="h-5 w-5 shrink-0" />
-      {!collapsed ? <span>{item.title}</span> : null}
+      <Icon
+        className={cn(
+          "h-[1.125rem] w-[1.125rem] shrink-0 transition-ui",
+          active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+        )}
+      />
+      {!collapsed ? <span className="truncate">{item.title}</span> : null}
     </Link>
   );
 }

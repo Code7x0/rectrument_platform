@@ -15,7 +15,6 @@ import {
 } from "@/features/partner-documents/actions/documents.actions";
 import { DocumentVerificationBadge } from "@/features/partner-documents/components/document-verification-badge";
 import {
-  ALLOWED_DOCUMENT_EXTENSIONS,
   MAX_DOCUMENT_SIZE_BYTES,
   validateDocumentFileMeta,
 } from "@/features/partner-documents/schemas/document.schema";
@@ -196,7 +195,7 @@ export function PartnerDocumentCards({
                         }}
                         type="file"
                         className="hidden"
-                        accept={ALLOWED_DOCUMENT_EXTENSIONS.join(",")}
+                        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,image/png,image/jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         onChange={(e) => {
                           void onFileSelected(
                             slot.documentType,

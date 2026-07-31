@@ -18,6 +18,7 @@ import { ClientDialog } from "@/features/clients/components/client-dialog";
 import { ClientTable } from "@/features/clients/components/client-table";
 import type { Client, ClientListFilters } from "@/features/clients/types";
 import type { LookupOption } from "@/services/lookups";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface ClientsPageClientProps {
   initialClients: Client[];
@@ -118,6 +119,7 @@ export function ClientsPageClient({
   );
 
   function refresh() {
+    signalLiveDataChange();
     startTransition(() => router.refresh());
   }
 

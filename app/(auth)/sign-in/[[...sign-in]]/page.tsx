@@ -1,24 +1,31 @@
-import { ClientSignIn } from "@/components/auth/client-clerk-auth";
+import Link from "next/link";
+
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { AuthPageShell } from "@/components/shared/auth-message";
-import { APP_NAME } from "@/lib/constants";
+import { APP_NAME, ROUTES } from "@/lib/constants";
 
 export default function SignInPage() {
   return (
     <AuthPageShell>
-      <div className="mb-6 text-center">
+      <div className="mb-8 text-center">
         <h1 className="text-xl font-semibold tracking-tight">{APP_NAME}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sign in with your company account
+          Sign in with your Google account
         </p>
       </div>
-      <div className="flex justify-center">
-        <ClientSignIn
-          routing="path"
-          path="/sign-in"
-          fallbackRedirectUrl="/auth/callback"
-          signUpUrl="/sign-in"
-        />
-      </div>
+
+      <GoogleSignInButton />
+
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        Talent Partners?{" "}
+        <Link
+          href={ROUTES.register}
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Register here
+        </Link>
+        , then sign in after Admin approval.
+      </p>
     </AuthPageShell>
   );
 }

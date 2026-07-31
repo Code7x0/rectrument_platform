@@ -27,6 +27,7 @@ import {
   updatePayoutStatusAction,
 } from "@/features/payouts/actions/payouts.actions";
 import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import {
   getAllowedPayoutTransitions,
   requiresAmount,
@@ -235,6 +236,7 @@ export function PayoutsTable({
   );
 
   function refresh() {
+    signalLiveDataChange();
     startTransition(() => router.refresh());
   }
 

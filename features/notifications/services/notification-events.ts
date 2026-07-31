@@ -508,6 +508,8 @@ export async function notifySubmissionStatusChanged(input: {
     return;
   }
 
+  const candidatesUrl = `${appBaseUrl()}/partner/candidates`;
+
   await publishNotification({
     recipientUserId: partnerUserId,
     title: config.title,
@@ -518,15 +520,15 @@ export async function notifySubmissionStatusChanged(input: {
     entityType: "submission",
     entityId: input.submissionId,
     actionUrl: "/partner/candidates",
-    sendEmail: input.toStatus === "joined",
-    emailTemplate: input.toStatus === "joined" ? "candidate_joined" : undefined,
-    emailData:
-      input.toStatus === "joined"
-        ? {
-            candidateName: input.candidateName,
-            jobTitle: input.jobTitle,
-          }
-        : undefined,
+    sendEmail: true,
+    emailTemplate:
+      input.toStatus === "joined" ? "candidate_joined" : "candidate_status_changed",
+    emailData: {
+      candidateName: input.candidateName,
+      jobTitle: input.jobTitle,
+      statusLabel: input.toStatus.replace(/_/g, " "),
+      candidatesUrl,
+    },
   });
 }
 

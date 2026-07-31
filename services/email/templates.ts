@@ -22,6 +22,7 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
   document_verified: "Document verified – TalentSocio",
   document_rejected: "Document rejected – TalentSocio",
   candidate_submitted: "New candidate submitted – TalentSocio",
+  candidate_status_changed: "Candidate status update – TalentSocio",
 };
 
 /**
@@ -262,6 +263,19 @@ export function renderBody(
         "",
         "Open your Candidates / Review Queue to review the profile.",
         data.reviewUrl ? `Review: ${data.reviewUrl}` : "",
+        "",
+        "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "candidate_status_changed":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `${data.candidateName ?? "Your candidate"} on ${data.jobTitle ?? "a job"} is now ${data.statusLabel ?? "updated"}.`,
+        "",
+        "Open My Candidates to view the latest pipeline status.",
+        data.candidatesUrl ? `View candidates: ${data.candidatesUrl}` : "",
         "",
         "TalentSocio Team",
       ]

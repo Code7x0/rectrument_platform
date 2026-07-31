@@ -69,13 +69,13 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white",
+        "overflow-hidden rounded-xl border border-border bg-card shadow-sm",
         className,
       )}
     >
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="sticky top-0 bg-[#F8FAFC] text-xs font-medium uppercase tracking-wide text-[#64748B]">
+          <thead className="sticky top-0 border-b border-border bg-muted/70 text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
             <tr>
               {columns.map((column) => (
                 <th
@@ -96,7 +96,7 @@ export function DataTable<T>({
               <tr
                 key={getRowId(row)}
                 className={cn(
-                  "border-t border-[#E2E8F0] hover:bg-[#F8FAFC]/70",
+                  "border-t border-border transition-colors hover:bg-muted/50",
                   onRowClick && "cursor-pointer",
                 )}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -105,7 +105,7 @@ export function DataTable<T>({
                   <td
                     key={column.id}
                     className={cn(
-                      "px-4 py-3",
+                      "px-4 py-3 text-foreground",
                       alignClass(column.align),
                       column.className,
                     )}

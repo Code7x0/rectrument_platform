@@ -120,7 +120,21 @@ export async function createPartner(
       throw new Error("A talent partner with this email already exists");
     }
   }
-  return insertPartner(toAirtableCreateFields(input));
+
+  const { allocatePartnerCodeForPerson } = await import(
+    "@/features/shared/services/business-ids.service"
+  );
+  const partnerCode = await allocatePartnerCodeForPerson({
+    fullName: input.contactName || input.companyName,
+    phone: input.phone ?? null,
+  });
+
+  return insertPartner(
+    toAirtableCreateFields({
+      ...input,
+      partnerCode,
+    }),
+  );
 }
 
 export async function updatePartner(

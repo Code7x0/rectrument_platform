@@ -23,7 +23,6 @@ import type {
   UpdateClientInput,
 } from "@/features/clients/types";
 import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
-import { isValidClientCode } from "@/lib/business-ids";
 
 /** Request-scoped full clients scan. */
 const loadAllClientsCached = cache(async () =>
@@ -46,47 +45,6 @@ async function withAccountManagerNames(clients: Client[]): Promise<Client[]> {
       ? (map.get(client.accountManagerId) ?? null)
       : null,
   }));
-}
-
-/**
- * Backfill missing Client ID on Airtable for rows created before auto-allocation.
- */
-async function ensureMissingClientCodes(clients: Client[]): Promise<Client[]> {
-  const missing = clients.filter((c) => !isValidClientCode(c.clientCode));
-  if (missing.length === 0) {
-    return clients;
-  }
-
-  const { ensureClientHasBusinessCode } = await import(
-    "@/features/shared/services/business-ids.service"
-  );
-
-  const updates = await Promise.all(
-    missing.map(async (client) => {
-      try {
-        const clientCode = await ensureClientHasBusinessCode(client);
-        return [client.id, clientCode] as const;
-      } catch (error) {
-        console.error("[clients] Failed to allocate Client ID", {
-          clientId: client.id,
-          error,
-        });
-        return null;
-      }
-    }),
-  );
-
-  const codeById = new Map(
-    updates.filter((row): row is readonly [string, string] => Boolean(row)),
-  );
-  if (codeById.size === 0) {
-    return clients;
-  }
-
-  return clients.map((client) => {
-    const code = codeById.get(client.id);
-    return code ? { ...client, clientCode: code } : client;
-  });
 }
 
 function applySearch(clients: Client[], search?: string): Client[] {
@@ -124,13 +82,12 @@ export async function listClients(
       })
     : await loadAllClientsCached();
 
-  let enriched = await withAccountManagerNames(rows);
+  let   enriched = await withAccountManagerNames(rows);
   if (accountManagerId?.trim()) {
     const amId = accountManagerId.trim();
     enriched = enriched.filter((client) => client.accountManagerId === amId);
   }
 
-  enriched = await ensureMissingClientCodes(enriched);
   return applySearch(enriched, search);
 }
 
@@ -141,8 +98,7 @@ export const getClientById = cache(async function getClientById(
   if (!client) {
     return null;
   }
-  const [withCode] = await ensureMissingClientCodes([client]);
-  const [enriched] = await withAccountManagerNames([withCode ?? client]);
+  const [enriched] = await withAccountManagerNames([client]);
   return enriched ?? null;
 });
 
@@ -150,9 +106,8 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   const { allocateClientCodeForName } = await import(
     "@/features/shared/services/business-ids.service"
   );
-  const clientCode =
-    input.clientCode?.trim().toUpperCase() ||
-    (await allocateClientCodeForName({ name: input.name }));
+  // Always system-allocate — never accept manual Client Codes on create.
+  const clientCode = await allocateClientCodeForName({ name: input.name });
 
   const created = await insertClient(
     toAirtableCreateFields({

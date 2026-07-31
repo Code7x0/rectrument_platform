@@ -14,16 +14,16 @@ export function Badge({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium tracking-wide transition-colors",
         variant === "default" &&
-          "border-transparent bg-[#2563EB] text-white",
+          "border-transparent bg-primary text-primary-foreground",
         variant === "secondary" &&
-          "border-transparent bg-[#EEF2FF] text-[#2563EB]",
-        variant === "outline" && "border-[#E2E8F0] text-[#0F172A]",
+          "border-transparent bg-secondary text-secondary-foreground",
+        variant === "outline" && "border-border bg-card text-foreground",
         variant === "success" &&
-          "border-transparent bg-[#22C55E]/15 text-[#15803D]",
+          "border-transparent bg-success/15 text-success",
         variant === "warning" &&
-          "border-transparent bg-[#F59E0B]/15 text-[#B45309]",
+          "border-transparent bg-warning/15 text-warning",
         className,
       )}
       {...props}

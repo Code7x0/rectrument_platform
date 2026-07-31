@@ -18,6 +18,7 @@ import type {
   AllocationListFilters,
 } from "@/features/allocations/types";
 import type { LookupOption } from "@/services/lookups";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface AllocationsPageClientProps {
   initialAllocations: Allocation[];
@@ -95,6 +96,7 @@ export function AllocationsPageClient({
   );
 
   function refresh() {
+    signalLiveDataChange();
     startTransition(() => {
       router.refresh();
     });

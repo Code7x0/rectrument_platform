@@ -141,7 +141,8 @@ export function SubmitCandidateDialog({
         }}
         title="Submit Candidate"
         description={`Quick submit for ${jobTitle}. Required fields take under a minute.`}
-        className="sm:max-w-xl"
+        className="h-[min(90vh,44rem)] sm:max-w-xl"
+        bodyLayout="split"
       >
         <CandidateForm
           key={`${jobId}-${allocationId}-${open ? "open" : "closed"}`}

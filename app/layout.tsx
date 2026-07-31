@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { auth } from "@clerk/nextjs/server";
 
 import { AppProviders } from "@/components/providers/app-providers";
@@ -8,9 +8,16 @@ import { APP_NAME } from "@/lib/constants";
 
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-geist-sans",
+const sans = Plus_Jakarta_Sans({
+  variable: "--font-app-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const mono = JetBrains_Mono({
+  variable: "--font-app-mono",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -41,7 +48,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body
+        className={`${sans.variable} ${mono.variable} font-sans antialiased`}
+      >
         <AppProviders session={session}>{children}</AppProviders>
       </body>
     </html>

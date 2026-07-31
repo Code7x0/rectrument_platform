@@ -16,6 +16,7 @@ import { archivePartnerAction } from "@/features/partners/actions/partners.actio
 import { PartnerDialog } from "@/features/partners/components/partner-dialog";
 import { PartnerTable } from "@/features/partners/components/partner-table";
 import type { Partner, PartnerListFilters } from "@/features/partners/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface PartnersPageClientProps {
   initialPartners: Partner[];
@@ -94,6 +95,7 @@ export function PartnersPageClient({
   );
 
   function refresh() {
+    signalLiveDataChange();
     startTransition(() => router.refresh());
   }
 

@@ -12,10 +12,10 @@ interface DashboardMetricCardProps {
 }
 
 const TONE_STYLES = {
-  default: "hover:border-[#CBD5E1]",
-  attention: "border-[#FECACA] bg-[#FEF2F2] hover:border-[#F87171]",
-  positive: "border-[#BBF7D0] bg-[#F0FDF4] hover:border-[#4ADE80]",
-  muted: "bg-[#F8FAFC] hover:border-[#CBD5E1]",
+  default: "hover:border-border hover:shadow-md",
+  attention: "border-destructive/30 bg-destructive/5 hover:border-destructive/50",
+  positive: "border-success/30 bg-success/5 hover:border-success/50",
+  muted: "bg-muted/60 hover:border-border",
 } as const;
 
 /**
@@ -33,23 +33,23 @@ export function DashboardMetricCard({
     <Link
       href={href}
       className={cn(
-        "group block rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm transition duration-200",
-        "hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A] focus-visible:ring-offset-2",
+        "group block rounded-xl border border-border bg-card p-4 shadow-xs transition-ui",
+        "hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         TONE_STYLES[tone],
         className,
       )}
       aria-label={`${label}: ${value}. Open ${label}`}
     >
-      <p className="text-xs font-medium tracking-wide text-[#94A3B8] uppercase">
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {label}
       </p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-[#0F172A] transition group-hover:text-[#020617]">
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground transition group-hover:text-foreground">
         {value}
       </p>
       {hint ? (
-        <p className="mt-1 text-xs text-[#64748B]">{hint}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       ) : (
-        <p className="mt-1 text-xs text-[#94A3B8] opacity-0 transition group-hover:opacity-100">
+        <p className="mt-1 text-xs text-muted-foreground opacity-0 transition group-hover:opacity-100">
           View details →
         </p>
       )}

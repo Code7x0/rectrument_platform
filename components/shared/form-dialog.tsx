@@ -18,6 +18,11 @@ interface FormDialogProps {
   description?: string;
   children: ReactNode;
   className?: string;
+  /**
+   * scroll (default) — whole body scrolls (most forms).
+   * split — body is a flex column with no outer scroll so forms can pin footers.
+   */
+  bodyLayout?: "scroll" | "split";
 }
 
 /**
@@ -30,19 +35,32 @@ export function FormDialog({
   description,
   children,
   className,
+  bodyLayout = "scroll",
 }: FormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn("max-h-[90vh] overflow-y-auto", className)}
+        className={cn(
+          "flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0",
+          className,
+        )}
       >
-        <DialogHeader>
+        <DialogHeader className="shrink-0 space-y-1.5 border-b border-border px-6 py-5 pr-12">
           <DialogTitle>{title}</DialogTitle>
           {description ? (
             <DialogDescription>{description}</DialogDescription>
           ) : null}
         </DialogHeader>
-        {children}
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            bodyLayout === "split"
+              ? "flex flex-col overflow-hidden"
+              : "overflow-y-auto px-6 py-5",
+          )}
+        >
+          {children}
+        </div>
       </DialogContent>
     </Dialog>
   );

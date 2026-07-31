@@ -18,5 +18,5 @@ export function ToasterProvider() {
     return null;
   }
 
-  return <Toaster richColors position="top-right" />;
+  return <Toaster richColors position="top-right" closeButton gap={10} />;
 }
