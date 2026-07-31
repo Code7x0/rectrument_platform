@@ -28,6 +28,11 @@ export interface JobEntity {
   /** Operational owner — every job has exactly one Account Manager. */
   accountManagerId: string | null;
   accountManagerName: string | null;
+  /**
+   * Explicit per-job unassign ([RP_AM] none). When true, do not inherit
+   * Clients.Account Owner for display or AM dashboard visibility.
+   */
+  accountManagerUnassigned: boolean;
   hiringManager: string | null;
   description: string | null;
   /** Airtable attachment files from Job Description / Sample Profiling / Skill Matrix. */

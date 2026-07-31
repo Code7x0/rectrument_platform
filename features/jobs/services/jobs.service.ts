@@ -64,17 +64,19 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
 
   return jobs.map((job) => {
     const client = job.clientId ? clientMap.get(job.clientId) : undefined;
-    // Prefer per-job AM (link field or [RP_AM] marker). Inherit Client
-    // Account Owner only when the job has no explicit assignment.
-    const accountManagerId =
-      job.accountManagerId ??
-      (job.clientId ? clientOwnerById.get(job.clientId) ?? null : null);
+    // Prefer per-job AM (link field or [RP_AM] marker). Explicit [RP_AM] none
+    // blocks Client Account Owner inheritance. Otherwise inherit when unmarked.
+    const accountManagerId = job.accountManagerUnassigned
+      ? null
+      : (job.accountManagerId ??
+        (job.clientId ? clientOwnerById.get(job.clientId) ?? null : null));
     const amMeta = accountManagerId ? amMap.get(accountManagerId) : null;
 
     return {
       ...job,
       clientName: client?.label ?? null,
       accountManagerId,
+      accountManagerUnassigned: job.accountManagerUnassigned,
       // Admin/SA see names; code available via lookups for partner-facing UIs.
       accountManagerName: amMeta?.name ?? null,
     };
@@ -83,6 +85,7 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
 
 /**
  * AM job visibility:
+ * - Explicit per-job unassign ([RP_AM] none) → never visible.
  * - Explicit per-job AM (field / [RP_AM] marker) always wins.
  * - If this AM has ANY explicit job on a client, sibling jobs without an
  *   explicit AM are NOT inherited via Client Account Owner (prevents
@@ -97,6 +100,11 @@ function filterJobsForAccountManager(
   const explicitById = new Map(
     originals.map((job) => [job.id, job.accountManagerId]),
   );
+  const unassignedIds = new Set(
+    originals
+      .filter((job) => job.accountManagerUnassigned)
+      .map((job) => job.id),
+  );
   const clientsWithExplicitAm = new Set(
     originals
       .filter(
@@ -107,6 +115,9 @@ function filterJobsForAccountManager(
   );
 
   return enriched.filter((job) => {
+    if (unassignedIds.has(job.id)) {
+      return false;
+    }
     const explicit = explicitById.get(job.id) ?? null;
     if (explicit) {
       return explicit === accountManagerId;

@@ -344,24 +344,59 @@ export function stripJobIdMarker(
 /**
  * Per-job Account Manager on the locked client Jobs table (no AM link column).
  * Stored in Comments alongside [RP_JOBID] — does not change Airtable schema.
+ *
+ * - `[RP_AM] recXXX` — explicit assignment
+ * - `[RP_AM] none` — explicitly unassigned (do NOT inherit Client Account Owner)
+ * - no marker — inherit Client Account Owner when present
  */
 export const JOB_AM_MARKER_PREFIX = "[RP_AM]";
+export const JOB_AM_UNASSIGNED_TOKEN = "none";
+
+export type JobAmAssignment =
+  | { kind: "assigned"; accountManagerId: string }
+  | { kind: "unassigned" };
 
 export function buildJobAmMarker(accountManagerId: string): string {
   return `${JOB_AM_MARKER_PREFIX} ${accountManagerId.trim()}`;
 }
 
-export function parseJobAmMarker(
+export function buildJobAmUnassignedMarker(): string {
+  return `${JOB_AM_MARKER_PREFIX} ${JOB_AM_UNASSIGNED_TOKEN}`;
+}
+
+export function parseJobAmAssignment(
   comments: string | null | undefined,
-): string | null {
+): JobAmAssignment | null {
   if (!comments?.trim()) {
     return null;
   }
-  const match = /\[RP_AM\]\s+(rec[a-zA-Z0-9]+)\b/.exec(comments);
-  return match?.[1] ?? null;
+  const match = /\[RP_AM\]\s+(\S+)/.exec(comments);
+  if (!match?.[1]) {
+    return null;
+  }
+  const value = match[1].trim();
+  if (value.toLowerCase() === JOB_AM_UNASSIGNED_TOKEN || value === "-") {
+    return { kind: "unassigned" };
+  }
+  if (/^rec[a-zA-Z0-9]+$/.test(value)) {
+    return { kind: "assigned", accountManagerId: value };
+  }
+  return null;
 }
 
-/** Upsert or clear [RP_AM] line; preserves Job ID marker and other notes. */
+/** Assigned Airtable AM id only; null when unmarked or explicitly unassigned. */
+export function parseJobAmMarker(
+  comments: string | null | undefined,
+): string | null {
+  const assignment = parseJobAmAssignment(comments);
+  return assignment?.kind === "assigned" ? assignment.accountManagerId : null;
+}
+
+/**
+ * Upsert [RP_AM] line.
+ * Pass null/empty to write an explicit unassigned marker (blocks client inherit).
+ * Pass a record id to assign. Use stripJobAmMarker to remove the line entirely.
+ */
 export function upsertJobAmMarker(
   existing: string | null | undefined,
   accountManagerId: string | null | undefined,
@@ -372,17 +407,17 @@ export function upsertJobAmMarker(
     .filter((line) => !line.trim().startsWith(JOB_AM_MARKER_PREFIX));
 
   const amId = accountManagerId?.trim();
-  if (amId) {
-    // Keep [RP_JOBID] first when present.
-    const jobIdIdx = lines.findIndex((line) =>
-      line.trim().startsWith(JOB_ID_MARKER_PREFIX),
-    );
-    const marker = buildJobAmMarker(amId);
-    if (jobIdIdx >= 0) {
-      lines.splice(jobIdIdx + 1, 0, marker);
-    } else {
-      lines.unshift(marker);
-    }
+  const marker = amId
+    ? buildJobAmMarker(amId)
+    : buildJobAmUnassignedMarker();
+
+  const jobIdIdx = lines.findIndex((line) =>
+    line.trim().startsWith(JOB_ID_MARKER_PREFIX),
+  );
+  if (jobIdIdx >= 0) {
+    lines.splice(jobIdIdx + 1, 0, marker);
+  } else {
+    lines.unshift(marker);
   }
 
   return lines.filter((line, index) => line.trim() || index > 0).join("\n").trim();

@@ -13,7 +13,7 @@ import {
 } from "@/lib/airtable/fields";
 import {
   isValidJobCode,
-  parseJobAmMarker,
+  parseJobAmAssignment,
   parseJobIdMarker,
   stripJobSystemMarkers,
   upsertJobIdMarker,
@@ -150,6 +150,9 @@ export function mapJobRecord(record: {
   const title = asString(fields[JOBS_TABLE_FIELDS.title]) ?? "Untitled Job";
   const jobCode = resolveJobCode(fields);
 
+  const notesRaw = asString(fields[JOBS_TABLE_FIELDS.notes]);
+  const amAssignment = parseJobAmAssignment(notesRaw);
+
   return {
     id: record.id,
     jobCode,
@@ -158,8 +161,11 @@ export function mapJobRecord(record: {
     clientName: null,
     accountManagerId:
       asLinkedId(fields[JOBS_TABLE_FIELDS.accountManager]) ??
-      parseJobAmMarker(asString(fields[JOBS_TABLE_FIELDS.notes])),
+      (amAssignment?.kind === "assigned"
+        ? amAssignment.accountManagerId
+        : null),
     accountManagerName: null,
+    accountManagerUnassigned: amAssignment?.kind === "unassigned",
     hiringManager: asString(fields[JOBS_TABLE_FIELDS.hiringManager]),
     description: descriptionFromFields(fields),
     documents: collectJobDocuments(fields),
@@ -175,7 +181,7 @@ export function mapJobRecord(record: {
     skills: asStringArray(fields[JOBS_TABLE_FIELDS.skills]),
     status:
       mapEnum(fields[JOBS_TABLE_FIELDS.status], AIRTABLE_JOB_STATUS) ?? "open",
-    notes: stripJobSystemMarkers(asString(fields[JOBS_TABLE_FIELDS.notes])),
+    notes: stripJobSystemMarkers(notesRaw),
     department: asString(fields[JOBS_TABLE_FIELDS.department]),
     interviewProcess: asString(fields[JOBS_TABLE_FIELDS.interviewProcess]),
     seniorityLevel: asString(fields[JOBS_TABLE_FIELDS.seniorityLevel]),

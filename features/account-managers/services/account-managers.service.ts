@@ -138,6 +138,8 @@ export async function listAccountManagersDirectory(): Promise<{
 /**
  * Assign (or clear) Account Owner on a Client.
  * Locked schema: this is how AMs are "allocated" to clients/jobs.
+ * Unassign also strips per-job [RP_AM] markers so the AM loses those jobs
+ * (otherwise leftover job markers keep them on the AM dashboard).
  */
 export async function assignAccountManagerToClient(input: {
   clientId: string;
@@ -147,6 +149,58 @@ export async function assignAccountManagerToClient(input: {
   await updateClient(input.clientId, {
     accountManagerId: input.accountManagerId ?? "",
   });
+
+  if (input.accountManagerId?.trim()) {
+    return;
+  }
+
+  // Clear explicit per-job AM markers under this client so unassign sticks.
+  const { findJobs, patchJob } = await import(
+    "@/features/jobs/repositories/jobs.repository"
+  );
+  const { JOBS_TABLE_FIELDS } = await import("@/lib/airtable/fields");
+  const { findRecord } = await import("@/lib/airtable/client");
+  const { getAirtableTableName } = await import("@/lib/airtable/tables");
+  const { stripJobAmMarker, upsertJobIdMarker, parseJobIdMarker } =
+    await import("@/lib/business-ids");
+  const { asString, isClientCompatMode } = await import(
+    "@/lib/airtable/compat"
+  );
+
+  const jobs = await findJobs({});
+  const jobsForClient = jobs.filter((job) => job.clientId === input.clientId);
+  for (const job of jobsForClient) {
+    if (!job.accountManagerId && !job.accountManagerUnassigned) {
+      continue;
+    }
+    if (!isClientCompatMode()) {
+      await patchJob(job.id, {
+        [JOBS_TABLE_FIELDS.accountManager]: [],
+      });
+      continue;
+    }
+    try {
+      const record = await findRecord(
+        getAirtableTableName("jobsTable"),
+        job.id,
+      );
+      const commentsRaw = asString(record.fields[JOBS_TABLE_FIELDS.notes]) ?? "";
+      let next = stripJobAmMarker(commentsRaw) ?? "";
+      const jobCode = parseJobIdMarker(commentsRaw) ?? job.jobCode ?? null;
+      if (jobCode) {
+        next = upsertJobIdMarker(next, jobCode);
+      }
+      await patchJob(job.id, {
+        [JOBS_TABLE_FIELDS.notes]: next,
+      });
+    } catch (error) {
+      console.error(
+        "[am] clear job marker on client unassign failed",
+        job.id,
+        error,
+      );
+    }
+  }
 }
 
 export async function setAccountManagerStatus(input: {
