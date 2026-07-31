@@ -10,6 +10,7 @@ import {
   JOB_PRIORITY_LABELS,
   type Job,
 } from "@/features/jobs/types";
+import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
 import { formatDate } from "@/lib/utils";
 
 interface JobDrawerProps {
@@ -84,7 +85,7 @@ export function JobDrawer({
               </>
             ) : null}
             <Detail label="Location" value={job.location} />
-            <Detail label="WFO / WFH" value={job.location} />
+            <Detail label="WFO / WFH" value={deriveJobWorkMode(job.location)} />
             <Detail
               label="Employment Type"
               value={

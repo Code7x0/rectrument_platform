@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AllocationStatusBadge } from "@/features/allocations/components/allocation-status-badge";
 import { JOB_PRIORITY_LABELS } from "@/features/jobs/types";
+import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
 import type { PartnerWorkTask } from "@/features/tasks/types";
 
 interface WorkTaskCardProps {
@@ -32,7 +33,7 @@ function Meta({
 
 export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
   const salary = task.job.salary?.trim() || null;
-  const workMode = task.location?.trim() || null;
+  const workMode = deriveJobWorkMode(task.location);
 
   return (
     <article className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm transition hover:border-[#CBD5E1]">
