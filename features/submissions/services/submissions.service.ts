@@ -11,9 +11,10 @@ import {
   getCandidateById,
   parseSkillsInput,
 } from "@/features/candidates/services";
+import { findCandidates } from "@/features/candidates/repositories/candidates.repository";
 import type { Candidate } from "@/features/candidates/types";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
-import { getJobById } from "@/features/jobs/services";
+import { getJobById, listJobs } from "@/features/jobs/services";
 import {
   findSubmissionById,
   findSubmissionsSafe,
@@ -55,6 +56,9 @@ const loadAllSubmissionsCached = cache(async () =>
   }),
 );
 
+/** Request-scoped: one Candidates table scan (submissions-mode enrichment). */
+const loadAllCandidatesCached = cache(async () => findCandidates({}));
+
 async function withEnrichment(
   submissions: Submission[],
   includePartnerIdentity = false,
@@ -64,27 +68,18 @@ async function withEnrichment(
   }
 
   const candidatesMode = getSubmissionsMode() === "candidates";
-  const uniqueCandidateIds = [...new Set(submissions.map((s) => s.candidateId))];
-  const uniqueJobIds = [...new Set(submissions.map((s) => s.jobId))];
 
-  // Candidates mode already stores the person name on the submission row —
-  // skip N+1 candidate finds (major cost on large tables).
+  // One request-scoped jobs/candidates scan instead of N× Airtable finds.
   const [candidates, jobs, partners] = await Promise.all([
     candidatesMode
-      ? Promise.resolve([] as Array<Candidate | null>)
-      : Promise.all(uniqueCandidateIds.map((id) => getCandidateById(id))),
-    Promise.all(uniqueJobIds.map((id) => getJobById(id))),
+      ? Promise.resolve([] as Candidate[])
+      : loadAllCandidatesCached(),
+    listJobs({ includeArchived: true }),
     listPartnerOptions(includePartnerIdentity ? "identity" : "operational"),
   ]);
 
-  const candidateMap = new Map(
-    candidates
-      .filter((c): c is Candidate => Boolean(c))
-      .map((c) => [c.id, c]),
-  );
-  const jobMap = new Map(
-    jobs.filter((j): j is NonNullable<typeof j> => Boolean(j)).map((j) => [j.id, j]),
-  );
+  const candidateMap = new Map(candidates.map((c) => [c.id, c]));
+  const jobMap = new Map(jobs.map((j) => [j.id, j]));
   const partnerMap = new Map(
     partners.map((p) => [p.id, { label: p.label, code: p.code ?? null }]),
   );

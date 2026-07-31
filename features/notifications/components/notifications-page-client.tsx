@@ -30,8 +30,8 @@ import {
   NOTIFICATION_PRIORITY_LABELS,
   NOTIFICATION_TYPE_LABELS,
 } from "@/features/notifications/types";
-import { formatDateTime } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { signalLiveDataChange } from "@/lib/live-sync";
+import { formatDateTime, cn } from "@/lib/utils";
 
 interface NotificationsPageClientProps {
   initialItems: Notification[];
@@ -132,6 +132,7 @@ export function NotificationsPageClient({
                   );
                   setUnreadCount(0);
                   toast.success(`Marked ${result.data.count} as read`);
+                  signalLiveDataChange();
                   router.refresh();
                 });
               }}
@@ -269,6 +270,7 @@ export function NotificationsPageClient({
                             ),
                           );
                           setUnreadCount((count) => Math.max(0, count - 1));
+                          signalLiveDataChange();
                         });
                       }}
                     >

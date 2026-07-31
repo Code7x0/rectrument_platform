@@ -36,12 +36,20 @@ const MIME_ALIASES: Record<string, string> = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/docx":
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  // .docx is a zip — Chromium/LibreOffice often report these
+  // .docx is a zip — Chromium/LibreOffice/Office often report these
   "application/zip":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/x-zip":
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/x-zip-compressed":
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "multipart/x-zip":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/octet-stream": "application/octet-stream",
+  // Some Linux file pickers report empty or generic binary types
+  "binary/octet-stream": "application/octet-stream",
+  "application/x-msword": "application/msword",
+  "application/vnd.ms-office": "application/msword",
   "image/png": "image/png",
   "image/jpeg": "image/jpeg",
   "image/jpg": "image/jpeg",

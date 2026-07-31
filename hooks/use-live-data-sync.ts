@@ -9,18 +9,18 @@ import {
 } from "@/lib/live-sync";
 
 /** Cheap pulse poll — only full RSC refresh when the fingerprint changes. */
-const PULSE_INTERVAL_MS = 8_000;
+const PULSE_INTERVAL_MS = 6_000;
 /** Safety-net full refresh even if pulse is quiet (Airtable direct edits). */
-const FULL_REFRESH_INTERVAL_MS = 45_000;
-const MIN_FULL_REFRESH_GAP_MS = 4_000;
+const FULL_REFRESH_INTERVAL_MS = 90_000;
+const MIN_FULL_REFRESH_GAP_MS = 3_000;
 
 /**
  * Soft real-time sync for Airtable-backed RSC pages.
  *
  * Strategy:
- * 1. Poll /api/sync/pulse every 8s (lightweight unread fingerprint)
+ * 1. Poll /api/sync/pulse every 6s (notification + CRM fingerprint)
  * 2. Full router.refresh() only when pulse changes, on focus, or after mutations
- * 3. Safety-net full refresh every 45s while the tab is visible
+ * 3. Safety-net full refresh every 90s while the tab is visible
  */
 export function useLiveDataSync(): void {
   const router = useRouter();

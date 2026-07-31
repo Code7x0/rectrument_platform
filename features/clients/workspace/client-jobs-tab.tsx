@@ -16,6 +16,7 @@ import {
 } from "@/features/allocations/components";
 import type { Job } from "@/features/jobs/types";
 import type { LookupOption } from "@/services/lookups";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface ClientJobsTabProps {
   jobs: Job[];
@@ -50,6 +51,7 @@ export function ClientJobsTab({
   const [archiving, setArchiving] = useState(false);
 
   function refresh() {
+    signalLiveDataChange();
     startTransition(() => router.refresh());
   }
 

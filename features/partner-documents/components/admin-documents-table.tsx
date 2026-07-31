@@ -22,6 +22,7 @@ import {
   DOCUMENT_TYPE_LABELS,
   type PartnerDocument,
 } from "@/features/partner-documents/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatDate } from "@/lib/utils";
 
 interface AdminDocumentsTableProps {
@@ -181,6 +182,7 @@ export function AdminDocumentsTable({
       setRejectTarget(null);
       setArchiveTarget(null);
       setSelected(null);
+      signalLiveDataChange();
       router.refresh();
     });
   }

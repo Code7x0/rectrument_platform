@@ -73,7 +73,7 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
     summary,
     users,
     activity,
-    submissions,
+    rawSubmissions,
     amDirectory,
     partners,
     jobs,
@@ -88,7 +88,7 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
     ),
     settledSource(
       "submissions",
-      listSubmissions({ includePartnerIdentity: true }),
+      listSubmissions({ enrich: false, includePartnerIdentity: true }),
       [],
     ),
     settledSource(
@@ -107,6 +107,12 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
     settledSource("jobs", listJobs({ includeArchived: false }), []),
     settledSource("clients", listClients({ includeArchived: false }), []),
   ]);
+
+  const saJobTitleById = new Map(jobs.map((job) => [job.id, job.title]));
+  const submissions = rawSubmissions.map((row) => ({
+    ...row,
+    jobTitle: row.jobTitle ?? saJobTitleById.get(row.jobId) ?? null,
+  }));
 
   const activeUsers = users.filter((u) => u.status === "active").length;
   const inactiveUsers = users.filter((u) => u.status !== "active").length;
@@ -289,7 +295,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     partners,
     allDocuments,
     payouts,
-    submissions,
+    rawSubmissions,
     activity,
     amDirectory,
   ] = await Promise.all([
@@ -304,7 +310,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     settledSource("payouts", listPayouts({ includePartnerIdentity: true }), []),
     settledSource(
       "submissions",
-      listSubmissions({ includePartnerIdentity: true }),
+      listSubmissions({ enrich: false, includePartnerIdentity: true }),
       [],
     ),
     settledSource(
@@ -323,6 +329,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       },
     ),
   ]);
+
+  const jobTitleById = new Map(allJobs.map((job) => [job.id, job.title]));
+  const submissions = rawSubmissions.map((row) => ({
+    ...row,
+    jobTitle: row.jobTitle ?? jobTitleById.get(row.jobId) ?? null,
+  }));
 
   // Same source of truth as Candidates page — derive review queue in memory.
   const reviewQueue = submissions.filter((row) =>
@@ -498,16 +510,18 @@ export async function getAccountManagerDashboardData(
     includeArchived: false,
   });
   const jobIds = jobs.map((j) => j.id);
+  const jobIdSet = new Set(jobIds);
+  const jobTitleById = new Map(jobs.map((j) => [j.id, j.title]));
 
-  const [allocations, allSubmissions, activity] = await Promise.all([
+  const [allocations, rawSubmissions, activity] = await Promise.all([
     listAllocations({
       includePartnerIdentity: false,
       jobIds,
     }),
     jobIds.length === 0
       ? Promise.resolve([])
-      : listSubmissions().then((rows) =>
-          rows.filter((s) => jobIds.includes(s.jobId)),
+      : listSubmissions({ enrich: false }).then((rows) =>
+          rows.filter((s) => jobIdSet.has(s.jobId)),
         ),
     settledSource(
       "activities",
@@ -517,6 +531,11 @@ export async function getAccountManagerDashboardData(
       [],
     ),
   ]);
+
+  const allSubmissions = rawSubmissions.map((row) => ({
+    ...row,
+    jobTitle: row.jobTitle ?? jobTitleById.get(row.jobId) ?? null,
+  }));
 
   const assignedJobs = jobs.filter((j) => j.status === "open");
   const myAllocations = allocations;

@@ -475,6 +475,16 @@ export async function notifyCandidateSubmitted(input: {
     entityId: input.submissionId,
     actionUrl: "/admin/candidates",
   });
+  await notifyRole("super_admin", {
+    title: "Pending candidate review",
+    description: `${input.candidateName} awaits review on ${input.jobTitle}.`,
+    type: "candidate",
+    category: "candidates",
+    priority: "medium",
+    entityType: "submission",
+    entityId: input.submissionId,
+    actionUrl: "/admin/candidates",
+  });
 }
 
 const STATUS_NOTIFICATION: Partial<

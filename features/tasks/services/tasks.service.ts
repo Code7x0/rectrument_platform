@@ -1,5 +1,5 @@
 import { findActiveAllocationsForPartner } from "@/features/tasks/repositories/tasks.repository";
-import { getJobById } from "@/features/jobs/services";
+import { listJobs } from "@/features/jobs/services";
 import { listPartnerSubmissions } from "@/features/submissions/services";
 import type { Allocation } from "@/features/allocations/types";
 import type { Job, JobPriority, JobStatus } from "@/features/jobs/types";
@@ -86,9 +86,10 @@ export async function listPartnerWorkTasks(
     return [];
   }
 
-  const [allocations, submissions] = await Promise.all([
+  const [allocations, submissions, jobs] = await Promise.all([
     findActiveAllocationsForPartner(partnerId),
     listPartnerSubmissions(partnerId),
+    listJobs({ includeArchived: true }),
   ]);
 
   if (allocations.length === 0) {
@@ -103,11 +104,7 @@ export async function listPartnerWorkTasks(
     );
   }
 
-  const uniqueJobIds = [...new Set(allocations.map((row) => row.jobId))];
-  const jobs = await Promise.all(uniqueJobIds.map((id) => getJobById(id)));
-  const jobMap = new Map(
-    jobs.filter((job): job is Job => Boolean(job)).map((job) => [job.id, job]),
-  );
+  const jobMap = new Map(jobs.map((job) => [job.id, job]));
 
   const tasks: PartnerWorkTask[] = [];
 

@@ -108,6 +108,18 @@ export function SubmitCandidateDialog({
       signalLiveDataChange();
       // Navigate once — destination RSC load is fresh; avoid double refresh.
       router.push("/partner/candidates");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Submission failed";
+      const looksLikeBodyLimit =
+        /body.*(limit|exceed)|1\s*mb|payload.*large|request entity too large/i.test(
+          message,
+        );
+      toast.error(
+        looksLikeBodyLimit
+          ? "Resume is too large for upload (max 8MB). Try a smaller PDF or Word file."
+          : message || "Could not submit candidate. Please try again.",
+      );
     } finally {
       submittingLock.current = false;
       setSubmitting(false);

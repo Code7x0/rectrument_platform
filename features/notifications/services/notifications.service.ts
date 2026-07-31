@@ -63,11 +63,52 @@ function resolveCategoryChannel(
 
 /**
  * Non-blocking notification write. Failures are logged, never throw to callers.
+ * Short-TTL dedupe prevents duplicate in-app rows for the same event burst.
  */
+const RECENT_PUBLISH_TTL_MS = 45_000;
+const recentPublishes = new Map<string, number>();
+
+function notificationDedupeKey(input: CreateNotificationInput): string {
+  return [
+    input.recipientUserId,
+    input.type,
+    input.entityType ?? "",
+    input.entityId ?? "",
+    input.title,
+  ].join("::");
+}
+
+function shouldSkipDuplicatePublish(input: CreateNotificationInput): boolean {
+  const key = notificationDedupeKey(input);
+  const now = Date.now();
+  const last = recentPublishes.get(key);
+  if (last != null && now - last < RECENT_PUBLISH_TTL_MS) {
+    return true;
+  }
+  recentPublishes.set(key, now);
+  if (recentPublishes.size > 300) {
+    for (const [k, ts] of recentPublishes) {
+      if (now - ts >= RECENT_PUBLISH_TTL_MS) {
+        recentPublishes.delete(k);
+      }
+    }
+  }
+  return false;
+}
+
 export async function publishNotification(
   input: CreateNotificationInput,
 ): Promise<Notification | null> {
   try {
+    if (shouldSkipDuplicatePublish(input)) {
+      console.info("[notifications] skipped duplicate publish", {
+        recipientUserId: input.recipientUserId,
+        type: input.type,
+        entityId: input.entityId,
+      });
+      return null;
+    }
+
     const preferences = await getOrCreatePreferences(input.recipientUserId);
     const channel = resolveCategoryChannel(preferences, input.category);
 
@@ -271,6 +312,17 @@ export async function listNotificationsForUser(
 export const getUnreadNotificationCount = cache(
   async (userId: string): Promise<number> => {
     try {
+      if (!isNotificationsStorageAvailable()) {
+        const user = await getUserById(userId);
+        const derived = await deriveNotificationsForViewer({
+          recipientUserId: userId,
+          partnerId: user?.partnerId,
+          accountManagerId: user?.accountManagerId,
+          maxRecords: 40,
+        });
+        return derived.filter((row) => row.readStatus === "unread").length;
+      }
+
       const formula = buildNotificationsFilterFormula({
         recipientUserId: userId,
         readStatus: "unread",
@@ -289,26 +341,57 @@ export const getUnreadNotificationCount = cache(
 );
 
 /**
- * Cheap fingerprint for soft real-time polling (latest + unread only).
+ * Cheap fingerprint for soft real-time polling.
+ * Combines notification head + CRM head so list/dashboard changes
+ * (not only notification inserts) trigger a refresh for other users.
  */
 export async function getSyncFingerprint(userId: string): Promise<{
   fingerprint: string;
   unread: number;
 }> {
   try {
+    const { findSubmissionsSafe } = await import(
+      "@/features/submissions/repositories/submissions.repository"
+    );
+    const { SUBMISSIONS_TABLE_FIELDS } = await import(
+      "@/lib/airtable/fields"
+    );
+
+    const crmHeadPromise = findSubmissionsSafe({
+      sort: [
+        {
+          field: SUBMISSIONS_TABLE_FIELDS.submissionDate,
+          direction: "desc",
+        },
+      ],
+      maxRecords: 1,
+    })
+      .then((rows) => rows[0] ?? null)
+      .catch(() => null);
+
     if (!isNotificationsStorageAvailable()) {
       const user = await getUserById(userId);
-      const derived = await deriveNotificationsForViewer({
-        recipientUserId: userId,
-        partnerId: user?.partnerId,
-        accountManagerId: user?.accountManagerId,
-        maxRecords: 5,
-      });
+      const [derived, crmHead] = await Promise.all([
+        deriveNotificationsForViewer({
+          recipientUserId: userId,
+          partnerId: user?.partnerId,
+          accountManagerId: user?.accountManagerId,
+          maxRecords: 5,
+        }),
+        crmHeadPromise,
+      ]);
       const unread = derived.filter((row) => row.readStatus === "unread").length;
       const head = derived[0];
       return {
         unread,
-        fingerprint: [unread, head?.id ?? "", head?.createdAt ?? ""].join("|"),
+        fingerprint: [
+          unread,
+          head?.id ?? "",
+          head?.createdAt ?? "",
+          crmHead?.id ?? "",
+          crmHead?.submissionDate ?? "",
+          crmHead?.status ?? "",
+        ].join("|"),
       };
     }
 
@@ -322,7 +405,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
       archived: false,
     });
 
-    const [latest, unreadRows] = await Promise.all([
+    const [latest, unreadRows, crmHead] = await Promise.all([
       findNotifications({
         filterByFormula: recipientFormula,
         sort: [
@@ -334,6 +417,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
         filterByFormula: unreadFormula,
         maxRecords: 50,
       }),
+      crmHeadPromise,
     ]);
 
     const head = latest[0];
@@ -345,13 +429,17 @@ export async function getSyncFingerprint(userId: string): Promise<{
         head?.id ?? "",
         head?.createdAt ?? "",
         head?.readStatus ?? "",
+        crmHead?.id ?? "",
+        crmHead?.submissionDate ?? "",
+        crmHead?.status ?? "",
       ].join("|"),
     };
   } catch (error) {
     console.error("[notifications] sync fingerprint failed", error);
+    // Stable error fingerprint — Date.now() forced endless full refreshes.
     return {
       unread: 0,
-      fingerprint: `err-${Date.now()}`,
+      fingerprint: "err-stable",
     };
   }
 }

@@ -5,8 +5,9 @@ import { getAirtableTableName } from "@/lib/airtable/tables";
 import {
   listAccountManagerOptions,
 } from "@/services/lookups";
-import { getCandidateById } from "@/features/candidates/services";
-import { getJobById } from "@/features/jobs/services";
+import { findCandidates } from "@/features/candidates/repositories/candidates.repository";
+import { listJobs } from "@/features/jobs/services";
+import { getSubmissionsMode } from "@/lib/airtable/compat";
 import {
   findPayoutById,
   findPayouts,
@@ -100,38 +101,26 @@ async function withEnrichment(
     return payouts;
   }
 
-  const [partnerMeta, accountManagers] = await Promise.all([
-    loadPartnerMeta(payouts.map((p) => p.partnerId)),
-    listAccountManagerOptions(),
-  ]);
+  const candidatesMode = getSubmissionsMode() === "candidates";
+  const [partnerMeta, accountManagers, allSubmissions, jobs, candidates] =
+    await Promise.all([
+      loadPartnerMeta(payouts.map((p) => p.partnerId)),
+      listAccountManagerOptions(),
+      listSubmissions({ enrich: false }),
+      listJobs({ includeArchived: true }),
+      candidatesMode ? Promise.resolve([]) : findCandidates({}),
+    ]);
   const amMap = new Map(accountManagers.map((am) => [am.id, am.label]));
 
-  const submissionIds = [...new Set(payouts.map((p) => p.submissionId))];
-  const allSubmissions =
-    submissionIds.length > 0
-      ? await listSubmissions({ enrich: false })
-      : [];
+  const submissionIds = new Set(payouts.map((p) => p.submissionId));
   const submissionMap = new Map(
     allSubmissions
-      .filter((s) => submissionIds.includes(s.id))
+      .filter((s) => submissionIds.has(s.id))
       .map((s) => [s.id, s]),
   );
 
-  const jobIds = [...new Set(payouts.map((p) => p.jobId))];
-  const jobs = await Promise.all(jobIds.map((id) => getJobById(id)));
-  const jobMap = new Map(
-    jobs.filter((j): j is NonNullable<typeof j> => Boolean(j)).map((j) => [j.id, j]),
-  );
-
-  const candidateIds = [...new Set(payouts.map((p) => p.candidateId))];
-  const candidates = await Promise.all(
-    candidateIds.map((id) => getCandidateById(id)),
-  );
-  const candidateMap = new Map(
-    candidates
-      .filter((c): c is NonNullable<typeof c> => Boolean(c))
-      .map((c) => [c.id, c]),
-  );
+  const jobMap = new Map(jobs.map((j) => [j.id, j]));
+  const candidateMap = new Map(candidates.map((c) => [c.id, c]));
 
   return payouts.map((payout) => {
     const submission = submissionMap.get(payout.submissionId);
@@ -146,7 +135,8 @@ async function withEnrichment(
       partnerCode: meta?.partnerCode ?? displayBusinessId(null),
       partnerName: showIdentity ? (meta?.identityLabel ?? null) : null,
       jobTitle: job?.title ?? submission?.jobTitle ?? null,
-      candidateName: candidate?.fullName ?? submission?.candidateName ?? null,
+      candidateName:
+        candidate?.fullName ?? submission?.candidateName ?? null,
       accountManagerId: job?.accountManagerId ?? null,
       accountManagerName: job?.accountManagerId
         ? (amMap.get(job.accountManagerId) ?? null)

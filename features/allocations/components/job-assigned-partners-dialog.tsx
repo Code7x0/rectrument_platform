@@ -18,6 +18,7 @@ import {
 } from "@/features/allocations/actions/allocations.actions";
 import type { Allocation } from "@/features/allocations/types";
 import type { Job } from "@/features/jobs/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface JobAssignedPartnersDialogProps {
   open: boolean;
@@ -125,6 +126,7 @@ export function JobAssignedPartnersDialog({
                         setRows((prev) =>
                           prev.filter((item) => item.id !== row.id),
                         );
+                        signalLiveDataChange();
                         onCompleted?.();
                       });
                     }}

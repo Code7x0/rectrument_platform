@@ -22,6 +22,7 @@ import type {
   PartnerDocumentSlot,
   PartnerDocumentType,
 } from "@/features/partner-documents/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatDateTime } from "@/lib/utils";
 
 interface PartnerDocumentCardsProps {
@@ -110,6 +111,7 @@ export function PartnerDocumentCards({
           ? "Document replaced"
           : "Document uploaded",
       );
+      signalLiveDataChange();
       router.refresh();
     });
   }

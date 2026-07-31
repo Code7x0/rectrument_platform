@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import {
-  getUnreadNotificationCount,
-  listNotificationsForUser,
-} from "@/features/notifications/services";
+import { listNotificationsForUser } from "@/features/notifications/services";
 import { requireAuth } from "@/lib/auth";
 
 export default async function ActivitiesLayout({
@@ -14,20 +11,17 @@ export default async function ActivitiesLayout({
 }) {
   const session = await requireAuth();
 
-  const [unreadCount, recent] = await Promise.all([
-    getUnreadNotificationCount(session.userId),
-    listNotificationsForUser({
-      recipientUserId: session.userId,
-      archived: false,
-      page: 1,
-      pageSize: 8,
-    }),
-  ]);
+  const recent = await listNotificationsForUser({
+    recipientUserId: session.userId,
+    archived: false,
+    page: 1,
+    pageSize: 8,
+  });
 
   return (
     <DashboardShell
       role={session.role}
-      notificationUnreadCount={unreadCount}
+      notificationUnreadCount={recent.unreadCount}
       recentNotifications={recent.items}
     >
       {children}
