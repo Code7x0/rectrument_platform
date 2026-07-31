@@ -6,6 +6,8 @@ export { CLIENT_STATUS_LABELS } from "@/features/shared/entities";
 
 export interface CreateClientInput {
   name: string;
+  /** Business Client ID (AB, TC…). Auto-allocated on create when omitted. */
+  clientCode?: string;
   industry?: string;
   website?: string;
   primaryContact?: string;

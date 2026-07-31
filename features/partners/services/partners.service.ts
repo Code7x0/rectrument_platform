@@ -72,15 +72,35 @@ export async function findPartnerByEmail(
     return null;
   }
   const escaped = escapeFormulaValue(normalized);
-  const rows = await findPartners({
-    filterByFormula: `OR(LOWER({${PARTNERS_TABLE_FIELDS.email}}) = '${escaped}', LOWER({${PARTNERS_TABLE_FIELDS.personalEmail}}) = '${escaped}')`,
-    maxRecords: 5,
-  });
-  return (
-    rows.find((p) => p.email?.trim().toLowerCase() === normalized) ??
-    rows[0] ??
-    null
-  );
+
+  try {
+    const byOfficial = await findPartners({
+      filterByFormula: `LOWER({${PARTNERS_TABLE_FIELDS.email}}) = '${escaped}'`,
+      maxRecords: 1,
+    });
+    const match = byOfficial.find(
+      (p) => p.email?.trim().toLowerCase() === normalized,
+    );
+    if (match) {
+      return match;
+    }
+  } catch (error) {
+    console.error("[partners] Official Email lookup failed", error);
+  }
+
+  try {
+    const byPersonal = await findPartners({
+      filterByFormula: `LOWER({${PARTNERS_TABLE_FIELDS.personalEmail}}) = '${escaped}'`,
+      maxRecords: 1,
+    });
+    if (byPersonal[0]) {
+      return byPersonal[0];
+    }
+  } catch {
+    // Personal Email may be absent on locked client schema.
+  }
+
+  return null;
 }
 
 export async function createPartner(

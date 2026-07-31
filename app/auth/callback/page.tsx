@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 import {
   getAppSession,
   redirectToRoleDashboard,
 } from "@/lib/auth";
+import { canUserAuthenticate, getCurrentUser } from "@/services/users.service";
 
 /**
  * Post-login bridge:
@@ -17,20 +18,49 @@ export default async function AuthCallbackPage() {
     redirect("/sign-in");
   }
 
+  const clerkUser = await currentUser();
+  const email =
+    clerkUser?.primaryEmailAddress?.emailAddress ??
+    clerkUser?.emailAddresses[0]?.emailAddress ??
+    "";
+
   let session;
 
   try {
     session = await getAppSession();
-  } catch {
-    redirect("/unauthorized");
+  } catch (error) {
+    console.error("[auth/callback] session build failed", error);
+    redirect("/unauthorized?reason=error");
   }
 
   if (!session) {
-    redirect("/unauthorized");
+    if (email) {
+      try {
+        const user = await getCurrentUser(userId, email);
+        if (!user) {
+          redirect("/unauthorized?reason=not_found");
+        }
+        if (!canUserAuthenticate(user)) {
+          if (
+            user.registrationStatus === "pending" ||
+            user.registrationStatus === "invitation_pending"
+          ) {
+            redirect("/unauthorized?reason=pending");
+          }
+          if (user.registrationStatus === "rejected") {
+            redirect("/unauthorized?reason=rejected");
+          }
+          redirect("/unauthorized?reason=inactive");
+        }
+      } catch (error) {
+        console.error("[auth/callback] identity diagnose failed", error);
+      }
+    }
+    redirect("/unauthorized?reason=not_found");
   }
 
   if (session.status !== "active") {
-    redirect("/unauthorized");
+    redirect("/unauthorized?reason=inactive");
   }
 
   redirectToRoleDashboard(session.role);

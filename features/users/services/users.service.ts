@@ -325,6 +325,17 @@ export async function approvePartnerApplication(
     } else {
       await updatePartner(user.partnerId, { status: "active" });
     }
+
+    // Belt-and-suspenders: client identity login keys off Partners.Status === Active.
+    // Re-read and force Active if the row is still Probation/Inactive.
+    const verified = await findPartnerById(user.partnerId);
+    if (verified && verified.status !== "active") {
+      console.warn(
+        "[approval] Partner status not Active after update — forcing Active",
+        { partnerId: user.partnerId, status: verified.status },
+      );
+      await updatePartner(user.partnerId, { status: "active" });
+    }
   }
 
   await safeActivity({

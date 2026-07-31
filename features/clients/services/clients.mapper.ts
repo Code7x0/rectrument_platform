@@ -57,6 +57,9 @@ export function toAirtableCreateFields(
       ],
   };
 
+  if (input.clientCode?.trim()) {
+    fields[CLIENTS_TABLE_FIELDS.clientId] = input.clientCode.trim().toUpperCase();
+  }
   if (input.industry) {
     fields[CLIENTS_TABLE_FIELDS.industry] = input.industry;
   }
@@ -84,6 +87,11 @@ export function toAirtableUpdateFields(
 
   if (input.name !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.name] = input.name;
+  }
+  if (input.clientCode !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.clientId] = input.clientCode?.trim()
+      ? input.clientCode.trim().toUpperCase()
+      : "";
   }
   if (input.industry !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.industry] = input.industry || "";

@@ -3,15 +3,21 @@
  */
 
 import { findClientById } from "@/features/clients/repositories/clients.repository";
+import { findClients } from "@/features/clients/repositories/clients.repository";
 import { findJobs } from "@/features/jobs/repositories/jobs.repository";
 import { findPartners } from "@/features/partners/repositories/partners.repository";
 import {
+  allocateUniqueClientCode,
   allocateUniquePartnerCode,
+  buildClientCodeBase,
   buildPartnerCodeBase,
   formatJobCode,
+  isValidClientCode,
   isValidPartnerCode,
   nextJobSequence,
 } from "@/lib/business-ids";
+import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import { patchClient } from "@/features/clients/repositories/clients.repository";
 
 export async function listExistingPartnerCodes(
   excludePartnerId?: string,
@@ -21,6 +27,43 @@ export async function listExistingPartnerCodes(
     .filter((p) => p.id !== excludePartnerId)
     .map((p) => p.partnerCode)
     .filter((code): code is string => Boolean(code));
+}
+
+export async function listExistingClientCodes(
+  excludeClientId?: string,
+): Promise<string[]> {
+  const clients = await findClients({});
+  return clients
+    .filter((c) => c.id !== excludeClientId)
+    .map((c) => c.clientCode)
+    .filter((code): code is string => Boolean(code?.trim()));
+}
+
+export async function allocateClientCodeForName(input: {
+  name: string;
+  excludeClientId?: string;
+}): Promise<string> {
+  const base = buildClientCodeBase(input.name);
+  const existing = await listExistingClientCodes(input.excludeClientId);
+  return allocateUniqueClientCode(base, existing);
+}
+
+export async function ensureClientHasBusinessCode(client: {
+  id: string;
+  name: string;
+  clientCode: string | null;
+}): Promise<string> {
+  if (isValidClientCode(client.clientCode)) {
+    return client.clientCode!.trim().toUpperCase();
+  }
+  const clientCode = await allocateClientCodeForName({
+    name: client.name,
+    excludeClientId: client.id,
+  });
+  await patchClient(client.id, {
+    [CLIENTS_TABLE_FIELDS.clientId]: clientCode,
+  });
+  return clientCode;
 }
 
 export async function allocatePartnerCodeForPerson(input: {
@@ -53,14 +96,18 @@ export async function ensurePartnerHasBusinessCode(partner: {
 export async function allocateNextJobCodeForClient(
   clientRecordId: string,
 ): Promise<{ clientCode: string; jobCode: string }> {
-  const client = await findClientById(clientRecordId);
-  if (!client?.clientCode?.trim()) {
-    throw new Error(
-      "Client is missing a Client ID (business code). Set Client ID in Airtable before creating jobs.",
-    );
+  let client = await findClientById(clientRecordId);
+  if (!client) {
+    throw new Error("Client not found");
   }
 
-  const clientCode = client.clientCode.trim().toUpperCase();
+  let clientCode = client.clientCode?.trim() ?? "";
+  if (!isValidClientCode(clientCode)) {
+    clientCode = await ensureClientHasBusinessCode(client);
+    client = (await findClientById(clientRecordId)) ?? client;
+  }
+  clientCode = clientCode.trim().toUpperCase();
+
   // ARRAYJOIN({Client}) returns client names, not record ids — filter in memory.
   const allJobs = await findJobs({});
   const codes = allJobs

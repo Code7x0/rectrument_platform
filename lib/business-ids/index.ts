@@ -48,6 +48,72 @@ export function isValidClientCode(value: string | null | undefined): boolean {
 }
 
 /**
+ * Client ID base from name — e.g. "test client" → TC, "Acme" → ACM, "IBM India" → II.
+ */
+export function buildClientCodeBase(name: string | null | undefined): string {
+  const parts = (name ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-zA-Z0-9]/g, ""))
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return "CL";
+  }
+
+  if (parts.length === 1) {
+    const word = parts[0]!.toUpperCase();
+    if (word.length >= 3) {
+      return word.slice(0, 3);
+    }
+    if (word.length === 2) {
+      return word;
+    }
+    return `${word}X`;
+  }
+
+  const initials = parts
+    .slice(0, 3)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
+  return initials.length >= 2 ? initials : `${initials}X`;
+}
+
+/**
+ * Allocate unique Client ID among existing codes (case-insensitive).
+ * Base → base2 → base3 …
+ */
+export function allocateUniqueClientCode(
+  base: string,
+  existingCodes: Iterable<string>,
+): string {
+  const normalizedBase = base.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const seed =
+    normalizedBase.length >= 2
+      ? normalizedBase.slice(0, 12)
+      : (normalizedBase + "CL").slice(0, 2);
+
+  const taken = new Set(
+    [...existingCodes]
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean),
+  );
+
+  if (!taken.has(seed)) {
+    return seed;
+  }
+
+  let suffix = 2;
+  while (true) {
+    const candidate = `${seed}${suffix}`.slice(0, 12);
+    if (!taken.has(candidate)) {
+      return candidate;
+    }
+    suffix += 1;
+  }
+}
+
+/**
  * Partner Code base: <FirstInitial><LastInitial>_<Last3DigitsOfMobile>
  * Example: Harini Narendran + 9840467254 → HN_254
  */

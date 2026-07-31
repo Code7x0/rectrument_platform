@@ -73,10 +73,27 @@ function mapPartnerStatus(raw: string | null): {
   status: UserStatus;
   registrationStatus: RegistrationStatus;
 } {
-  if (raw === "Active" || raw === "Preferred") {
+  const normalized = (raw ?? "").trim().toLowerCase();
+  if (
+    normalized === "active" ||
+    normalized === "preferred" ||
+    normalized === "approved"
+  ) {
     return { status: "active", registrationStatus: "active" };
   }
-  if (raw === "Probation") {
+  if (
+    normalized === "probation" ||
+    normalized === "pending" ||
+    normalized === "under review"
+  ) {
+    return { status: "inactive", registrationStatus: "pending" };
+  }
+  if (normalized === "rejected") {
+    return { status: "inactive", registrationStatus: "rejected" };
+  }
+  // Empty / unknown → treat as pending so approved rows with odd labels
+  // are easier to diagnose via the pending-auth message, not "not configured".
+  if (!normalized) {
     return { status: "inactive", registrationStatus: "pending" };
   }
   return { status: "inactive", registrationStatus: "inactive" };
@@ -330,28 +347,61 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
     return syntheticElevatedUser(normalized, elevated);
   }
 
-  const amRecords = await getRecords(accountManagersTable(), {
-    filterByFormula: `LOWER({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}'`,
-    maxRecords: 1,
-  });
-  const am = amRecords[0];
-  if (am) {
-    return mapAccountManagerRecord({
-      id: am.id,
-      fields: am.fields as AirtableFields,
+  try {
+    const amRecords = await getRecords(accountManagersTable(), {
+      filterByFormula: `LOWER({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}'`,
+      maxRecords: 1,
     });
+    const am = amRecords[0];
+    if (am) {
+      return mapAccountManagerRecord({
+        id: am.id,
+        fields: am.fields as AirtableFields,
+      });
+    }
+  } catch (error) {
+    console.error("[client-identity] AM email lookup failed", error);
   }
 
-  const partnerRecords = await getRecords(partnersTable(), {
-    filterByFormula: `OR(LOWER({${PARTNERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}', LOWER({Personal Email}) = '${escapeFormula(normalized)}')`,
-    maxRecords: 1,
-  });
-  const partner = partnerRecords[0];
-  if (partner) {
-    return mapPartnerAsUser({
-      id: partner.id,
-      fields: partner.fields as AirtableFields,
+  // Official Email ID first — Personal Email is optional on some bases and
+  // including it in one OR() formula can invalidate the whole lookup (422).
+  try {
+    const byOfficial = await getRecords(partnersTable(), {
+      filterByFormula: `LOWER({${PARTNERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}'`,
+      maxRecords: 1,
     });
+    const partner = byOfficial[0];
+    if (partner) {
+      return mapPartnerAsUser({
+        id: partner.id,
+        fields: partner.fields as AirtableFields,
+      });
+    }
+  } catch (error) {
+    console.error(
+      "[client-identity] Partner Official Email lookup failed",
+      error,
+    );
+  }
+
+  try {
+    const byPersonal = await getRecords(partnersTable(), {
+      filterByFormula: `LOWER({${PARTNERS_TABLE_FIELDS.personalEmail}}) = '${escapeFormula(normalized)}'`,
+      maxRecords: 1,
+    });
+    const partner = byPersonal[0];
+    if (partner) {
+      return mapPartnerAsUser({
+        id: partner.id,
+        fields: partner.fields as AirtableFields,
+      });
+    }
+  } catch (error) {
+    // Personal Email may not exist on the locked client base — ignore.
+    console.warn(
+      "[client-identity] Partner Personal Email lookup skipped/failed",
+      error instanceof Error ? error.message : error,
+    );
   }
 
   return null;
@@ -479,7 +529,27 @@ export async function clientListUsers(
 export async function clientResolveUserForClerkIdentity(
   input: ResolveClerkIdentityInput,
 ): Promise<User | null> {
-  return clientFindUserByEmail(input.email);
+  const user = await clientFindUserByEmail(input.email);
+  if (!user) {
+    console.warn("[client-identity] No Airtable identity for Clerk email", {
+      email: input.email,
+    });
+    return null;
+  }
+  if (
+    user.role === "partner" &&
+    (user.status !== "active" ||
+      (user.registrationStatus !== "active" &&
+        user.registrationStatus !== "approved"))
+  ) {
+    console.warn("[client-identity] Partner found but not login-eligible", {
+      email: input.email,
+      partnerId: user.partnerId,
+      status: user.status,
+      registrationStatus: user.registrationStatus,
+    });
+  }
+  return user;
 }
 
 export async function clientUpdateClerkId(
