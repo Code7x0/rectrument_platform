@@ -429,6 +429,32 @@ export const AIRTABLE_SUBMISSION_STATUS = {
   "Not Moved,Role Closed": "rejected",
 } as const;
 
+/**
+ * Exact Airtable Submission Status options (locked client Candidates table).
+ * Staff dropdown writes these values verbatim.
+ */
+export const AIRTABLE_SUBMISSION_STATUS_OPTIONS = [
+  "Pending Review",
+  "Internal Screening in Progress",
+  "Hold",
+  "Being Submitted to Client ",
+  "Interviewing",
+  "Selected",
+  "Offered",
+  "Joined",
+  "Client Duplicate",
+  "Internal Duplicate",
+  "Rejected - Internal Screening - TS",
+  "Rejected Resume Review-TS",
+  "Rejected Resume Review-Client",
+  "Rejected Interview Process",
+  "Not Responding",
+  "Not Moved,Role Closed",
+] as const;
+
+export type AirtableSubmissionStatusOption =
+  (typeof AIRTABLE_SUBMISSION_STATUS_OPTIONS)[number];
+
 export const DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE = {
   submitted: "Pending Review",
   internal_review: "Internal Screening in Progress",

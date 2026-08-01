@@ -104,6 +104,7 @@ export function mapSubmissionRecord(record: {
       partnerCode: null,
       submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
       status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
+      airtableStatus: asString(fields[SUBMISSIONS_TABLE_FIELDS.status]),
       remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),
       interviewStage: asString(fields[SUBMISSIONS_TABLE_FIELDS.interviewStage]),
       internalFeedback: asString(
@@ -138,6 +139,7 @@ export function mapSubmissionRecord(record: {
     partnerCode: null,
     submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
     status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
+    airtableStatus: asString(fields[SUBMISSIONS_TABLE_FIELDS.status]),
     remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),
     interviewStage: asString(fields[SUBMISSIONS_TABLE_FIELDS.interviewStage]),
     internalFeedback: asString(

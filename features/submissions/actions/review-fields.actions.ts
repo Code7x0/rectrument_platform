@@ -46,7 +46,11 @@ export async function updateSubmissionReviewFieldsAction(
     await requireRole(["account_manager", "admin", "super_admin"]);
     await assertAccountManagerOwnsSubmission(session, submissionId);
 
-    const submission = await updateSubmissionReviewFields(submissionId, input);
+    const submission = await updateSubmissionReviewFields(
+      submissionId,
+      input,
+      session.userId,
+    );
     revalidateReviewPaths();
     return { success: true, data: submission };
   } catch (error) {

@@ -375,6 +375,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
               row.id,
               row.submissionDate ?? "",
               row.status,
+              row.airtableStatus ?? "",
               row.interviewStage ?? "",
               row.remarks ?? "",
               row.internalFeedback ?? "",

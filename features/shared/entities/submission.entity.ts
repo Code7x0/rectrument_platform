@@ -4,7 +4,8 @@ import type { JobPriority } from "./job.entity";
  * Canonical Submission entity — a business event linking Candidate ↔ Job.
  * Never conflate with Candidate (person).
  *
- * Status transitions MUST go through features/workflows — never patch status elsewhere.
+ * Staff may set the exact Airtable Submission Status via the review panel dropdown.
+ * Domain `status` is derived from that Airtable value for workflow/notifications.
  */
 
 export type SubmissionStatus =
@@ -39,6 +40,8 @@ export interface SubmissionEntity {
   partnerCode: string | null;
   submissionDate: string | null;
   status: SubmissionStatus;
+  /** Exact Airtable Submission Status option text. */
+  airtableStatus: string | null;
   /** Screening Matrix Notes. (Airtable). */
   remarks: string | null;
   /** Exact Airtable Interview Stage option, or null. */

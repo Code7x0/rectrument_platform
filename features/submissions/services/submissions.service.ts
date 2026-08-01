@@ -44,6 +44,8 @@ import {
 import {
   AIRTABLE_INTERVIEW_STAGES,
   AIRTABLE_SECOND_LEVEL_REVIEW_YES,
+  AIRTABLE_SUBMISSION_STATUS,
+  AIRTABLE_SUBMISSION_STATUS_OPTIONS,
   DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
   SUBMISSIONS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
@@ -566,18 +568,35 @@ export async function stageResumeFile(file: {
 }
 
 export interface UpdateSubmissionReviewFieldsInput {
+  /** Exact Airtable Submission Status option (staff dropdown). */
+  airtableStatus?: string | null;
   interviewStage?: string | null;
   remarks?: string | null;
   internalFeedback?: string | null;
 }
 
+function mapAirtableStatusToDomain(raw: string): SubmissionStatus {
+  return (
+    AIRTABLE_SUBMISSION_STATUS[
+      raw as keyof typeof AIRTABLE_SUBMISSION_STATUS
+    ] ?? "submitted"
+  );
+}
+
+function isKnownAirtableStatus(value: string): boolean {
+  return (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).includes(
+    value,
+  );
+}
+
 /**
- * Staff review fields (Interview Stage, Screening Matrix Notes, Internal Feedback).
- * Does not change Submission Status — use workflow transitions for that.
+ * Staff review fields: Submission Status, Interview Stage, Screening Notes,
+ * Internal Feedback. Writes exact Airtable option values for selects.
  */
 export async function updateSubmissionReviewFields(
   submissionId: string,
   input: UpdateSubmissionReviewFieldsInput,
+  actorUserId?: string | null,
 ): Promise<Submission> {
   const current = await findSubmissionById(submissionId);
   if (!current) {
@@ -585,6 +604,20 @@ export async function updateSubmissionReviewFields(
   }
 
   const fields: AirtableFields = {};
+  const previousStatus = current.status;
+  let nextDomainStatus = current.status;
+
+  if (input.airtableStatus !== undefined) {
+    const statusValue = input.airtableStatus?.trim() || "";
+    if (!statusValue) {
+      throw new Error("Submission Status is required");
+    }
+    if (!isKnownAirtableStatus(statusValue)) {
+      throw new Error(`Invalid submission status: ${statusValue}`);
+    }
+    fields[SUBMISSIONS_TABLE_FIELDS.status] = statusValue;
+    nextDomainStatus = mapAirtableStatusToDomain(statusValue);
+  }
 
   if (input.interviewStage !== undefined) {
     const stage = input.interviewStage?.trim() || "";
@@ -615,35 +648,80 @@ export async function updateSubmissionReviewFields(
     throw new Error("Failed to update review fields");
   }
 
-  try {
-    const { notifySubmissionReviewUpdated } = await import(
-      "@/features/notifications/services/notification-events"
-    );
-    await notifySubmissionReviewUpdated({
-      partnerId: enriched.partnerId,
-      candidateName: enriched.candidateName ?? "Candidate",
-      jobTitle: enriched.jobTitle ?? "Job",
-      submissionId: enriched.id,
-      interviewStage: enriched.interviewStage,
-    });
-  } catch (error) {
-    console.error("Failed to notify partner of review field update", error);
-  }
+  const statusChanged =
+    input.airtableStatus !== undefined && previousStatus !== nextDomainStatus;
+  const otherFieldsChanged =
+    input.interviewStage !== undefined ||
+    input.remarks !== undefined ||
+    input.internalFeedback !== undefined;
 
   try {
     const { recordActivity } = await import(
       "@/features/workflows/services/activity.service"
     );
-    await recordActivity({
-      entityType: "submission",
-      entityId: submissionId,
-      action: "status_change",
-      fromStatus: current.interviewStage,
-      toStatus: enriched.interviewStage ?? enriched.status,
-      note: "review_fields_updated",
-    });
+    if (statusChanged) {
+      await recordActivity({
+        entityType: "submission",
+        entityId: submissionId,
+        action: "status_change",
+        fromStatus: previousStatus,
+        toStatus: nextDomainStatus,
+        note: enriched.airtableStatus,
+      });
+    } else if (otherFieldsChanged) {
+      await recordActivity({
+        entityType: "submission",
+        entityId: submissionId,
+        action: "status_change",
+        fromStatus: current.interviewStage,
+        toStatus: enriched.interviewStage ?? enriched.status,
+        note: "review_fields_updated",
+      });
+    }
   } catch (error) {
     console.error("Failed to record review-field activity", error);
+  }
+
+  try {
+    if (statusChanged) {
+      const { notifySubmissionStatusChanged } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      await notifySubmissionStatusChanged({
+        partnerId: enriched.partnerId,
+        candidateName: enriched.candidateName ?? "Candidate",
+        jobTitle: enriched.jobTitle ?? "Job",
+        submissionId: enriched.id,
+        toStatus: nextDomainStatus,
+      });
+    } else if (otherFieldsChanged) {
+      const { notifySubmissionReviewUpdated } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      await notifySubmissionReviewUpdated({
+        partnerId: enriched.partnerId,
+        candidateName: enriched.candidateName ?? "Candidate",
+        jobTitle: enriched.jobTitle ?? "Job",
+        submissionId: enriched.id,
+        interviewStage: enriched.interviewStage,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to notify partner of review field update", error);
+  }
+
+  if (statusChanged && nextDomainStatus === "joined") {
+    try {
+      const { markPayoutEligibleOnJoined } = await import(
+        "@/features/payouts/services/payouts.service"
+      );
+      await markPayoutEligibleOnJoined(
+        enriched,
+        actorUserId?.trim() || "system",
+      );
+    } catch (error) {
+      console.error("Failed to mark payout eligible on joined", error);
+    }
   }
 
   return enriched;

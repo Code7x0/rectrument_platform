@@ -25,12 +25,7 @@ import { SubmissionStatusBadge } from "@/features/submissions/components/submiss
 import type { Submission } from "@/features/submissions/types";
 import { deleteSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { getReviewDetailAction } from "@/features/workflows/actions/review.actions";
-import { transitionSubmissionAction } from "@/features/workflows/actions/workflows.actions";
 import { signalLiveDataChange } from "@/lib/live-sync";
-import {
-  getAllowedTransitions,
-  TRANSITION_ACTION_LABELS,
-} from "@/features/workflows/types";
 import type { SubmissionStatus } from "@/features/shared/entities";
 import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
 import { formatDate } from "@/lib/utils";
@@ -95,10 +90,6 @@ export function ReviewQueuePageClient({
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [pendingStatus, setPendingStatus] = useState<SubmissionStatus | null>(
-    null,
-  );
-  const [transitioning, setTransitioning] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">(
@@ -164,40 +155,6 @@ export function ReviewQueuePageClient({
     setSelected((current) =>
       current?.id === next.id ? { ...current, ...next } : current,
     );
-  }
-
-  async function confirmTransition() {
-    if (!selected || !pendingStatus) {
-      return;
-    }
-
-    const nextStatus = pendingStatus;
-    const targetId = selected.id;
-    setTransitioning(true);
-    try {
-      const result = await transitionSubmissionAction(targetId, nextStatus);
-      if (!result.success) {
-        toast.error(result.message);
-        return;
-      }
-
-      toast.success(`Moved to ${SUBMISSION_STATUS_LABELS[nextStatus]}`);
-      setRows((current) =>
-        current.map((row) =>
-          row.id === targetId ? { ...row, status: nextStatus } : row,
-        ),
-      );
-      setSelected((current) =>
-        current?.id === targetId
-          ? { ...current, status: nextStatus }
-          : current,
-      );
-      setPendingStatus(null);
-      signalLiveDataChange();
-      router.refresh();
-    } finally {
-      setTransitioning(false);
-    }
   }
 
   async function confirmDelete() {
@@ -322,8 +279,6 @@ export function ReviewQueuePageClient({
     ],
     [canDelete],
   );
-
-  const nextStatuses = selected ? getAllowedTransitions(selected.status) : [];
 
   return (
     <ContentContainer>
@@ -500,26 +455,6 @@ export function ReviewQueuePageClient({
               </>
             )}
 
-            {canTransition && nextStatuses.length > 0 ? (
-              <div className="space-y-2 border-t border-[#E2E8F0] pt-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-                  Submission Status
-                </p>
-                {nextStatuses.map((status) => (
-                  <Button
-                    key={status}
-                    type="button"
-                    className="w-full"
-                    variant={status === "rejected" ? "destructive" : "default"}
-                    onClick={() => setPendingStatus(status)}
-                  >
-                    {TRANSITION_ACTION_LABELS[status] ??
-                      `Move to ${SUBMISSION_STATUS_LABELS[status]}`}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
-
             {canDelete ? (
               <div className="border-t border-[#E2E8F0] pt-4">
                 <Button
@@ -542,25 +477,6 @@ export function ReviewQueuePageClient({
           </div>
         ) : null}
       </DetailDrawer>
-
-      <ConfirmDialog
-        open={Boolean(pendingStatus)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingStatus(null);
-          }
-        }}
-        title="Confirm status change"
-        description={
-          pendingStatus
-            ? `Move this submission to ${SUBMISSION_STATUS_LABELS[pendingStatus]}?`
-            : ""
-        }
-        confirmLabel="Confirm"
-        variant={pendingStatus === "rejected" ? "destructive" : "default"}
-        loading={transitioning}
-        onConfirm={confirmTransition}
-      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

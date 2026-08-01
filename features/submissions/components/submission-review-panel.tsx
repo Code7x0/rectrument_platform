@@ -14,7 +14,11 @@ import { buildCandidateTimeline } from "@/features/submissions/lib/candidate-tim
 import { updateSubmissionReviewFieldsAction } from "@/features/submissions/actions/review-fields.actions";
 import type { Submission } from "@/features/submissions/types";
 import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
-import { AIRTABLE_INTERVIEW_STAGES } from "@/lib/airtable/fields";
+import {
+  AIRTABLE_INTERVIEW_STAGES,
+  AIRTABLE_SUBMISSION_STATUS_OPTIONS,
+  DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
+} from "@/lib/airtable/fields";
 import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import type { Activity } from "@/features/workflows/types";
@@ -26,12 +30,22 @@ interface SubmissionReviewPanelProps {
   onUpdated?: (next: Submission) => void;
 }
 
+function resolveAirtableStatusValue(submission: Submission): string {
+  if (submission.airtableStatus?.trim()) {
+    return submission.airtableStatus.trim();
+  }
+  return DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status];
+}
+
 export function SubmissionReviewPanel({
   submission,
   canEdit,
   activities = [],
   onUpdated,
 }: SubmissionReviewPanelProps) {
+  const [airtableStatus, setAirtableStatus] = useState(
+    resolveAirtableStatusValue(submission),
+  );
   const [interviewStage, setInterviewStage] = useState(
     submission.interviewStage ?? "",
   );
@@ -42,21 +56,35 @@ export function SubmissionReviewPanel({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    setAirtableStatus(resolveAirtableStatusValue(submission));
     setInterviewStage(submission.interviewStage ?? "");
     setRemarks(submission.remarks ?? "");
     setInternalFeedback(submission.internalFeedback ?? "");
   }, [
     submission.id,
+    submission.airtableStatus,
+    submission.status,
     submission.interviewStage,
     submission.remarks,
     submission.internalFeedback,
   ]);
 
   const timeline = buildCandidateTimeline(submission, activities);
+  const currentStatusValue = resolveAirtableStatusValue(submission);
   const dirty =
+    airtableStatus !== currentStatusValue ||
     interviewStage !== (submission.interviewStage ?? "") ||
     remarks !== (submission.remarks ?? "") ||
     internalFeedback !== (submission.internalFeedback ?? "");
+
+  // Ensure current Airtable value appears even if it differs slightly from catalog.
+  const statusOptions = (() => {
+    const options = [...AIRTABLE_SUBMISSION_STATUS_OPTIONS];
+    if (airtableStatus && !options.includes(airtableStatus as (typeof options)[number])) {
+      options.unshift(airtableStatus as (typeof options)[number]);
+    }
+    return options;
+  })();
 
   async function save() {
     if (!canEdit || !dirty) {
@@ -65,6 +93,7 @@ export function SubmissionReviewPanel({
     setSaving(true);
     try {
       const result = await updateSubmissionReviewFieldsAction(submission.id, {
+        airtableStatus,
         interviewStage: interviewStage || null,
         remarks,
         internalFeedback,
@@ -73,7 +102,7 @@ export function SubmissionReviewPanel({
         toast.error(result.message);
         return;
       }
-      toast.success("Review fields saved");
+      toast.success("Candidate progress saved");
       onUpdated?.(result.data);
       signalLiveDataChange();
     } finally {
@@ -83,32 +112,46 @@ export function SubmissionReviewPanel({
 
   return (
     <div className="space-y-5">
-      <section className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <SubmissionStatusBadge status={submission.status} />
-          {submission.wantsSecondLevelReview ? (
-            <SecondLevelReviewBadge />
-          ) : null}
-        </div>
-        <p className="text-xs text-[#94A3B8]">
-          Submitted{" "}
-          {submission.submissionDate
-            ? formatDateTime(submission.submissionDate)
-            : "—"}
-          {" · "}
-          Status: {SUBMISSION_STATUS_LABELS[submission.status]}
-        </p>
-      </section>
+      <div className="flex flex-wrap items-center gap-2">
+        <SubmissionStatusBadge status={submission.status} />
+        {submission.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
+      </div>
+      <p className="text-xs text-[#94A3B8]">
+        Submitted{" "}
+        {submission.submissionDate
+          ? formatDateTime(submission.submissionDate)
+          : "—"}
+        {" · "}
+        {submission.airtableStatus ||
+          SUBMISSION_STATUS_LABELS[submission.status]}
+      </p>
 
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-[#0F172A]">
-          Candidate progress
+          Candidate Progress
         </h3>
-        <CandidateTimeline steps={timeline} />
-      </section>
 
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-[#0F172A]">Review details</h3>
+        <div className="space-y-1.5">
+          <Label htmlFor={`status-${submission.id}`}>Submission Status</Label>
+          {canEdit ? (
+            <Select
+              id={`status-${submission.id}`}
+              value={airtableStatus}
+              onChange={(event) => setAirtableStatus(event.target.value)}
+            >
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status.trim()}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <p className="text-sm text-[#0F172A]">
+              {submission.airtableStatus ||
+                SUBMISSION_STATUS_LABELS[submission.status]}
+            </p>
+          )}
+        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor={`stage-${submission.id}`}>Interview Stage</Label>
@@ -131,6 +174,12 @@ export function SubmissionReviewPanel({
             </p>
           )}
         </div>
+
+        <CandidateTimeline steps={timeline} />
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-[#0F172A]">Review Details</h3>
 
         <div className="space-y-1.5">
           <Label htmlFor={`notes-${submission.id}`}>
@@ -174,7 +223,7 @@ export function SubmissionReviewPanel({
             disabled={!dirty || saving}
             onClick={() => void save()}
           >
-            {saving ? "Saving…" : "Save review fields"}
+            {saving ? "Saving…" : "Save progress"}
           </Button>
         ) : null}
 
