@@ -584,14 +584,15 @@ function mapAirtableStatusToDomain(raw: string): SubmissionStatus {
 }
 
 function isKnownAirtableStatus(value: string): boolean {
-  return (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).includes(
-    value,
+  const trimmed = value.trim();
+  return (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).some(
+    (option) => option === value || option.trim() === trimmed,
   );
 }
 
 /**
  * Staff review fields: Submission Status, Interview Stage, Screening Notes,
- * Internal Feedback. Writes exact Airtable option values for selects.
+ * Internal Feedback. Each field is optional — only provided keys are written.
  */
 export async function updateSubmissionReviewFields(
   submissionId: string,
@@ -612,11 +613,16 @@ export async function updateSubmissionReviewFields(
     if (!statusValue) {
       throw new Error("Submission Status is required");
     }
-    if (!isKnownAirtableStatus(statusValue)) {
+    // Prefer exact catalog value (preserves trailing spaces on Airtable options).
+    const exact =
+      (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).find(
+        (option) => option === input.airtableStatus || option.trim() === statusValue,
+      ) ?? input.airtableStatus;
+    if (!exact || !isKnownAirtableStatus(exact)) {
       throw new Error(`Invalid submission status: ${statusValue}`);
     }
-    fields[SUBMISSIONS_TABLE_FIELDS.status] = statusValue;
-    nextDomainStatus = mapAirtableStatusToDomain(statusValue);
+    fields[SUBMISSIONS_TABLE_FIELDS.status] = exact;
+    nextDomainStatus = mapAirtableStatusToDomain(exact);
   }
 
   if (input.interviewStage !== undefined) {
@@ -627,6 +633,7 @@ export async function updateSubmissionReviewFields(
     ) {
       throw new Error(`Invalid interview stage: ${stage}`);
     }
+    // Empty string clears Interview Stage — allowed when stage is not set yet.
     fields[SUBMISSIONS_TABLE_FIELDS.interviewStage] = stage;
   }
   if (input.remarks !== undefined) {
@@ -650,10 +657,15 @@ export async function updateSubmissionReviewFields(
 
   const statusChanged =
     input.airtableStatus !== undefined && previousStatus !== nextDomainStatus;
-  const otherFieldsChanged =
-    input.interviewStage !== undefined ||
-    input.remarks !== undefined ||
-    input.internalFeedback !== undefined;
+  const stageChanged =
+    input.interviewStage !== undefined &&
+    (input.interviewStage?.trim() || "") !== (current.interviewStage ?? "");
+  const notesChanged =
+    (input.remarks !== undefined &&
+      (input.remarks?.trim() || "") !== (current.remarks ?? "")) ||
+    (input.internalFeedback !== undefined &&
+      (input.internalFeedback?.trim() || "") !==
+        (current.internalFeedback ?? ""));
 
   try {
     const { recordActivity } = await import(
@@ -668,13 +680,22 @@ export async function updateSubmissionReviewFields(
         toStatus: nextDomainStatus,
         note: enriched.airtableStatus,
       });
-    } else if (otherFieldsChanged) {
+    } else if (stageChanged) {
       await recordActivity({
         entityType: "submission",
         entityId: submissionId,
         action: "status_change",
         fromStatus: current.interviewStage,
-        toStatus: enriched.interviewStage ?? enriched.status,
+        toStatus: enriched.interviewStage,
+        note: "interview_stage_updated",
+      });
+    } else if (notesChanged) {
+      await recordActivity({
+        entityType: "submission",
+        entityId: submissionId,
+        action: "status_change",
+        fromStatus: current.status,
+        toStatus: enriched.status,
         note: "review_fields_updated",
       });
     }
@@ -694,7 +715,7 @@ export async function updateSubmissionReviewFields(
         submissionId: enriched.id,
         toStatus: nextDomainStatus,
       });
-    } else if (otherFieldsChanged) {
+    } else if (stageChanged || notesChanged) {
       const { notifySubmissionReviewUpdated } = await import(
         "@/features/notifications/services/notification-events"
       );

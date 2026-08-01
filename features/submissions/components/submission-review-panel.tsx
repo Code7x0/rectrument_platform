@@ -12,6 +12,7 @@ import { SecondLevelReviewBadge } from "@/features/submissions/components/second
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import { buildCandidateTimeline } from "@/features/submissions/lib/candidate-timeline";
 import { updateSubmissionReviewFieldsAction } from "@/features/submissions/actions/review-fields.actions";
+import type { UpdateSubmissionReviewFieldsInput } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
 import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
 import {
@@ -32,7 +33,7 @@ interface SubmissionReviewPanelProps {
 
 function resolveAirtableStatusValue(submission: Submission): string {
   if (submission.airtableStatus?.trim()) {
-    return submission.airtableStatus.trim();
+    return submission.airtableStatus;
   }
   return DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status];
 }
@@ -53,7 +54,7 @@ export function SubmissionReviewPanel({
   const [internalFeedback, setInternalFeedback] = useState(
     submission.internalFeedback ?? "",
   );
-  const [saving, setSaving] = useState(false);
+  const [savingField, setSavingField] = useState<string | null>(null);
 
   useEffect(() => {
     setAirtableStatus(resolveAirtableStatusValue(submission));
@@ -71,44 +72,126 @@ export function SubmissionReviewPanel({
 
   const timeline = buildCandidateTimeline(submission, activities);
   const currentStatusValue = resolveAirtableStatusValue(submission);
-  const dirty =
-    airtableStatus !== currentStatusValue ||
-    interviewStage !== (submission.interviewStage ?? "") ||
-    remarks !== (submission.remarks ?? "") ||
-    internalFeedback !== (submission.internalFeedback ?? "");
+  const currentStage = submission.interviewStage ?? "";
+  const currentRemarks = submission.remarks ?? "";
+  const currentFeedback = submission.internalFeedback ?? "";
 
-  // Ensure current Airtable value appears even if it differs slightly from catalog.
+  const statusDirty = airtableStatus !== currentStatusValue;
+  const stageDirty = interviewStage !== currentStage;
+  const remarksDirty = remarks !== currentRemarks;
+  const feedbackDirty = internalFeedback !== currentFeedback;
+  const notesDirty = remarksDirty || feedbackDirty;
+
   const statusOptions = (() => {
     const options = [...AIRTABLE_SUBMISSION_STATUS_OPTIONS];
-    if (airtableStatus && !options.includes(airtableStatus as (typeof options)[number])) {
+    if (
+      airtableStatus &&
+      !options.includes(airtableStatus as (typeof options)[number])
+    ) {
       options.unshift(airtableStatus as (typeof options)[number]);
     }
     return options;
   })();
 
-  async function save() {
-    if (!canEdit || !dirty) {
+  async function savePatch(
+    fieldKey: string,
+    patch: UpdateSubmissionReviewFieldsInput,
+    successMessage: string,
+  ) {
+    if (!canEdit || savingField) {
       return;
     }
-    setSaving(true);
+    setSavingField(fieldKey);
     try {
-      const result = await updateSubmissionReviewFieldsAction(submission.id, {
-        airtableStatus,
-        interviewStage: interviewStage || null,
-        remarks,
-        internalFeedback,
-      });
+      const result = await updateSubmissionReviewFieldsAction(
+        submission.id,
+        patch,
+      );
       if (!result.success) {
         toast.error(result.message);
         return;
       }
-      toast.success("Candidate progress saved");
+      toast.success(successMessage);
       onUpdated?.(result.data);
       signalLiveDataChange();
     } finally {
-      setSaving(false);
+      setSavingField(null);
     }
   }
+
+  async function saveStatus(nextStatus: string) {
+    const previous = airtableStatus;
+    setAirtableStatus(nextStatus);
+    if (nextStatus === currentStatusValue) {
+      return;
+    }
+    setSavingField("status");
+    try {
+      const result = await updateSubmissionReviewFieldsAction(submission.id, {
+        airtableStatus: nextStatus,
+      });
+      if (!result.success) {
+        setAirtableStatus(previous);
+        toast.error(result.message);
+        return;
+      }
+      toast.success("Submission status updated");
+      onUpdated?.(result.data);
+      signalLiveDataChange();
+    } catch (error) {
+      setAirtableStatus(previous);
+      toast.error(
+        error instanceof Error ? error.message : "Unable to update status",
+      );
+    } finally {
+      setSavingField(null);
+    }
+  }
+
+  async function saveStage(nextStage: string) {
+    const previous = interviewStage;
+    setInterviewStage(nextStage);
+    if (nextStage === currentStage) {
+      return;
+    }
+    setSavingField("stage");
+    try {
+      const result = await updateSubmissionReviewFieldsAction(submission.id, {
+        interviewStage: nextStage || null,
+      });
+      if (!result.success) {
+        setInterviewStage(previous);
+        toast.error(result.message);
+        return;
+      }
+      toast.success("Interview stage updated");
+      onUpdated?.(result.data);
+      signalLiveDataChange();
+    } catch (error) {
+      setInterviewStage(previous);
+      toast.error(
+        error instanceof Error ? error.message : "Unable to update stage",
+      );
+    } finally {
+      setSavingField(null);
+    }
+  }
+
+  async function saveNotes() {
+    if (!notesDirty) {
+      return;
+    }
+    const patch: UpdateSubmissionReviewFieldsInput = {};
+    if (remarksDirty) {
+      patch.remarks = remarks;
+    }
+    if (feedbackDirty) {
+      patch.internalFeedback = internalFeedback;
+    }
+    await savePatch("notes", patch, "Review details saved");
+  }
+
+  const busy = Boolean(savingField);
 
   return (
     <div className="space-y-5">
@@ -137,7 +220,8 @@ export function SubmissionReviewPanel({
             <Select
               id={`status-${submission.id}`}
               value={airtableStatus}
-              onChange={(event) => setAirtableStatus(event.target.value)}
+              disabled={busy}
+              onChange={(event) => void saveStatus(event.target.value)}
             >
               {statusOptions.map((status) => (
                 <option key={status} value={status}>
@@ -151,6 +235,9 @@ export function SubmissionReviewPanel({
                 SUBMISSION_STATUS_LABELS[submission.status]}
             </p>
           )}
+          {savingField === "status" ? (
+            <p className="text-xs text-[#64748B]">Saving status…</p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
@@ -159,7 +246,8 @@ export function SubmissionReviewPanel({
             <Select
               id={`stage-${submission.id}`}
               value={interviewStage || ""}
-              onChange={(event) => setInterviewStage(event.target.value)}
+              disabled={busy}
+              onChange={(event) => void saveStage(event.target.value)}
             >
               <option value="">Not set</option>
               {AIRTABLE_INTERVIEW_STAGES.map((stage) => (
@@ -173,6 +261,9 @@ export function SubmissionReviewPanel({
               {submission.interviewStage || "—"}
             </p>
           )}
+          {savingField === "stage" ? (
+            <p className="text-xs text-[#64748B]">Saving interview stage…</p>
+          ) : null}
         </div>
 
         <CandidateTimeline steps={timeline} />
@@ -189,6 +280,7 @@ export function SubmissionReviewPanel({
             <Textarea
               id={`notes-${submission.id}`}
               value={remarks}
+              disabled={busy}
               onChange={(event) => setRemarks(event.target.value)}
               rows={4}
               placeholder="Fitment notes, relocation, job-change reasons…"
@@ -206,6 +298,7 @@ export function SubmissionReviewPanel({
             <Textarea
               id={`feedback-${submission.id}`}
               value={internalFeedback}
+              disabled={busy}
               onChange={(event) => setInternalFeedback(event.target.value)}
               rows={4}
               placeholder="Internal feedback for the hiring team…"
@@ -220,10 +313,10 @@ export function SubmissionReviewPanel({
         {canEdit ? (
           <Button
             type="button"
-            disabled={!dirty || saving}
-            onClick={() => void save()}
+            disabled={!notesDirty || busy}
+            onClick={() => void saveNotes()}
           >
-            {saving ? "Saving…" : "Save progress"}
+            {savingField === "notes" ? "Saving…" : "Save notes & feedback"}
           </Button>
         ) : null}
 
