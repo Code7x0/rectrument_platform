@@ -89,6 +89,7 @@ const ACCOUNT_MANAGER_NAV: AppNavItem[] = [
 const PARTNER_NAV: AppNavItem[] = [
   { title: "My Work", href: "/partner", icon: ListTodo },
   { title: "Assigned Jobs", href: "/partner/jobs", icon: Briefcase },
+  { title: "Clients", href: "/partner/clients", icon: Building2 },
   {
     title: "My Candidates",
     href: "/partner/candidates",

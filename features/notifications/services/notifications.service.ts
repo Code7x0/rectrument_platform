@@ -366,10 +366,24 @@ export async function getSyncFingerprint(userId: string): Promise<{
           direction: "desc",
         },
       ],
-      maxRecords: 1,
+      maxRecords: 25,
     })
-      .then((rows) => rows[0] ?? null)
-      .catch(() => null);
+      .then((rows) =>
+        rows
+          .map((row) =>
+            [
+              row.id,
+              row.submissionDate ?? "",
+              row.status,
+              row.interviewStage ?? "",
+              row.remarks ?? "",
+              row.internalFeedback ?? "",
+              row.wantsSecondLevelReview ? "1" : "0",
+            ].join(":"),
+          )
+          .join(";"),
+      )
+      .catch(() => "");
 
     if (!isNotificationsStorageAvailable()) {
       const user = await getUserById(userId);
@@ -391,9 +405,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
           unread,
           head?.id ?? "",
           head?.createdAt ?? "",
-          crmHead?.id ?? "",
-          crmHead?.submissionDate ?? "",
-          crmHead?.status ?? "",
+          crmHead,
         ].join("|"),
       };
     }
@@ -432,9 +444,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
         head?.id ?? "",
         head?.createdAt ?? "",
         head?.readStatus ?? "",
-        crmHead?.id ?? "",
-        crmHead?.submissionDate ?? "",
-        crmHead?.status ?? "",
+        crmHead,
       ].join("|"),
     };
   } catch (error) {

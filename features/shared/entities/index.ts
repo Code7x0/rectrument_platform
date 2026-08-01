@@ -1,4 +1,5 @@
-export type { ClientEntity, ClientStatus } from "./client.entity";
+export type { ClientEntity, ClientStatus, PartnerClientView } from "./client.entity";
+export type { ClientAttachment } from "./client.entity";
 export { CLIENT_STATUS_LABELS } from "./client.entity";
 export type {
   IdentityVisibility,

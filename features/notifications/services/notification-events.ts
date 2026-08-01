@@ -544,6 +544,87 @@ export async function notifySubmissionStatusChanged(input: {
   });
 }
 
+/** Partner sees Interview Stage / notes / feedback updates without a status change. */
+export async function notifySubmissionReviewUpdated(input: {
+  partnerId: string;
+  candidateName: string;
+  jobTitle: string;
+  submissionId: string;
+  interviewStage: string | null;
+}): Promise<void> {
+  const partnerUserId = await findPartnerUserId(input.partnerId);
+  if (!partnerUserId) {
+    return;
+  }
+
+  const stageLabel = input.interviewStage?.trim() || "updated";
+  await publishNotification({
+    recipientUserId: partnerUserId,
+    title: "Candidate review updated",
+    description: `${input.candidateName} on ${input.jobTitle}: review details changed (${stageLabel}).`,
+    type: "candidate",
+    category: "candidates",
+    priority: "medium",
+    entityType: "submission",
+    entityId: input.submissionId,
+    actionUrl: "/partner/candidates",
+    sendEmail: false,
+  });
+}
+
+/** Staff notified when a partner requests 2nd-level review after rejection. */
+export async function notifySecondLevelReviewRequested(input: {
+  accountManagerId: string | null;
+  candidateName: string;
+  jobTitle: string;
+  submissionId: string;
+  partnerName: string;
+}): Promise<void> {
+  const amPath = `/account-manager/candidates?submissionId=${encodeURIComponent(input.submissionId)}`;
+  const adminPath = `/admin/candidates?submissionId=${encodeURIComponent(input.submissionId)}`;
+  const description = `${input.partnerName} requested a 2nd level review for ${input.candidateName} on ${input.jobTitle}.`;
+
+  if (input.accountManagerId) {
+    const userId = await findAccountManagerUserId(input.accountManagerId);
+    if (userId) {
+      await publishNotification({
+        recipientUserId: userId,
+        title: "2nd level review requested",
+        description,
+        type: "candidate",
+        category: "candidates",
+        priority: "high",
+        entityType: "submission",
+        entityId: input.submissionId,
+        actionUrl: amPath,
+        sendEmail: false,
+      });
+    }
+  }
+
+  await notifyRole("admin", {
+    title: "2nd level review requested",
+    description,
+    type: "candidate",
+    category: "candidates",
+    priority: "high",
+    entityType: "submission",
+    entityId: input.submissionId,
+    actionUrl: adminPath,
+  });
+
+  await notifyRole("super_admin", {
+    title: "2nd level review requested",
+    description,
+    type: "candidate",
+    category: "candidates",
+    priority: "medium",
+    entityType: "submission",
+    entityId: input.submissionId,
+    actionUrl: adminPath,
+  });
+}
+
 export async function notifyDocumentVerified(input: {
   partnerId: string;
   documentType: string;

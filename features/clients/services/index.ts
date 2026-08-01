@@ -7,4 +7,5 @@ export {
   listClients,
   updateClient,
 } from "./clients.service";
+export { listPartnerAssignedClients } from "./partner-clients.service";
 export { mapClientRecord } from "./clients.mapper";

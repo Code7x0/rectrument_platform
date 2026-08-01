@@ -12,6 +12,7 @@ import type {
   CreateClientInput,
   UpdateClientInput,
 } from "@/features/clients/types";
+import type { ClientAttachment } from "@/features/shared/entities";
 
 function mapStatus(value: unknown): ClientStatus {
   const raw = asString(value);
@@ -22,6 +23,40 @@ function mapStatus(value: unknown): ClientStatus {
     AIRTABLE_CLIENT_STATUS[raw as keyof typeof AIRTABLE_CLIENT_STATUS] ??
     "active"
   );
+}
+
+function asAttachments(value: unknown): ClientAttachment[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const out: ClientAttachment[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const row = item as { url?: string; filename?: string };
+    if (typeof row.url === "string" && row.url) {
+      out.push({
+        url: row.url,
+        filename:
+          typeof row.filename === "string" && row.filename
+            ? row.filename
+            : "Attachment",
+      });
+    }
+  }
+  return out;
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 export function mapClientRecord(record: {
@@ -42,6 +77,12 @@ export function mapClientRecord(record: {
     accountManagerName: null,
     status: mapStatus(fields[CLIENTS_TABLE_FIELDS.status]),
     notes: asString(fields[CLIENTS_TABLE_FIELDS.notes]),
+    briefDeck: asAttachments(fields[CLIENTS_TABLE_FIELDS.briefDeck]),
+    primaryAddress: asString(fields[CLIENTS_TABLE_FIELDS.primaryAddress]),
+    addresses: asString(fields[CLIENTS_TABLE_FIELDS.addresses]),
+    employeeSize: asString(fields[CLIENTS_TABLE_FIELDS.employeeSize]),
+    modeOfWork: asString(fields[CLIENTS_TABLE_FIELDS.modeOfWork]),
+    workDaysInWeek: asNumber(fields[CLIENTS_TABLE_FIELDS.workDaysInWeek]),
   };
 }
 

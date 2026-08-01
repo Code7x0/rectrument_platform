@@ -1,6 +1,7 @@
 export type {
   ClientEntity as Client,
   ClientStatus,
+  PartnerClientView,
 } from "@/features/shared/entities";
 export { CLIENT_STATUS_LABELS } from "@/features/shared/entities";
 

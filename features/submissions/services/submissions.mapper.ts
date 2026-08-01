@@ -40,12 +40,34 @@ function asAttachmentUrl(value: unknown): string | null {
   return typeof first.url === "string" ? first.url : null;
 }
 
+function mapWantsSecondLevelReview(value: unknown): {
+  wantsSecondLevelReview: boolean;
+  secondLevelReviewLabel: string | null;
+} {
+  const label = asString(value);
+  if (!label) {
+    return { wantsSecondLevelReview: false, secondLevelReviewLabel: null };
+  }
+  const normalized = label.trim().toLowerCase();
+  const requested =
+    normalized.startsWith("yes") ||
+    normalized.includes("strong") ||
+    normalized === "true";
+  return {
+    wantsSecondLevelReview: requested,
+    secondLevelReviewLabel: label,
+  };
+}
+
 export function mapSubmissionRecord(record: {
   id: string;
   fields: AirtableFields;
 }): Submission {
   const fields = record.fields;
   const mode = getSubmissionsMode();
+  const secondReview = mapWantsSecondLevelReview(
+    fields[SUBMISSIONS_TABLE_FIELDS.wantsSecondLevelReview],
+  );
 
   // Locked client data often has Role populated and Job empty (same Jobs table).
   const jobId =
@@ -83,6 +105,12 @@ export function mapSubmissionRecord(record: {
       submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
       status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
       remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),
+      interviewStage: asString(fields[SUBMISSIONS_TABLE_FIELDS.interviewStage]),
+      internalFeedback: asString(
+        fields[SUBMISSIONS_TABLE_FIELDS.internalFeedback],
+      ),
+      wantsSecondLevelReview: secondReview.wantsSecondLevelReview,
+      secondLevelReviewLabel: secondReview.secondLevelReviewLabel,
       jobPriority: null,
     };
   }
@@ -111,6 +139,12 @@ export function mapSubmissionRecord(record: {
     submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
     status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
     remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),
+    interviewStage: asString(fields[SUBMISSIONS_TABLE_FIELDS.interviewStage]),
+    internalFeedback: asString(
+      fields[SUBMISSIONS_TABLE_FIELDS.internalFeedback],
+    ),
+    wantsSecondLevelReview: secondReview.wantsSecondLevelReview,
+    secondLevelReviewLabel: secondReview.secondLevelReviewLabel,
     jobPriority: null,
   };
 }
@@ -128,7 +162,7 @@ export function toAirtableCreateFields(
       [SUBMISSIONS_TABLE_FIELDS.role]: [input.jobId],
       [SUBMISSIONS_TABLE_FIELDS.partner]: [input.partnerId],
       [SUBMISSIONS_TABLE_FIELDS.submissionDate]:
-        input.submissionDate ?? new Date().toISOString().slice(0, 10),
+        input.submissionDate ?? new Date().toISOString(),
       [SUBMISSIONS_TABLE_FIELDS.status]:
         DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[input.status ?? "submitted"],
     };
@@ -144,7 +178,7 @@ export function toAirtableCreateFields(
     [SUBMISSIONS_TABLE_FIELDS.allocation]: [input.allocationId],
     [SUBMISSIONS_TABLE_FIELDS.partner]: [input.partnerId],
     [SUBMISSIONS_TABLE_FIELDS.submissionDate]:
-      input.submissionDate ?? new Date().toISOString().slice(0, 10),
+      input.submissionDate ?? new Date().toISOString(),
     [SUBMISSIONS_TABLE_FIELDS.status]:
       DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[input.status ?? "submitted"],
   };
@@ -184,7 +218,7 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
     [SUBMISSIONS_TABLE_FIELDS.role]: [input.jobId],
     [SUBMISSIONS_TABLE_FIELDS.partner]: [input.partnerId],
     [SUBMISSIONS_TABLE_FIELDS.submissionDate]:
-      input.submissionDate ?? new Date().toISOString().slice(0, 10),
+      input.submissionDate ?? new Date().toISOString(),
     [SUBMISSIONS_TABLE_FIELDS.status]:
       DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[input.status ?? "submitted"],
   };

@@ -39,7 +39,19 @@ export interface SubmissionEntity {
   partnerCode: string | null;
   submissionDate: string | null;
   status: SubmissionStatus;
+  /** Screening Matrix Notes. (Airtable). */
   remarks: string | null;
+  /** Exact Airtable Interview Stage option, or null. */
+  interviewStage: string | null;
+  /** Internal Feedback (staff notes visible to partners as read-only). */
+  internalFeedback: string | null;
+  /**
+   * True when "Want 2nd level Review of Profile" is set
+   * (e.g. "Yes, I feel strong about this").
+   */
+  wantsSecondLevelReview: boolean;
+  /** Raw Airtable option text when present. */
+  secondLevelReviewLabel: string | null;
 }
 
 export interface CreateSubmissionInput {

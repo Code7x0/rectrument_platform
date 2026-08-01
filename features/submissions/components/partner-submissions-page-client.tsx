@@ -1,17 +1,35 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardList, ExternalLink, FileText, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  ClipboardList,
+  ExternalLink,
+  FileText,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 
+import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
 import type { Payout } from "@/features/payouts/types";
+import { requestSecondLevelReviewAction } from "@/features/submissions/actions/review-fields.actions";
+import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
+import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import type { Submission } from "@/features/submissions/types";
+import type { SubmissionStatus } from "@/features/shared/entities";
+import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 interface PartnerSubmissionsPageClientProps {
@@ -22,19 +40,77 @@ interface PartnerSubmissionsPageClientProps {
   filterJobLabel?: string | null;
 }
 
+const STATUS_FILTER_OPTIONS: Array<SubmissionStatus | "all"> = [
+  "all",
+  "submitted",
+  "internal_review",
+  "client_review",
+  "interview",
+  "offer",
+  "joined",
+  "rejected",
+];
+
 export function PartnerSubmissionsPageClient({
-  submissions,
+  submissions: initialSubmissions,
   payoutsBySubmission = {},
   breadcrumbs,
   filterJobId = null,
   filterJobLabel = null,
 }: PartnerSubmissionsPageClientProps) {
+  const router = useRouter();
+  const [rows, setRows] = useState(initialSubmissions);
+  const [selected, setSelected] = useState<Submission | null>(null);
+  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">(
+    "all",
+  );
+  const [jobTitleFilter, setJobTitleFilter] = useState("");
+  const [requestingReview, setRequestingReview] = useState(false);
+
+  useEffect(() => {
+    setRows(initialSubmissions);
+  }, [initialSubmissions]);
+
+  const filteredRows = useMemo(() => {
+    let next = rows;
+    if (statusFilter !== "all") {
+      next = next.filter((row) => row.status === statusFilter);
+    }
+    const q = jobTitleFilter.trim().toLowerCase();
+    if (q) {
+      next = next.filter((row) =>
+        (row.jobTitle ?? "").toLowerCase().includes(q),
+      );
+    }
+    return next;
+  }, [rows, statusFilter, jobTitleFilter]);
+
+  async function requestReview(row: Submission) {
+    setRequestingReview(true);
+    try {
+      const result = await requestSecondLevelReviewAction(row.id);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success("Second level review requested");
+      setRows((current) =>
+        current.map((item) => (item.id === row.id ? result.data : item)),
+      );
+      setSelected(result.data);
+      signalLiveDataChange();
+      router.refresh();
+    } finally {
+      setRequestingReview(false);
+    }
+  }
+
   return (
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="My Candidates"
-        description="Profiles you have submitted. Reviews appear when Account Managers advance status."
+        description="Track status, interview stage, and feedback for profiles you submitted."
       />
 
       {filterJobId ? (
@@ -54,7 +130,37 @@ export function PartnerSubmissionsPageClient({
         </div>
       ) : null}
 
-      {submissions.length === 0 ? (
+      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="partner-status-filter">Submission Status</Label>
+          <Select
+            id="partner-status-filter"
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as SubmissionStatus | "all")
+            }
+          >
+            {STATUS_FILTER_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status === "all"
+                  ? "All statuses"
+                  : SUBMISSION_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="partner-job-title-filter">Job Title</Label>
+          <Input
+            id="partner-job-title-filter"
+            value={jobTitleFilter}
+            onChange={(event) => setJobTitleFilter(event.target.value)}
+            placeholder="Filter by job title"
+          />
+        </div>
+      </div>
+
+      {filteredRows.length === 0 ? (
         <EmptyState
           title={filterJobId ? "No submissions for this job" : "No submissions yet"}
           description={
@@ -66,7 +172,7 @@ export function PartnerSubmissionsPageClient({
         />
       ) : (
         <div className="space-y-3">
-          {submissions.map((row) => {
+          {filteredRows.map((row) => {
             const payout = payoutsBySubmission[row.id];
             return (
               <article
@@ -109,6 +215,9 @@ export function PartnerSubmissionsPageClient({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <SubmissionStatusBadge status={row.status} />
+                    {row.wantsSecondLevelReview ? (
+                      <SecondLevelReviewBadge />
+                    ) : null}
                     <PayoutStatusBadge
                       status={payout?.payoutStatus ?? "not_eligible"}
                     />
@@ -117,8 +226,11 @@ export function PartnerSubmissionsPageClient({
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-[#94A3B8]">
                   <span>
                     Submitted{" "}
-                    {row.submissionDate ? formatDate(row.submissionDate) : "—"}
+                    {row.submissionDate
+                      ? formatDateTime(row.submissionDate)
+                      : "—"}
                   </span>
+                  <span>Interview: {row.interviewStage || "Not set"}</span>
                   {payout?.amount != null && payout.amount > 0 ? (
                     <span>
                       {formatCurrency(payout.amount, payout.currency)}
@@ -128,11 +240,64 @@ export function PartnerSubmissionsPageClient({
                     <span>Updated {formatDateTime(payout.lastUpdated)}</span>
                   ) : null}
                 </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelected(row)}
+                  >
+                    View progress
+                  </Button>
+                  {row.status === "rejected" && !row.wantsSecondLevelReview ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={requestingReview}
+                      onClick={() => void requestReview(row)}
+                    >
+                      Request 2nd Level Review
+                    </Button>
+                  ) : null}
+                </div>
               </article>
             );
           })}
         </div>
       )}
+
+      <DetailDrawer
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelected(null);
+          }
+        }}
+        title={selected?.candidateName ?? "Candidate progress"}
+      >
+        {selected ? (
+          <div className="space-y-4">
+            <SubmissionReviewPanel submission={selected} canEdit={false} />
+            {selected.status === "rejected" &&
+            !selected.wantsSecondLevelReview ? (
+              <Button
+                type="button"
+                className="w-full"
+                disabled={requestingReview}
+                onClick={() => void requestReview(selected)}
+              >
+                Request 2nd Level Review
+              </Button>
+            ) : null}
+            <p className="text-xs text-[#94A3B8]">
+              Submitted{" "}
+              {selected.submissionDate
+                ? formatDate(selected.submissionDate)
+                : "—"}
+            </p>
+          </div>
+        ) : null}
+      </DetailDrawer>
     </ContentContainer>
   );
 }

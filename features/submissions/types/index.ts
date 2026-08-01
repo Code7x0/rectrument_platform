@@ -13,6 +13,8 @@ export interface SubmissionListFilters {
   jobId?: string;
   allocationId?: string;
   status?: import("@/features/shared/entities").SubmissionStatus | "all";
+  /** Case-insensitive match against enriched job title. */
+  jobTitle?: string;
   search?: string;
   /** Admin/SA only — AM/partner paths must leave this false. */
   includePartnerIdentity?: boolean;

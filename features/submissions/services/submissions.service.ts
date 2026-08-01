@@ -42,9 +42,12 @@ import {
   getSubmissionsMode,
 } from "@/lib/airtable/compat";
 import {
+  AIRTABLE_INTERVIEW_STAGES,
+  AIRTABLE_SECOND_LEVEL_REVIEW_YES,
   DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
   SUBMISSIONS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import type { AirtableFields } from "@/lib/airtable/client";
 import { listPartnerOptions } from "@/services/lookups";
 
 /** Request-scoped: one full Candidates/Submissions scan per RSC request. */
@@ -182,10 +185,43 @@ export async function listSubmissions(
   }
 
   if (!enrich) {
+    if (listFilters.status && listFilters.status !== "all") {
+      rows = rows.filter((row) => row.status === listFilters.status);
+    }
     return rows;
   }
 
-  return withEnrichment(rows, includePartnerIdentity);
+  const enriched = await withEnrichment(rows, includePartnerIdentity);
+
+  let filtered = enriched;
+  if (listFilters.status && listFilters.status !== "all") {
+    filtered = filtered.filter((row) => row.status === listFilters.status);
+  }
+  if (listFilters.jobTitle?.trim()) {
+    const q = listFilters.jobTitle.trim().toLowerCase();
+    filtered = filtered.filter((row) =>
+      (row.jobTitle ?? "").toLowerCase().includes(q),
+    );
+  }
+  if (listFilters.search?.trim()) {
+    const q = listFilters.search.trim().toLowerCase();
+    filtered = filtered.filter((row) => {
+      const haystack = [
+        row.candidateName,
+        row.jobTitle,
+        row.jobCode,
+        row.partnerName,
+        row.partnerCode,
+        row.interviewStage,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }
+
+  return filtered;
 }
 
 export async function listPartnerSubmissions(
@@ -527,6 +563,163 @@ export async function stageResumeFile(file: {
   size: number;
 }): Promise<UploadedFile> {
   return getUploadService().upload(file);
+}
+
+export interface UpdateSubmissionReviewFieldsInput {
+  interviewStage?: string | null;
+  remarks?: string | null;
+  internalFeedback?: string | null;
+}
+
+/**
+ * Staff review fields (Interview Stage, Screening Matrix Notes, Internal Feedback).
+ * Does not change Submission Status — use workflow transitions for that.
+ */
+export async function updateSubmissionReviewFields(
+  submissionId: string,
+  input: UpdateSubmissionReviewFieldsInput,
+): Promise<Submission> {
+  const current = await findSubmissionById(submissionId);
+  if (!current) {
+    throw new Error("Submission not found");
+  }
+
+  const fields: AirtableFields = {};
+
+  if (input.interviewStage !== undefined) {
+    const stage = input.interviewStage?.trim() || "";
+    if (
+      stage &&
+      !(AIRTABLE_INTERVIEW_STAGES as readonly string[]).includes(stage)
+    ) {
+      throw new Error(`Invalid interview stage: ${stage}`);
+    }
+    fields[SUBMISSIONS_TABLE_FIELDS.interviewStage] = stage;
+  }
+  if (input.remarks !== undefined) {
+    fields[SUBMISSIONS_TABLE_FIELDS.remarks] = input.remarks?.trim() || "";
+  }
+  if (input.internalFeedback !== undefined) {
+    fields[SUBMISSIONS_TABLE_FIELDS.internalFeedback] =
+      input.internalFeedback?.trim() || "";
+  }
+
+  if (Object.keys(fields).length === 0) {
+    const [enriched] = await withEnrichment([current]);
+    return enriched ?? current;
+  }
+
+  const updated = await patchSubmission(submissionId, fields);
+  const [enriched] = await withEnrichment([updated]);
+  if (!enriched) {
+    throw new Error("Failed to update review fields");
+  }
+
+  try {
+    const { notifySubmissionReviewUpdated } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    await notifySubmissionReviewUpdated({
+      partnerId: enriched.partnerId,
+      candidateName: enriched.candidateName ?? "Candidate",
+      jobTitle: enriched.jobTitle ?? "Job",
+      submissionId: enriched.id,
+      interviewStage: enriched.interviewStage,
+    });
+  } catch (error) {
+    console.error("Failed to notify partner of review field update", error);
+  }
+
+  try {
+    const { recordActivity } = await import(
+      "@/features/workflows/services/activity.service"
+    );
+    await recordActivity({
+      entityType: "submission",
+      entityId: submissionId,
+      action: "status_change",
+      fromStatus: current.interviewStage,
+      toStatus: enriched.interviewStage ?? enriched.status,
+      note: "review_fields_updated",
+    });
+  } catch (error) {
+    console.error("Failed to record review-field activity", error);
+  }
+
+  return enriched;
+}
+
+/**
+ * Partner (or staff) requests 2nd-level review after rejection.
+ * Writes the exact Airtable singleSelect value.
+ */
+export async function requestSecondLevelReview(
+  submissionId: string,
+  actor: { partnerId?: string | null; isStaff: boolean },
+): Promise<Submission> {
+  const current = await getSubmissionById(submissionId);
+  if (!current) {
+    throw new Error("Submission not found");
+  }
+
+  if (current.status !== "rejected") {
+    throw new Error(
+      "Second level review can only be requested after the candidate is rejected",
+    );
+  }
+
+  if (!actor.isStaff) {
+    if (!actor.partnerId || actor.partnerId !== current.partnerId) {
+      throw new Error("You can only request review for your own candidates");
+    }
+  }
+
+  if (current.wantsSecondLevelReview) {
+    return current;
+  }
+
+  const updated = await patchSubmission(submissionId, {
+    [SUBMISSIONS_TABLE_FIELDS.wantsSecondLevelReview]:
+      AIRTABLE_SECOND_LEVEL_REVIEW_YES,
+  });
+  const [enriched] = await withEnrichment([updated]);
+  if (!enriched) {
+    throw new Error("Failed to request second level review");
+  }
+
+  try {
+    const { notifySecondLevelReviewRequested } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    const job = await getJobById(enriched.jobId);
+    await notifySecondLevelReviewRequested({
+      accountManagerId: job?.accountManagerId ?? null,
+      candidateName: enriched.candidateName ?? "Candidate",
+      jobTitle: enriched.jobTitle ?? job?.title ?? "Job",
+      submissionId: enriched.id,
+      partnerName: enriched.partnerName ?? "Talent Partner",
+    });
+  } catch (error) {
+    console.error("Failed to notify staff of second-level review", error);
+  }
+
+  try {
+    const { recordActivity } = await import(
+      "@/features/workflows/services/activity.service"
+    );
+    await recordActivity({
+      entityType: "submission",
+      entityId: submissionId,
+      action: "status_change",
+      fromStatus: "rejected",
+      toStatus: "second_level_review",
+      note: "Want 2nd level Review of Profile",
+    });
+  } catch (error) {
+    console.error("Failed to record second-level review activity", error);
+  }
+
+  return enriched;
 }
 
 /**

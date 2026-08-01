@@ -7,7 +7,6 @@ import {
   resolveAccountManagerScopeId,
 } from "@/lib/auth";
 import { listAccountManagerJobIds } from "@/lib/auth/scope";
-import { listJobs } from "@/features/jobs/services";
 import { ReviewQueuePageClient } from "@/features/tasks/components";
 import { listSubmissions } from "@/features/submissions/services";
 
@@ -44,21 +43,14 @@ export default async function AccountManagerReviewQueuePage({
   const params = await searchParams;
   const submissionId = params.submissionId?.trim() || null;
 
-  const [jobIds, jobs] = await Promise.all([
-    listAccountManagerJobIds(accountManagerId),
-    listJobs({ accountManagerId, includeArchived: true }),
-  ]);
+  const jobIds = await listAccountManagerJobIds(accountManagerId);
   const jobIdSet = new Set(jobIds);
-  const jobTitleById = new Map(jobs.map((job) => [job.id, job.title]));
   const submissions =
     jobIds.length === 0
       ? []
-      : (await listSubmissions({ enrich: false }))
-          .filter((row) => jobIdSet.has(row.jobId))
-          .map((row) => ({
-            ...row,
-            jobTitle: row.jobTitle ?? jobTitleById.get(row.jobId) ?? null,
-          }));
+      : (await listSubmissions({ includePartnerIdentity: false })).filter(
+          (row) => jobIdSet.has(row.jobId),
+        );
 
   return (
     <ReviewQueuePageClient

@@ -4,6 +4,11 @@
 
 export type ClientStatus = "active" | "inactive" | "archived";
 
+export interface ClientAttachment {
+  url: string;
+  filename: string;
+}
+
 export interface ClientEntity {
   id: string;
   clientCode: string | null;
@@ -15,6 +20,33 @@ export interface ClientEntity {
   accountManagerName: string | null;
   status: ClientStatus;
   notes: string | null;
+  /** Partner-safe extras from locked Clients table (optional). */
+  briefDeck?: ClientAttachment[];
+  primaryAddress?: string | null;
+  addresses?: string | null;
+  employeeSize?: string | null;
+  modeOfWork?: string | null;
+  workDaysInWeek?: number | null;
+}
+
+/**
+ * Projection for Talent Partners — never includes notes, AM, or primary contact.
+ */
+export interface PartnerClientView {
+  id: string;
+  clientCode: string | null;
+  name: string;
+  industry: string | null;
+  website: string | null;
+  status: ClientStatus;
+  primaryAddress: string | null;
+  addresses: string | null;
+  employeeSize: string | null;
+  modeOfWork: string | null;
+  workDaysInWeek: number | null;
+  briefDeck: ClientAttachment[];
+  /** Jobs currently assigned to this partner under this client. */
+  assignedJobTitles: string[];
 }
 
 export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {

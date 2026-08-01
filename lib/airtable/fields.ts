@@ -54,6 +54,13 @@ export const CLIENTS_TABLE_FIELDS = {
   accountManager: "Account Owner",
   status: "Status",
   notes: "Notes",
+  /** Existing locked-base fields — partner-safe directory (no schema changes). */
+  briefDeck: "Client Brief Deck",
+  primaryAddress: "Primary Address",
+  addresses: "Addresses",
+  employeeSize: "Employee Size",
+  modeOfWork: "Mode Of Work",
+  workDaysInWeek: "Work Days in Week",
 } as const;
 
 export const AIRTABLE_CLIENT_STATUS = {
@@ -325,6 +332,11 @@ export const CANDIDATES_TABLE_FIELDS = {
   submissionStatus: "Submission Status",
   interviewStage: "Interview Stage",
   internalFeedback: "Internal Feedback",
+  /**
+   * Exact Airtable name (singular "Want"). Only choice today:
+   * "Yes, I feel strong about this".
+   */
+  wantsSecondLevelReview: "Want 2nd level Review of Profile",
   candidateId: "Candidate ID",
 } as const;
 
@@ -356,7 +368,30 @@ export const SUBMISSIONS_TABLE_FIELDS = {
   linkedIn: "LinkedIn Profile",
   interviewStage: "Interview Stage",
   internalFeedback: "Internal Feedback",
+  wantsSecondLevelReview: "Want 2nd level Review of Profile",
 } as const;
+
+/** Exact Airtable Interview Stage options (locked client base). */
+export const AIRTABLE_INTERVIEW_STAGES = [
+  "Not Started",
+  "Screening",
+  "Phone Screen",
+  "Application Review",
+  "First Interview",
+  "Technical Interview",
+  "Second Interview",
+  "Onsite Interview",
+  "Offer Extended",
+  "Hired",
+  "Rejected",
+] as const;
+
+export type AirtableInterviewStage =
+  (typeof AIRTABLE_INTERVIEW_STAGES)[number];
+
+/** Exact Airtable value written when a partner requests 2nd-level review. */
+export const AIRTABLE_SECOND_LEVEL_REVIEW_YES =
+  "Yes, I feel strong about this" as const;
 
 /**
  * Client Submission Status → domain SubmissionStatus.
@@ -391,6 +426,7 @@ export const AIRTABLE_SUBMISSION_STATUS = {
   "Rejected by client": "rejected",
   "Internal Review Reject": "rejected",
   "Not Responding": "rejected",
+  "Not Moved,Role Closed": "rejected",
 } as const;
 
 export const DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE = {

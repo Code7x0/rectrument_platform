@@ -12,10 +12,15 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { EntityActivityInline } from "@/features/activity/components/entity-activity-inline";
 import type { Candidate } from "@/features/candidates/types";
 import type { Job } from "@/features/jobs/types";
 import { JOB_PRIORITY_LABELS } from "@/features/jobs/types";
+import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
+import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import type { Submission } from "@/features/submissions/types";
 import { deleteSubmissionAction } from "@/features/submissions/actions/submissions.actions";
@@ -61,6 +66,17 @@ function Detail({
   );
 }
 
+const STATUS_FILTER_OPTIONS: Array<SubmissionStatus | "all"> = [
+  "all",
+  "submitted",
+  "internal_review",
+  "client_review",
+  "interview",
+  "offer",
+  "joined",
+  "rejected",
+];
+
 export function ReviewQueuePageClient({
   initialSubmissions,
   canTransition,
@@ -85,11 +101,29 @@ export function ReviewQueuePageClient({
   const [transitioning, setTransitioning] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">(
+    "all",
+  );
+  const [jobTitleFilter, setJobTitleFilter] = useState("");
   const openedDeepLink = useRef<string | null>(null);
 
   useEffect(() => {
     setRows(initialSubmissions);
   }, [initialSubmissions]);
+
+  const filteredRows = useMemo(() => {
+    let next = rows;
+    if (statusFilter !== "all") {
+      next = next.filter((row) => row.status === statusFilter);
+    }
+    const q = jobTitleFilter.trim().toLowerCase();
+    if (q) {
+      next = next.filter((row) =>
+        (row.jobTitle ?? "").toLowerCase().includes(q),
+      );
+    }
+    return next;
+  }, [rows, statusFilter, jobTitleFilter]);
 
   async function openReview(row: Submission) {
     setSelected(row);
@@ -123,6 +157,15 @@ export function ReviewQueuePageClient({
     void openReview(row);
   }, [initialSubmissionId, initialSubmissions]);
 
+  function patchRow(next: Submission) {
+    setRows((current) =>
+      current.map((row) => (row.id === next.id ? { ...row, ...next } : row)),
+    );
+    setSelected((current) =>
+      current?.id === next.id ? { ...current, ...next } : current,
+    );
+  }
+
   async function confirmTransition() {
     if (!selected || !pendingStatus) {
       return;
@@ -139,16 +182,17 @@ export function ReviewQueuePageClient({
       }
 
       toast.success(`Moved to ${SUBMISSION_STATUS_LABELS[nextStatus]}`);
-      // Optimistic local update — avoid full-page Airtable reload.
       setRows((current) =>
         current.map((row) =>
           row.id === targetId ? { ...row, status: nextStatus } : row,
         ),
       );
+      setSelected((current) =>
+        current?.id === targetId
+          ? { ...current, status: nextStatus }
+          : current,
+      );
       setPendingStatus(null);
-      setSelected(null);
-      setCandidate(null);
-      setJob(null);
       signalLiveDataChange();
       router.refresh();
     } finally {
@@ -189,9 +233,12 @@ export function ReviewQueuePageClient({
         id: "candidate",
         header: "Candidate",
         cell: (row) => (
-          <span className="font-medium text-[#0F172A]">
-            {row.candidateName ?? "—"}
-          </span>
+          <div className="space-y-1">
+            <span className="font-medium text-[#0F172A]">
+              {row.candidateName ?? "—"}
+            </span>
+            {row.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
+          </div>
         ),
       },
       {
@@ -229,6 +276,12 @@ export function ReviewQueuePageClient({
         id: "status",
         header: "Current Status",
         cell: (row) => <SubmissionStatusBadge status={row.status} />,
+      },
+      {
+        id: "stage",
+        header: "Interview Stage",
+        className: "text-[#64748B]",
+        cell: (row) => row.interviewStage || "—",
       },
       {
         id: "priority",
@@ -288,9 +341,39 @@ export function ReviewQueuePageClient({
         }
       />
 
+      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="status-filter">Submission Status</Label>
+          <Select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as SubmissionStatus | "all")
+            }
+          >
+            {STATUS_FILTER_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status === "all"
+                  ? "All statuses"
+                  : SUBMISSION_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="job-title-filter">Job Title</Label>
+          <Input
+            id="job-title-filter"
+            value={jobTitleFilter}
+            onChange={(event) => setJobTitleFilter(event.target.value)}
+            placeholder="Filter by job title"
+          />
+        </div>
+      </div>
+
       <DataTable
         columns={columns}
-        data={rows}
+        data={filteredRows}
         getRowId={(row) => row.id}
         emptyTitle={emptyTitle}
         emptyDescription={emptyDescription}
@@ -309,12 +392,16 @@ export function ReviewQueuePageClient({
       >
         {selected ? (
           <div className="space-y-6">
-            <SubmissionStatusBadge status={selected.status} />
-
             {loadingDetail ? (
               <p className="text-sm text-[#64748B]">Loading details…</p>
             ) : (
               <>
+                <SubmissionReviewPanel
+                  submission={selected}
+                  canEdit={canTransition}
+                  onUpdated={patchRow}
+                />
+
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-[#0F172A]">
                     Candidate Details
@@ -397,10 +484,7 @@ export function ReviewQueuePageClient({
                       <Detail label="Client" value={job?.clientName} />
                     ) : null}
                     <Detail label="Location" value={job?.location} />
-                    <Detail
-                      label="Partner"
-                      value={selected.partnerName}
-                    />
+                    <Detail label="Partner" value={selected.partnerName} />
                     <Detail
                       label="Priority"
                       value={
@@ -413,20 +497,14 @@ export function ReviewQueuePageClient({
                     />
                   </div>
                 </section>
-
-                <section className="space-y-3">
-                  <Detail label="Partner" value={selected.partnerName} />
-                  <Detail label="Notes" value={selected.remarks} />
-                  <Detail
-                    label="Current Status"
-                    value={SUBMISSION_STATUS_LABELS[selected.status]}
-                  />
-                </section>
               </>
             )}
 
             {canTransition && nextStatuses.length > 0 ? (
               <div className="space-y-2 border-t border-[#E2E8F0] pt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+                  Submission Status
+                </p>
                 {nextStatuses.map((status) => (
                   <Button
                     key={status}
