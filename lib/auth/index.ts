@@ -39,18 +39,32 @@ export const getAppSession = cache(async (): Promise<AppSession | null> => {
   }
 
   const clerkUser = await currentUser();
-  const email =
-    clerkUser?.primaryEmailAddress?.emailAddress ??
-    clerkUser?.emailAddresses[0]?.emailAddress;
-
-  if (!email) {
+  if (!clerkUser) {
     return null;
   }
 
-  const session = await buildAppSession({
-    clerkUserId: userId,
-    email,
-  });
+  const emails = [
+    clerkUser.primaryEmailAddress?.emailAddress,
+    ...clerkUser.emailAddresses.map((row) => row.emailAddress),
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+  const uniqueEmails = [...new Set(emails)];
+
+  if (uniqueEmails.length === 0) {
+    return null;
+  }
+
+  let session: AppSession | null = null;
+  for (const email of uniqueEmails) {
+    session = await buildAppSession({
+      clerkUserId: userId,
+      email,
+    });
+    if (session) {
+      break;
+    }
+  }
 
   if (session && session.status === "active") {
     void updateLastLogin(session.userId).catch(() => undefined);

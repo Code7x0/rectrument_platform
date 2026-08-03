@@ -424,7 +424,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
 
   try {
     const amRecords = await getRecords(accountManagersTable(), {
-      filterByFormula: `LOWER(TRIM({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}})) = '${escapeFormula(normalized)}'`,
+      filterByFormula: `OR(LOWER(TRIM({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}} & '')) = '${escapeFormula(normalized)}', LOWER({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}} & '') = '${escapeFormula(normalized)}')`,
       maxRecords: 1,
     });
     const am = amRecords[0];
@@ -442,7 +442,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
   // including it in one OR() formula can invalidate the whole lookup (422).
   try {
     const byOfficial = await getRecords(partnersTable(), {
-      filterByFormula: `LOWER(TRIM({${PARTNERS_TABLE_FIELDS.email}})) = '${escapeFormula(normalized)}'`,
+      filterByFormula: `OR(LOWER(TRIM({${PARTNERS_TABLE_FIELDS.email}} & '')) = '${escapeFormula(normalized)}', LOWER({${PARTNERS_TABLE_FIELDS.email}} & '') = '${escapeFormula(normalized)}')`,
       maxRecords: 1,
     });
     const partner = byOfficial[0];
@@ -461,7 +461,7 @@ export async function clientFindUserByEmail(email: string): Promise<User | null>
 
   try {
     const byPersonal = await getRecords(partnersTable(), {
-      filterByFormula: `LOWER(TRIM({${PARTNERS_TABLE_FIELDS.personalEmail}})) = '${escapeFormula(normalized)}'`,
+      filterByFormula: `OR(LOWER(TRIM({${PARTNERS_TABLE_FIELDS.personalEmail}} & '')) = '${escapeFormula(normalized)}', LOWER({${PARTNERS_TABLE_FIELDS.personalEmail}} & '') = '${escapeFormula(normalized)}')`,
       maxRecords: 1,
     });
     const partner = byPersonal[0];

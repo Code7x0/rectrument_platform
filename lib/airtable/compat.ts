@@ -69,7 +69,20 @@ export function readField(
 }
 
 export function asString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  // Airtable singleSelect / collaborator-like objects sometimes arrive as { name }.
+  if (
+    value &&
+    typeof value === "object" &&
+    "name" in value &&
+    typeof (value as { name?: unknown }).name === "string"
+  ) {
+    const name = (value as { name: string }).name.trim();
+    return name || null;
+  }
+  return null;
 }
 
 export function asLinkedId(value: unknown): string | null {
