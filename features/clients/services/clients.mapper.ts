@@ -1,5 +1,9 @@
 import type { AirtableFields } from "@/lib/airtable/client";
-import { asLinkedId, asString, isClientCompatMode } from "@/lib/airtable/compat";
+import {
+  asLinkedIds,
+  asString,
+  isClientCompatMode,
+} from "@/lib/airtable/compat";
 import {
   AIRTABLE_CLIENT_STATUS,
   CLIENTS_TABLE_FIELDS,
@@ -65,6 +69,9 @@ export function mapClientRecord(record: {
 }): Client {
   const fields = record.fields;
   const rawCode = asString(fields[CLIENTS_TABLE_FIELDS.clientId]);
+  const accountManagerIds = asLinkedIds(
+    fields[CLIENTS_TABLE_FIELDS.accountManager],
+  );
   return {
     id: record.id,
     // Never invent CLI-rec… codes — only Airtable Client ID.
@@ -73,7 +80,8 @@ export function mapClientRecord(record: {
     industry: asString(fields[CLIENTS_TABLE_FIELDS.industry]),
     website: asString(fields[CLIENTS_TABLE_FIELDS.website]),
     primaryContact: asString(fields[CLIENTS_TABLE_FIELDS.primaryContact]),
-    accountManagerId: asLinkedId(fields[CLIENTS_TABLE_FIELDS.accountManager]),
+    accountManagerIds,
+    accountManagerId: accountManagerIds[0] ?? null,
     accountManagerName: null,
     status: mapStatus(fields[CLIENTS_TABLE_FIELDS.status]),
     notes: asString(fields[CLIENTS_TABLE_FIELDS.notes]),
@@ -188,12 +196,8 @@ export function buildClientsFilterFormula(filters: {
     );
   }
 
-  if (filters.accountManagerId?.trim()) {
-    const id = filters.accountManagerId.trim().replace(/'/g, "\\'");
-    clauses.push(
-      `FIND('${id}', ARRAYJOIN({${CLIENTS_TABLE_FIELDS.accountManager}}))`,
-    );
-  }
+  // Do not FIND Account Owner by record id here — ARRAYJOIN returns names,
+  // not rec… ids. AM scoping is applied in-memory in listClients.
 
   if (clauses.length === 0) {
     return "";

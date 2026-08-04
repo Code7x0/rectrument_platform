@@ -1,5 +1,5 @@
 import { getRecords } from "@/lib/airtable/client";
-import { asLinkedId } from "@/lib/airtable/compat";
+import { asLinkedIds } from "@/lib/airtable/compat";
 import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 
@@ -11,6 +11,7 @@ function asString(value: unknown): string | null {
 
 export type ClientLookupOption = LookupOption & {
   accountManagerId: string | null;
+  accountManagerIds: string[];
   clientCode: string | null;
 };
 
@@ -31,14 +32,16 @@ export async function listClientOptions(): Promise<ClientLookupOption[]> {
         return null;
       }
       const clientCode = asString(record.fields[CLIENTS_TABLE_FIELDS.clientId]);
+      const accountManagerIds = asLinkedIds(
+        record.fields[CLIENTS_TABLE_FIELDS.accountManager],
+      );
       const option: ClientLookupOption = {
         id: record.id,
         label: clientCode ? `${clientCode} — ${label}` : label,
         code: clientCode,
         clientCode,
-        accountManagerId: asLinkedId(
-          record.fields[CLIENTS_TABLE_FIELDS.accountManager],
-        ),
+        accountManagerIds,
+        accountManagerId: accountManagerIds[0] ?? null,
       };
       return option;
     })

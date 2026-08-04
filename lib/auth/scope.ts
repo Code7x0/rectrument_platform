@@ -3,7 +3,7 @@ import {
   resolveAccountManagerScopeId,
   resolvePartnerScopeId,
 } from "@/lib/auth";
-import { getClientById } from "@/features/clients/services";
+import { getClientById, clientOwnedByAccountManager } from "@/features/clients/services";
 import { getJobById } from "@/features/jobs/services";
 import { getAllocationById } from "@/features/allocations/services";
 import { getSubmissionById } from "@/features/submissions/services";
@@ -45,7 +45,7 @@ export async function assertAccountManagerOwnsClient(
     throw new ScopeDeniedError();
   }
   const client = await getClientById(clientId);
-  if (!client || client.accountManagerId !== amId) {
+  if (!client || !clientOwnedByAccountManager(client, amId)) {
     throw new ScopeDeniedError("Client is outside your assignment");
   }
 }

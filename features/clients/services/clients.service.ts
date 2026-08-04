@@ -24,6 +24,21 @@ import type {
 } from "@/features/clients/types";
 import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
 
+/** True when AM id is linked on Clients.Account Owner (any position). */
+export function clientOwnedByAccountManager(
+  client: Pick<Client, "accountManagerId" | "accountManagerIds">,
+  accountManagerId: string,
+): boolean {
+  const amId = accountManagerId.trim();
+  if (!amId) {
+    return false;
+  }
+  if (client.accountManagerIds?.includes(amId)) {
+    return true;
+  }
+  return client.accountManagerId === amId;
+}
+
 /** Request-scoped full clients scan. */
 const loadAllClientsCached = cache(async () =>
   findClients({
@@ -85,7 +100,7 @@ export async function listClients(
   let   enriched = await withAccountManagerNames(rows);
   if (accountManagerId?.trim()) {
     const amId = accountManagerId.trim();
-    enriched = enriched.filter((client) => client.accountManagerId === amId);
+    enriched = enriched.filter((client) => clientOwnedByAccountManager(client, amId));
   }
 
   return applySearch(enriched, search);
@@ -196,13 +211,18 @@ export async function deleteClient(clientId: string): Promise<void> {
 
 /**
  * Calculated workspace stats — never stored on the Client record.
+ * Pass accountManagerId to scope jobs/candidates to that AM (no foreign bleed).
  */
 export async function getClientWorkspaceStats(
   clientId: string,
+  options: { accountManagerId?: string } = {},
 ): Promise<ClientWorkspaceStats> {
   const jobs = await listJobs({
     clientId,
     includeArchived: true,
+    ...(options.accountManagerId
+      ? { accountManagerId: options.accountManagerId }
+      : {}),
   });
 
   const jobIds = new Set(jobs.map((j) => j.id));

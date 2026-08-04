@@ -796,9 +796,9 @@ export async function getPartnerDashboardData(
       },
       {
         id: "submit",
-        label: "Submit Candidate",
-        description: "From your work queue",
-        href: "/partner/jobs",
+        label: "Submit Profile",
+        description: "Tag a JD and submit in one step",
+        href: "/partner/submit",
       },
       {
         id: "earnings",

@@ -5,10 +5,10 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
-import { PartnerWorkQueue } from "@/features/tasks/components";
+import { PartnerSubmitProfilePageClient } from "@/features/submissions/components";
 import { listPartnerWorkTasks } from "@/features/tasks/services";
 
-export default async function PartnerJobsPage() {
+export default async function PartnerSubmitProfilePage() {
   noStore();
 
   const session = await getAppSession();
@@ -21,7 +21,10 @@ export default async function PartnerJobsPage() {
     redirect("/forbidden");
   }
 
-  if (!roleHasPermission(session.role, "view_own_allocations")) {
+  if (
+    !roleHasPermission(session.role, "submit_candidates") ||
+    !roleHasPermission(session.role, "view_own_allocations")
+  ) {
     redirect("/forbidden");
   }
 
@@ -36,14 +39,14 @@ export default async function PartnerJobsPage() {
       <Breadcrumb
         items={[
           { label: "Partner", href: "/partner" },
-          { label: "Assigned Jobs" },
+          { label: "Submit Profile" },
         ]}
       />
       <PageHeader
-        title="Assigned Jobs"
-        description="Browse job details here. For a faster path, use Submit Profile to pick a JD and submit in one step."
+        title="Submit Profile"
+        description="Pick an assigned job, then submit the candidate profile in one place."
       />
-      <PartnerWorkQueue tasks={tasks} />
+      <PartnerSubmitProfilePageClient tasks={tasks} />
     </ContentContainer>
   );
 }

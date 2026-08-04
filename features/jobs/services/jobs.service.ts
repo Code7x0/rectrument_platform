@@ -38,9 +38,11 @@ const valueMaps = {
   employmentType: DOMAIN_EMPLOYMENT_TYPE_TO_AIRTABLE,
 };
 
-async function withEnrichment(jobs: Job[]): Promise<Job[]> {
+async function withEnrichment(
+  jobs: Job[],
+): Promise<{ jobs: Job[]; clientOwnersById: Map<string, string[]> }> {
   if (jobs.length === 0) {
-    return jobs;
+    return { jobs, clientOwnersById: new Map() };
   }
 
   const [clients, accountManagers] = await Promise.all([
@@ -58,18 +60,27 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
   // Need Account Owner ids for inherit — lookup options are labels only.
   const { listClients } = await import("@/features/clients/services");
   const clientRows = await listClients({ includeArchived: true });
-  const clientOwnerById = new Map(
-    clientRows.map((client) => [client.id, client.accountManagerId]),
+  const clientOwnersById = new Map(
+    clientRows.map((client) => [
+      client.id,
+      client.accountManagerIds?.length
+        ? client.accountManagerIds
+        : client.accountManagerId
+          ? [client.accountManagerId]
+          : [],
+    ]),
   );
 
-  return jobs.map((job) => {
+  const enriched = jobs.map((job) => {
     const client = job.clientId ? clientMap.get(job.clientId) : undefined;
+    const owners = job.clientId
+      ? (clientOwnersById.get(job.clientId) ?? [])
+      : [];
     // Prefer per-job AM (link field or [RP_AM] marker). Explicit [RP_AM] none
-    // blocks Client Account Owner inheritance. Otherwise inherit when unmarked.
+    // blocks Client Account Owner inheritance. Otherwise inherit primary owner.
     const accountManagerId = job.accountManagerUnassigned
       ? null
-      : (job.accountManagerId ??
-        (job.clientId ? clientOwnerById.get(job.clientId) ?? null : null));
+      : (job.accountManagerId ?? owners[0] ?? null);
     const amMeta = accountManagerId ? amMap.get(accountManagerId) : null;
 
     return {
@@ -81,21 +92,24 @@ async function withEnrichment(jobs: Job[]): Promise<Job[]> {
       accountManagerName: amMeta?.name ?? null,
     };
   });
+
+  return { jobs: enriched, clientOwnersById };
 }
 
 /**
  * AM job visibility:
  * - Explicit per-job unassign ([RP_AM] none) → never visible.
  * - Explicit per-job AM (field / [RP_AM] marker) always wins.
- * - If this AM has ANY explicit job on a client, sibling jobs without an
- *   explicit AM are NOT inherited via Client Account Owner (prevents
- *   “assign one job → whole client” bleed).
- * - Otherwise inherit Client Account Owner for unmarked jobs.
+ * - Client Account Owners always inherit unmarked jobs on their client
+ *   (sibling-hide must not strip their portfolio).
+ * - Non-owners: if they have ANY explicit job on a client, sibling unmarked
+ *   jobs are NOT inherited (prevents “assign one job → whole client” bleed).
  */
 function filterJobsForAccountManager(
   originals: Job[],
   enriched: Job[],
   accountManagerId: string,
+  clientOwnersById: Map<string, string[]>,
 ): Job[] {
   const explicitById = new Map(
     originals.map((job) => [job.id, job.accountManagerId]),
@@ -121,6 +135,12 @@ function filterJobsForAccountManager(
     const explicit = explicitById.get(job.id) ?? null;
     if (explicit) {
       return explicit === accountManagerId;
+    }
+    const owners = job.clientId
+      ? (clientOwnersById.get(job.clientId) ?? [])
+      : [];
+    if (owners.includes(accountManagerId)) {
+      return true;
     }
     if (job.clientId && clientsWithExplicitAm.has(job.clientId)) {
       return false;
@@ -170,13 +190,18 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
       })
     : await loadAllJobsCached();
 
-  let enriched = await withEnrichment(jobs);
+  let { jobs: enriched, clientOwnersById } = await withEnrichment(jobs);
 
   if (
     accountManagerId &&
     accountManagerId !== "all"
   ) {
-    enriched = filterJobsForAccountManager(jobs, enriched, accountManagerId);
+    enriched = filterJobsForAccountManager(
+      jobs,
+      enriched,
+      accountManagerId,
+      clientOwnersById,
+    );
   }
 
   if (isClientCompatMode() && clientId && clientId !== "all") {
@@ -194,8 +219,8 @@ export const getJobById = cache(async function getJobById(
     return null;
   }
 
-  const [enriched] = await withEnrichment([job]);
-  return enriched ?? null;
+  const { jobs: enrichedJobs } = await withEnrichment([job]);
+  return enrichedJobs[0] ?? null;
 });
 
 export async function createJob(input: CreateJobInput): Promise<Job> {
@@ -205,7 +230,8 @@ export async function createJob(input: CreateJobInput): Promise<Job> {
   );
   // Per-job AM only ([RP_AM] marker) — do not set Clients.Account Owner.
 
-  const [job] = await withEnrichment([created]);
+  const { jobs: enrichedCreated } = await withEnrichment([created]);
+  const job = enrichedCreated[0];
 
   if (!job) {
     throw new Error("Failed to create job");
@@ -327,7 +353,8 @@ export async function updateJob(
     }
   }
 
-  const [job] = await withEnrichment([updated]);
+  const { jobs: enrichedUpdated } = await withEnrichment([updated]);
+  const job = enrichedUpdated[0];
 
   if (!job) {
     throw new Error("Failed to update job");

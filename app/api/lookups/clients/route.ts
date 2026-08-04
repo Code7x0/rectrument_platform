@@ -34,7 +34,9 @@ export async function GET() {
         );
       }
       data = data.filter(
-        (client) => client.accountManagerId === accountManagerId,
+        (client) =>
+          client.accountManagerId === accountManagerId ||
+          client.accountManagerIds?.includes(accountManagerId),
       );
     }
 

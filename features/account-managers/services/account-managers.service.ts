@@ -71,12 +71,17 @@ export async function listAccountManagersDirectory(): Promise<{
 
   const clientsByAm = new Map<string, { name: string }[]>();
   for (const client of clients) {
-    if (!client.accountManagerId) {
-      continue;
+    const ownerIds =
+      client.accountManagerIds?.length > 0
+        ? client.accountManagerIds
+        : client.accountManagerId
+          ? [client.accountManagerId]
+          : [];
+    for (const amId of ownerIds) {
+      const list = clientsByAm.get(amId) ?? [];
+      list.push({ name: client.name });
+      clientsByAm.set(amId, list);
     }
-    const list = clientsByAm.get(client.accountManagerId) ?? [];
-    list.push({ name: client.name });
-    clientsByAm.set(client.accountManagerId, list);
   }
 
   const rows: AccountManagerDirectoryRow[] = [];

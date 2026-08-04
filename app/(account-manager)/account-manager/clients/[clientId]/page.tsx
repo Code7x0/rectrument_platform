@@ -13,6 +13,7 @@ import {
 import {
   getClientById,
   getClientWorkspaceStats,
+  clientOwnedByAccountManager,
 } from "@/features/clients/services";
 import { listJobs } from "@/features/jobs/services";
 import {
@@ -65,12 +66,12 @@ export default async function AccountManagerClientWorkspacePage({
   }
 
   // Hard ownership gate — never leak another AM's client via URL.
-  if (client.accountManagerId !== accountManagerId) {
+  if (!clientOwnedByAccountManager(client, accountManagerId)) {
     notFound();
   }
 
   const [stats, jobs, accountManagers, clients, partners] = await Promise.all([
-    getClientWorkspaceStats(clientId),
+    getClientWorkspaceStats(clientId, { accountManagerId }),
     listJobs({
       clientId,
       includeArchived: true,
@@ -79,7 +80,11 @@ export default async function AccountManagerClientWorkspacePage({
     Promise.resolve([{ id: accountManagerId, label: "You" }]),
     listClientOptions().then((rows) =>
       rows
-        .filter((row) => row.accountManagerId === accountManagerId)
+        .filter(
+          (row) =>
+            row.accountManagerId === accountManagerId ||
+            row.accountManagerIds?.includes(accountManagerId),
+        )
         .map((row) => ({
           ...row,
           label: row.clientCode?.trim() || row.id,

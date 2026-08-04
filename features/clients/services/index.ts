@@ -1,5 +1,6 @@
 export {
   archiveClient,
+  clientOwnedByAccountManager,
   createClient,
   deleteClient,
   getClientById,

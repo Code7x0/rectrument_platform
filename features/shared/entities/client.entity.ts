@@ -16,7 +16,10 @@ export interface ClientEntity {
   industry: string | null;
   website: string | null;
   primaryContact: string | null;
+  /** Primary Account Owner (first link) — for display / single-AM writes. */
   accountManagerId: string | null;
+  /** All Account Owner links — membership checks must use this. */
+  accountManagerIds: string[];
   accountManagerName: string | null;
   status: ClientStatus;
   notes: string | null;
