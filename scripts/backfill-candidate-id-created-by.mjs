@@ -1,8 +1,12 @@
 /**
- * OPTIONAL Candidate ID-only backfill to 5826_sk42 format.
- * Prefer scripts/backfill-candidate-id-created-by.mjs for the live 218-row pass.
+ * Live backfill — ONLY these two Candidates columns:
+ *   - Candidate ID  → 5826_sk42 format
+ *   - Created By    → Anonymous when current value is Sonu
  *
- *   DRY_RUN=1 node --env-file=.env.local scripts/migrate-candidate-ids.mjs
+ * Does not read or write Screening Matrix, Internal Feedback, or any other field.
+ *
+ *   DRY_RUN=1 node --env-file=.env.local scripts/backfill-candidate-id-created-by.mjs
+ *   node --env-file=.env.local scripts/backfill-candidate-id-created-by.mjs
  */
 
 import { readFileSync } from "fs";
@@ -44,6 +48,19 @@ function asString(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function createdByName(value) {
+  if (!value) return null;
+  if (typeof value === "string") return value.trim() || null;
+  if (typeof value === "object" && typeof value.name === "string") {
+    return value.name.trim() || null;
+  }
+  return null;
+}
+
+function isSonu(value) {
+  return /^sonu$/i.test(value ?? "");
+}
+
 function isValidCandidateCode(value) {
   return Boolean(value && CANDIDATE_CODE_RE.test(value.trim().toLowerCase()));
 }
@@ -64,9 +81,13 @@ function formatStamp(date) {
 }
 
 function dateStampFrom(value) {
-  if (!value) return formatStamp(new Date());
+  if (!value) {
+    return formatStamp(new Date());
+  }
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return formatStamp(new Date());
+  if (Number.isNaN(parsed.getTime())) {
+    return formatStamp(new Date());
+  }
   return formatStamp(parsed);
 }
 
@@ -93,7 +114,11 @@ async function main() {
   if (!API_KEY || !BASE_ID) {
     throw new Error("AIRTABLE_API_KEY and AIRTABLE_BASE_ID are required");
   }
-  console.log(DRY_RUN ? "=== DRY RUN ===" : "=== LIVE CANDIDATE ID BACKFILL ===");
+  console.log(
+    DRY_RUN
+      ? "=== DRY RUN candidate id + sonu→anonymous ==="
+      : "=== LIVE candidate id + sonu→anonymous ===",
+  );
 
   const base = new Airtable({ apiKey: API_KEY }).base(BASE_ID);
   const rows = await base("Candidates")
@@ -101,6 +126,7 @@ async function main() {
       pageSize: 100,
       fields: [
         "Candidate ID",
+        "Created By",
         "Candidate Name",
         "Phone Number",
         "Submission Date",
@@ -109,9 +135,10 @@ async function main() {
     .all();
 
   const taken = new Set();
-  const updates = [];
+  const planned = [];
+
   for (const row of rows) {
-    const next = allocateUnique(
+    const nextId = allocateUnique(
       buildCandidateCodeBase(
         asString(row.fields["Candidate Name"]),
         asString(row.fields["Phone Number"]),
@@ -119,33 +146,62 @@ async function main() {
       ),
       taken,
     );
-    taken.add(next);
-    const current = asString(row.fields["Candidate ID"]);
-    if (current && current.toLowerCase() === next) continue;
-    updates.push({
+    taken.add(nextId);
+
+    const currentId = asString(row.fields["Candidate ID"]);
+    const currentCreatedBy = createdByName(row.fields["Created By"]);
+    const fields = {};
+    if (!currentId || currentId.toLowerCase() !== nextId) {
+      fields["Candidate ID"] = nextId;
+    }
+    if (isSonu(currentCreatedBy)) {
+      fields["Created By"] = "Anonymous";
+    }
+
+    planned.push({
       id: row.id,
-      from: current,
-      to: next,
       name: asString(row.fields["Candidate Name"]),
+      fromId: currentId,
+      toId: nextId,
+      fromCreatedBy: currentCreatedBy,
+      fields,
     });
   }
 
-  for (const item of updates) {
-    console.log(
-      `${item.id} ${item.name ?? "(unnamed)"}: ${item.from ?? "(empty)"} → ${item.to}`,
-    );
+  let idUpdates = 0;
+  let createdByUpdates = 0;
+  let unchanged = 0;
+
+  for (const item of planned) {
+    const keys = Object.keys(item.fields);
+    if (keys.length === 0) {
+      unchanged += 1;
+      continue;
+    }
+    if (item.fields["Candidate ID"]) {
+      idUpdates += 1;
+      console.log(
+        `${item.id} ${item.name ?? "(unnamed)"} ID ${item.fromId ?? "(empty)"} → ${item.toId}`,
+      );
+    }
+    if (item.fields["Created By"]) {
+      createdByUpdates += 1;
+      console.log(
+        `${item.id} ${item.name ?? "(unnamed)"} Created By ${item.fromCreatedBy} → Anonymous`,
+      );
+    }
     if (!DRY_RUN) {
-      await base("Candidates").update(item.id, { "Candidate ID": item.to });
+      await base("Candidates").update(item.id, item.fields);
     }
   }
 
   console.log("\nSummary", {
     total: rows.length,
-    updated: updates.length,
-    alreadyValid: rows.length - updates.length,
-    sampleValid: rows.some((row) =>
-      isValidCandidateCode(asString(row.fields["Candidate ID"])),
-    ),
+    idUpdates,
+    sonuToAnonymous: createdByUpdates,
+    unchanged,
+    alreadyValidIds: planned.filter((item) => isValidCandidateCode(item.fromId))
+      .length,
     dryRun: DRY_RUN,
   });
 }

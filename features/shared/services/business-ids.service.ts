@@ -17,7 +17,6 @@ import {
   buildPartnerCodeBase,
   formatJobCode,
   isValidAmCode,
-  isValidCandidateCode,
   isValidClientCode,
   isValidPartnerCode,
   nextJobSequence,
@@ -102,16 +101,22 @@ export async function listExistingCandidateCodes(
   return records
     .filter((record) => record.id !== excludeRecordId)
     .map((record) => asString(record.fields[CANDIDATES_TABLE_FIELDS.candidateId]))
-    .filter((code): code is string => Boolean(code && isValidCandidateCode(code)));
+    .filter((code): code is string => Boolean(code?.trim()))
+    .map((code) => code.trim());
 }
 
 export async function allocateCandidateCodeForPerson(input: {
   fullName: string | null | undefined;
   phone: string | null | undefined;
+  submittedAt?: Date;
   excludeRecordId?: string;
   existingCodes?: string[];
 }): Promise<string> {
-  const base = buildCandidateCodeBase(input.fullName, input.phone);
+  const base = buildCandidateCodeBase(
+    input.fullName,
+    input.phone,
+    input.submittedAt,
+  );
   const existing =
     input.existingCodes ??
     (await listExistingCandidateCodes(input.excludeRecordId));

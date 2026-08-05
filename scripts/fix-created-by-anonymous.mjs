@@ -177,7 +177,7 @@ async function main() {
     if (/^sonu$/i.test(current ?? "")) {
       sonuSeen += 1;
     }
-    if (current === "Anonymous" && row.fields["Created By"] === "Anonymous") {
+    if (!/^sonu$/i.test(current ?? "")) {
       skipped += 1;
       continue;
     }

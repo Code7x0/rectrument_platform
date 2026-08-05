@@ -8,8 +8,12 @@ export const JOB_ID_MARKER_PREFIX = "[RP_JOBID]";
 /** Valid Partner Code: HN_254 or HN_254_2 */
 export const PARTNER_CODE_RE = /^[A-Z]{2}_\d{3}(?:_\d+)?$/;
 
-/** Candidate business IDs use the same shape as Partner Codes. */
-export const CANDIDATE_CODE_RE = PARTNER_CODE_RE;
+/**
+ * Candidate ID: DMYY_xx99 (no leading zeros, lowercase name+phone).
+ * Example: 5 Aug 2026 + Sonu Kumar + phone …42 → 5826_sk42
+ * Collision suffix: 5826_sk42_2
+ */
+export const CANDIDATE_CODE_RE = /^\d{4,6}_[a-z]{2}\d{2}(?:_\d+)?$/;
 
 /** Valid Job ID: AB_001 or IBM_012 */
 export const JOB_CODE_RE = /^[A-Z0-9]+_\d{3}$/;
@@ -39,7 +43,11 @@ export function isValidCandidateCode(value: string | null | undefined): boolean 
   if (!value?.trim() || isSyntheticDisplayId(value) || /^\d+$/.test(value.trim())) {
     return false;
   }
-  return CANDIDATE_CODE_RE.test(value.trim().toUpperCase());
+  return CANDIDATE_CODE_RE.test(value.trim().toLowerCase());
+}
+
+export function normalizeCandidateCode(value: string): string {
+  return value.trim().toLowerCase();
 }
 
 export function isValidJobCode(value: string | null | undefined): boolean {
@@ -275,18 +283,64 @@ export function allocateUniquePartnerCode(
   return `${normalizedBase}_${suffix}`;
 }
 
+function candidateDateStamp(
+  submittedAt: Date,
+  timeZone = "Asia/Kolkata",
+): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(submittedAt);
+  const day = String(Number(parts.find((part) => part.type === "day")?.value ?? "1"));
+  const month = String(
+    Number(parts.find((part) => part.type === "month")?.value ?? "1"),
+  );
+  const year = parts.find((part) => part.type === "year")?.value ?? "2026";
+  return `${day}${month}${year.slice(-2)}`;
+}
+
 export function buildCandidateCodeBase(
   fullName: string | null | undefined,
   phone: string | null | undefined,
+  submittedAt: Date = new Date(),
 ): string {
-  return buildPartnerCodeBase(fullName, phone);
+  const parts = (fullName ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const firstInitial = (parts[0]?.[0] ?? "x").toLowerCase();
+  const lastInitial = (
+    parts.length > 1
+      ? (parts[parts.length - 1]?.[0] ?? "x")
+      : (parts[0]?.[1] ?? "x")
+  ).toLowerCase();
+  const digits = (phone ?? "").replace(/\D/g, "");
+  const last2 = (digits.slice(-2) || "00").padStart(2, "0");
+  return `${candidateDateStamp(submittedAt)}_${firstInitial}${lastInitial}${last2}`;
 }
 
 export function allocateUniqueCandidateCode(
   base: string,
   existingCodes: Iterable<string>,
 ): string {
-  return allocateUniquePartnerCode(base, existingCodes);
+  const seed = normalizeCandidateCode(base);
+  const taken = new Set(
+    [...existingCodes]
+      .map((code) => code.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  if (!taken.has(seed)) {
+    return seed;
+  }
+
+  let suffix = 2;
+  while (taken.has(`${seed}_${suffix}`)) {
+    suffix += 1;
+  }
+  return `${seed}_${suffix}`;
 }
 
 export function formatJobCode(clientCode: string, sequence: number): string {

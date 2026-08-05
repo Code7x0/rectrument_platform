@@ -88,7 +88,7 @@ export function mapSubmissionRecord(record: {
       submissionCode: (() => {
         const raw = fields[SUBMISSIONS_TABLE_FIELDS.submissionId];
         const value = typeof raw === "number" ? String(raw) : asString(raw);
-        return isValidCandidateCode(value) ? value!.trim().toUpperCase() : null;
+        return isValidCandidateCode(value) ? value!.trim().toLowerCase() : null;
       })(),
       candidateId: record.id,
       candidateName: asString(fields[SUBMISSIONS_TABLE_FIELDS.candidateName]),
@@ -226,7 +226,8 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
       DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[input.status ?? "submitted"],
   };
   if (input.candidateCode?.trim()) {
-    fields[CANDIDATES_TABLE_FIELDS.candidateId] = input.candidateCode.trim().toUpperCase();
+    fields[CANDIDATES_TABLE_FIELDS.candidateId] =
+      input.candidateCode.trim().toLowerCase();
   }
   if (input.stampAnonymous !== false) {
     fields[CANDIDATES_TABLE_FIELDS.createdBy] = "Anonymous";

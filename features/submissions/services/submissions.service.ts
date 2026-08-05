@@ -426,6 +426,7 @@ export async function submitCandidateForAllocation(
       const candidateCode = await allocateCandidateCodeForPerson({
         fullName: payload.form.fullName,
         phone: payload.form.phone,
+        submittedAt: new Date(),
       });
 
       const createInput = {
