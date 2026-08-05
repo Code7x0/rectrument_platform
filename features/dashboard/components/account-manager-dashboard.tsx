@@ -28,15 +28,23 @@ export function AccountManagerDashboard({
         />
 
         <DashboardSection title="Needs attention">
-          <DashboardGrid columns={4}>
+          <DashboardGrid columns={3}>
             {data.metrics.map((metric) => (
               <DashboardMetricCard key={metric.id} {...metric} />
             ))}
           </DashboardGrid>
         </DashboardSection>
 
-        <DashboardSection title="Recruitment pipeline">
-          <DashboardGrid columns={3}>
+        <DashboardSection title="Overall funnel">
+          <DashboardGrid columns={2}>
+            {data.funnel.map((metric) => (
+              <DashboardMetricCard key={metric.id} {...metric} />
+            ))}
+          </DashboardGrid>
+        </DashboardSection>
+
+        <DashboardSection title="Selects">
+          <DashboardGrid columns={2}>
             {data.pipeline.map((metric) => (
               <DashboardMetricCard key={metric.id} {...metric} />
             ))}

@@ -32,4 +32,6 @@ export interface ClientWorkspaceStats {
   jobCount: number;
   partnerCount: number;
   candidateCount: number;
+  /** Open / on-hold jobs on this client. */
+  activeRoleCount: number;
 }

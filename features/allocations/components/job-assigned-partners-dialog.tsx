@@ -104,12 +104,10 @@ export function JobAssignedPartnersDialog({
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[#0F172A]">
-                    {row.partnerName ?? row.partnerCode ?? "Talent Partner"}
+                    {row.partnerCode ?? "Talent Partner"}
                   </p>
                   <p className="text-xs text-[#64748B]">
-                    {[row.partnerCode, row.allocationCode]
-                      .filter(Boolean)
-                      .join(" · ") || row.status}
+                    {row.allocationCode || row.status}
                   </p>
                 </div>
                 {canUnassign && row.canUnassign !== false ? (

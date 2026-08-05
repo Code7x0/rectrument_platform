@@ -170,6 +170,7 @@ export function mapJobRecord(record: {
     description: descriptionFromFields(fields),
     documents: collectJobDocuments(fields),
     location: asString(fields[JOBS_TABLE_FIELDS.location]),
+    workMode: asString(fields[JOBS_TABLE_FIELDS.workMode]),
     employmentType: mapEnum(
       fields[JOBS_TABLE_FIELDS.employmentType],
       AIRTABLE_EMPLOYMENT_TYPE,
@@ -187,6 +188,8 @@ export function mapJobRecord(record: {
     seniorityLevel: asString(fields[JOBS_TABLE_FIELDS.seniorityLevel]),
     createdById: asLinkedId(fields[JOBS_TABLE_FIELDS.createdBy]),
     createdAt: asString(fields[JOBS_TABLE_FIELDS.createdAt]),
+    startDate: asString(fields[JOBS_TABLE_FIELDS.startDate]),
+    postedDate: asString(fields[JOBS_TABLE_FIELDS.postedDate]),
   };
 }
 

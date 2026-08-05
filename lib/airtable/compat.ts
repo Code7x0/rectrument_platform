@@ -85,18 +85,39 @@ export function asString(value: unknown): string | null {
   return null;
 }
 
-export function asLinkedId(value: unknown): string | null {
-  if (Array.isArray(value) && typeof value[0] === "string") {
-    return value[0];
+function linkedRecordId(item: unknown): string | null {
+  if (typeof item === "string" && item.trim()) {
+    return item.trim();
+  }
+  if (item && typeof item === "object" && "id" in item) {
+    const id = (item as { id?: unknown }).id;
+    if (typeof id === "string" && id.trim()) {
+      return id.trim();
+    }
   }
   return null;
 }
 
+export function asLinkedId(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    return linkedRecordId(value[0]);
+  }
+  return linkedRecordId(value);
+}
+
 export function asLinkedIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
-    return [];
+    const single = linkedRecordId(value);
+    return single ? [single] : [];
   }
-  return value.filter((item): item is string => typeof item === "string");
+  const ids: string[] = [];
+  for (const item of value) {
+    const id = linkedRecordId(item);
+    if (id) {
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 export function asSelectList(value: unknown): string | null {

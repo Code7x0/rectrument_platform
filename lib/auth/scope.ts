@@ -3,8 +3,7 @@ import {
   resolveAccountManagerScopeId,
   resolvePartnerScopeId,
 } from "@/lib/auth";
-import { getClientById, clientOwnedByAccountManager } from "@/features/clients/services";
-import { getJobById } from "@/features/jobs/services";
+import { listClients } from "@/features/clients/services";
 import { getAllocationById } from "@/features/allocations/services";
 import { getSubmissionById } from "@/features/submissions/services";
 
@@ -44,8 +43,11 @@ export async function assertAccountManagerOwnsClient(
   if (!amId || session.role !== "account_manager") {
     throw new ScopeDeniedError();
   }
-  const client = await getClientById(clientId);
-  if (!client || !clientOwnedByAccountManager(client, amId)) {
+  const owned = await listClients({
+    accountManagerId: amId,
+    includeArchived: true,
+  });
+  if (!owned.some((client) => client.id === clientId)) {
     throw new ScopeDeniedError("Client is outside your assignment");
   }
 }
@@ -61,8 +63,8 @@ export async function assertAccountManagerOwnsJob(
   if (!amId || session.role !== "account_manager") {
     throw new ScopeDeniedError();
   }
-  const job = await getJobById(jobId);
-  if (!job || job.accountManagerId !== amId) {
+  const ownedJobIds = await listAccountManagerJobIds(amId);
+  if (!ownedJobIds.includes(jobId)) {
     throw new ScopeDeniedError("Job is outside your assignment");
   }
 }

@@ -56,6 +56,15 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
         }}
         partnerView
         submittedProfiles={selected?.submittedProfiles ?? null}
+        headerAction={
+          <Button
+            type="button"
+            className="w-full"
+            onClick={() => setSubmitOpen(true)}
+          >
+            Submit Candidate
+          </Button>
+        }
         footer={
           <Button
             type="button"

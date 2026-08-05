@@ -1,5 +1,8 @@
 import { cache } from "react";
 
+import { getRecords, type AirtableFields } from "@/lib/airtable/client";
+import { asLinkedIds } from "@/lib/airtable/compat";
+import { getOptionalEnv } from "@/lib/api/env";
 import { listAccountManagerOptions } from "@/services/lookups";
 import { listJobs } from "@/features/jobs/services";
 import { listSubmissions } from "@/features/submissions/services";
@@ -22,7 +25,29 @@ import type {
   CreateClientInput,
   UpdateClientInput,
 } from "@/features/clients/types";
-import { CLIENTS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import {
+  ACCOUNT_MANAGERS_TABLE_FIELDS,
+  CLIENTS_TABLE_FIELDS,
+} from "@/lib/airtable/fields";
+
+async function listAccountManagerClientIds(
+  accountManagerId: string,
+): Promise<Set<string>> {
+  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
+  const tableName = !raw || raw === "Account" ? "Account Managers" : raw;
+  try {
+    const records = await getRecords(tableName, {
+      filterByFormula: `RECORD_ID() = '${accountManagerId.replace(/'/g, "\\'")}'`,
+      fields: [ACCOUNT_MANAGERS_TABLE_FIELDS.clients],
+      maxRecords: 1,
+    });
+    const fields = (records[0]?.fields ?? {}) as AirtableFields;
+    return new Set(asLinkedIds(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.clients]));
+  } catch (error) {
+    console.warn("[clients] AM.Clients reverse-link lookup failed", error);
+    return new Set();
+  }
+}
 
 /** True when AM id is linked on Clients.Account Owner (any position). */
 export function clientOwnedByAccountManager(
@@ -97,10 +122,15 @@ export async function listClients(
       })
     : await loadAllClientsCached();
 
-  let   enriched = await withAccountManagerNames(rows);
+  let enriched = await withAccountManagerNames(rows);
   if (accountManagerId?.trim()) {
     const amId = accountManagerId.trim();
-    enriched = enriched.filter((client) => clientOwnedByAccountManager(client, amId));
+    const reverseLinkedIds = await listAccountManagerClientIds(amId);
+    enriched = enriched.filter(
+      (client) =>
+        clientOwnedByAccountManager(client, amId) ||
+        reverseLinkedIds.has(client.id),
+    );
   }
 
   return applySearch(enriched, search);
@@ -233,9 +263,13 @@ export async function getClientWorkspaceStats(
       .map((s) => s.candidateId),
   );
 
+  const visibleJobs = jobs.filter((j) => j.status !== "archived");
   return {
-    jobCount: jobs.filter((j) => j.status !== "archived").length,
+    jobCount: visibleJobs.length,
     partnerCount: 0,
     candidateCount: candidateIds.size,
+    activeRoleCount: visibleJobs.filter(
+      (job) => job.status === "open" || job.status === "on_hold",
+    ).length,
   };
 }

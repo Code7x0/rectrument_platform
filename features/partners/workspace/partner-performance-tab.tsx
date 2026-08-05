@@ -16,7 +16,7 @@ export function PartnerPerformanceTab({ stats }: PartnerPerformanceTabProps) {
         label="Profiles Submitted"
         value={stats.profilesSubmitted}
       />
-      <WorkspaceMetricCard label="Interviews" value={stats.interviews} />
+      <WorkspaceMetricCard label="Interviewing" value={stats.interviews} />
       <WorkspaceMetricCard label="Offers" value={stats.offers} />
       <WorkspaceMetricCard
         label="Joined Candidates"

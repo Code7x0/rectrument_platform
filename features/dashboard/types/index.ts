@@ -57,6 +57,7 @@ export interface AdminDashboardData {
 
 export interface AccountManagerDashboardData {
   metrics: DashboardMetric[];
+  funnel: DashboardMetric[];
   pipeline: DashboardMetric[];
   quickActions: DashboardQuickActionItem[];
   awaitingAction: DashboardListItem[];

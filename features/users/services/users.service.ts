@@ -229,9 +229,21 @@ export async function submitPartnerRegistration(
   if (recipients.length === 0) {
     console.warn(
       "[registration] No Super Admin/Admin emails found for registration fan-out",
+      {
+        usersTableSuperAdmins: superAdmins.length,
+        usersTableAdmins: admins.length,
+        envSuperAdmins: getSuperAdminEmails().length,
+        envAdmins: getAdminEmails().length,
+      },
     );
+  } else {
+    console.info("[registration] Sending partner registration emails", {
+      recipientCount: recipients.length,
+      recipients,
+      partnerName: fullName,
+    });
   }
-  await Promise.all(
+  const sendResults = await Promise.all(
     recipients.map((to) =>
       sendEmailSafe({
         to,
@@ -249,6 +261,14 @@ export async function submitPartnerRegistration(
       }),
     ),
   );
+  console.info("[registration] Partner registration email results", {
+    sent: sendResults.filter(Boolean).length,
+    attempted: recipients.length,
+    providers: sendResults
+      .filter(Boolean)
+      .map((result) => result?.provider)
+      .filter(Boolean),
+  });
 
   return { user, partnerId: partner.id };
 }
@@ -359,7 +379,7 @@ export async function approvePartnerApplication(
 
   const loginUrl = `${appBaseUrl()}/sign-in`;
   if (recipientEmail) {
-    await sendEmailSafe({
+    const approvalEmail = await sendEmailSafe({
       to: recipientEmail,
       template: "approval",
       data: {
@@ -367,6 +387,11 @@ export async function approvePartnerApplication(
         name: partnerName,
         loginUrl,
       },
+    });
+    console.info("[email] Partner welcome/approval email", {
+      to: recipientEmail,
+      provider: approvalEmail?.provider ?? "failed",
+      queued: approvalEmail?.queued ?? false,
     });
   } else {
     console.error(

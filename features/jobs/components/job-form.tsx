@@ -35,7 +35,7 @@ function jobToFormValues(job?: Job | null): JobFormValues {
       hiringManager: "",
       description: "",
       location: "",
-      employmentType: undefined,
+      employmentType: "full_time",
       experience: "",
       salary: "",
       priority: "medium",
@@ -53,7 +53,7 @@ function jobToFormValues(job?: Job | null): JobFormValues {
     hiringManager: job.hiringManager ?? "",
     description: job.description ?? "",
     location: job.location ?? "",
-    employmentType: job.employmentType ?? undefined,
+    employmentType: job.employmentType ?? "full_time",
     experience: job.experience ?? "",
     salary: job.salary ?? "",
     priority: job.priority ?? "medium",
@@ -119,7 +119,7 @@ export function JobForm({
             <option value="">Unassigned</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
-                {am.label}
+                {am.code?.trim() || am.label}
               </option>
             ))}
           </Select>
@@ -144,21 +144,27 @@ export function JobForm({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="description">Job Description</Label>
+          <Label htmlFor="description">Job Description *</Label>
           <Textarea
             id="description"
             {...register("description")}
             disabled={submitting}
           />
+          {errors.description ? (
+            <p className="text-xs text-[#EF4444]">{errors.description.message}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="location">Location</Label>
+          <Label htmlFor="location">Location *</Label>
           <Input id="location" {...register("location")} disabled={submitting} />
+          {errors.location ? (
+            <p className="text-xs text-[#EF4444]">{errors.location.message}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="employmentType">Employment Type</Label>
+          <Label htmlFor="employmentType">Employment Type *</Label>
           <Select
             id="employmentType"
             {...register("employmentType", {
@@ -173,25 +179,36 @@ export function JobForm({
             <option value="contract">Contract</option>
             <option value="internship">Internship</option>
           </Select>
+          {errors.employmentType ? (
+            <p className="text-xs text-[#EF4444]">
+              {errors.employmentType.message}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="experience">Experience</Label>
+          <Label htmlFor="experience">Years of Experience *</Label>
           <Input
             id="experience"
             placeholder="e.g. 3-5 years"
             {...register("experience")}
             disabled={submitting}
           />
+          {errors.experience ? (
+            <p className="text-xs text-[#EF4444]">{errors.experience.message}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="salary">Salary</Label>
+          <Label htmlFor="salary">Salary Range *</Label>
           <Input id="salary" {...register("salary")} disabled={submitting} />
+          {errors.salary ? (
+            <p className="text-xs text-[#EF4444]">{errors.salary.message}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="priority">Priority</Label>
+          <Label htmlFor="priority">Priority *</Label>
           <Select id="priority" {...register("priority")} disabled={submitting}>
             <option value="low">Low</option>
             <option value="medium">Medium</option>

@@ -4,7 +4,7 @@ export const clientStatusSchema = z.enum(["active", "inactive", "archived"]);
 
 export const clientFormSchema = z.object({
   name: z.string().trim().min(2, "Client name is required"),
-  industry: z.string().trim().optional(),
+  industry: z.string().trim().min(1, "Industry is required"),
   website: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
   primaryContact: z.string().trim().optional(),
   accountManagerId: z.string().optional(),

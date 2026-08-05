@@ -47,6 +47,8 @@ interface ReviewQueuePageClientProps {
   description?: string;
   /** Deep-link from notifications — open this submission on mount. */
   initialSubmissionId?: string | null;
+  /** Deep-link from job submitted-count links. */
+  initialJobId?: string | null;
 }
 
 function Detail({
@@ -88,6 +90,7 @@ export function ReviewQueuePageClient({
   title,
   description,
   initialSubmissionId = null,
+  initialJobId = null,
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
@@ -101,11 +104,48 @@ export function ReviewQueuePageClient({
     "all",
   );
   const [jobTitleFilter, setJobTitleFilter] = useState("");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [partnerFilter, setPartnerFilter] = useState("all");
+  const [jobIdFilter, setJobIdFilter] = useState(initialJobId ?? "");
   const openedDeepLink = useRef<string | null>(null);
 
   useEffect(() => {
     setRows(initialSubmissions);
   }, [initialSubmissions]);
+
+  useEffect(() => {
+    setJobIdFilter(initialJobId ?? "");
+  }, [initialJobId]);
+
+  const clientOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      if (!row.clientId) {
+        continue;
+      }
+      const label = hideClientName
+        ? row.clientId
+        : (row.clientName?.trim() || row.clientId);
+      if (!map.has(row.clientId)) {
+        map.set(row.clientId, label);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows, hideClientName]);
+
+  const partnerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      if (!row.partnerId) {
+        continue;
+      }
+      const label = row.partnerCode?.trim() || row.partnerId;
+      if (!map.has(row.partnerId)) {
+        map.set(row.partnerId, label);
+      }
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows]);
 
   const filteredRows = useMemo(() => {
     let next = rows;
@@ -118,8 +158,17 @@ export function ReviewQueuePageClient({
         (row.jobTitle ?? "").toLowerCase().includes(q),
       );
     }
+    if (clientFilter !== "all") {
+      next = next.filter((row) => row.clientId === clientFilter);
+    }
+    if (partnerFilter !== "all") {
+      next = next.filter((row) => row.partnerId === partnerFilter);
+    }
+    if (jobIdFilter.trim()) {
+      next = next.filter((row) => row.jobId === jobIdFilter.trim());
+    }
     return next;
-  }, [rows, statusFilter, jobTitleFilter]);
+  }, [rows, statusFilter, jobTitleFilter, clientFilter, partnerFilter, jobIdFilter]);
 
   const selectedScreen = useMemo(() => {
     if (!selected) {
@@ -233,17 +282,30 @@ export function ReviewQueuePageClient({
         cell: (row) => row.jobTitle ?? "—",
       },
       {
+        id: "client",
+        header: "Client",
+        className: "text-[#64748B]",
+        cell: (row) =>
+          hideClientName
+            ? row.clientId || "—"
+            : row.clientName || row.clientId || "—",
+      },
+      {
         id: "partnerCode",
         header: "Partner Code",
         className: "text-[#64748B]",
         cell: (row) => row.partnerCode || "—",
       },
-      {
-        id: "partner",
-        header: "Partner",
-        className: "text-[#64748B]",
-        cell: (row) => row.partnerName ?? "—",
-      },
+      ...(hideClientName
+        ? []
+        : [
+            {
+              id: "partner",
+              header: "Partner",
+              className: "text-[#64748B]",
+              cell: (row: Submission) => row.partnerName ?? "—",
+            },
+          ]),
       {
         id: "date",
         header: "Submission Date",
@@ -299,7 +361,7 @@ export function ReviewQueuePageClient({
         ),
       },
     ],
-    [canDelete],
+    [canDelete, hideClientName],
   );
 
   return (
@@ -318,7 +380,7 @@ export function ReviewQueuePageClient({
         }
       />
 
-      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2">
+      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor="status-filter">Submission Status</Label>
           <Select
@@ -338,6 +400,21 @@ export function ReviewQueuePageClient({
           </Select>
         </div>
         <div className="space-y-1.5">
+          <Label htmlFor="client-filter">Client</Label>
+          <Select
+            id="client-filter"
+            value={clientFilter}
+            onChange={(event) => setClientFilter(event.target.value)}
+          >
+            <option value="all">All clients</option>
+            {clientOptions.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-1.5">
           <Label htmlFor="job-title-filter">Job Title</Label>
           <Input
             id="job-title-filter"
@@ -345,6 +422,21 @@ export function ReviewQueuePageClient({
             onChange={(event) => setJobTitleFilter(event.target.value)}
             placeholder="Filter by job title"
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="partner-filter">Partner</Label>
+          <Select
+            id="partner-filter"
+            value={partnerFilter}
+            onChange={(event) => setPartnerFilter(event.target.value)}
+          >
+            <option value="all">All partners</option>
+            {partnerOptions.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
@@ -456,9 +548,16 @@ export function ReviewQueuePageClient({
                       label="Partner Code"
                       value={selected.partnerCode}
                     />
-                    {!hideClientName ? (
-                      <Detail label="Client" value={job?.clientName} />
-                    ) : null}
+                    <Detail
+                      label="Client"
+                      value={
+                        hideClientName
+                          ? selected.clientId || job?.clientId
+                          : job?.clientName ||
+                            selected.clientName ||
+                            selected.clientId
+                      }
+                    />
                     <Detail label="Location" value={job?.location} />
                     <Detail label="Partner" value={selected.partnerName} />
                     <Detail

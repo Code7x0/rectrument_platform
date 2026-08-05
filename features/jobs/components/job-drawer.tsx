@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { FilePreviewLink } from "@/components/shared/file-preview-link";
+import { filePreviewHref } from "@/lib/files/file-preview";
 import { Badge } from "@/components/ui/badge";
 import { EntityActivityInline } from "@/features/activity/components/entity-activity-inline";
 import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
@@ -19,7 +20,8 @@ interface JobDrawerProps {
   job: Job | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Optional footer (e.g. Partner “Submit Candidate”). */
+  /** Optional header + footer (e.g. Partner “Submit Candidate”). */
+  headerAction?: ReactNode;
   footer?: ReactNode;
   /**
    * Partner view: hide commercial client / AM names, prioritize JD + submit CTA.
@@ -27,6 +29,8 @@ interface JobDrawerProps {
   partnerView?: boolean;
   /** Submitted profiles for this partner allocation (partner view). */
   submittedProfiles?: number | null;
+  /** AM view: hide own name. */
+  hideAccountManager?: boolean;
 }
 
 function Detail({
@@ -52,26 +56,32 @@ export function JobDrawer({
   job,
   open,
   onOpenChange,
+  headerAction,
   footer,
   partnerView = false,
   submittedProfiles = null,
+  hideAccountManager = false,
 }: JobDrawerProps) {
   const descriptionText = job?.description?.trim() || null;
   const hasDocuments = Boolean(job && job.documents.length > 0);
-  const workMode = deriveJobWorkMode(job?.location);
+  const workMode = deriveJobWorkMode(job?.location, job?.workMode);
+  const openDate = job?.postedDate || job?.startDate || job?.createdAt;
 
   return (
     <DetailDrawer
       open={open}
       onOpenChange={onOpenChange}
       title={job?.title ?? "Job details"}
+      stickyHeader={headerAction ?? undefined}
       stickyFooter={footer ?? undefined}
     >
       {job ? (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             <JobStatusBadge status={job.status} />
-            {workMode ? <Badge variant="secondary">{workMode}</Badge> : null}
+            {!partnerView && workMode ? (
+              <Badge variant="secondary">{workMode}</Badge>
+            ) : null}
             <span className="text-sm font-medium text-[#0F172A]">
               Job ID: {job.jobCode || "—"}
             </span>
@@ -81,10 +91,12 @@ export function JobDrawer({
             {!partnerView ? (
               <>
                 <Detail label="Client" value={job.clientName} />
-                <Detail
-                  label="Assigned Account Manager"
-                  value={job.accountManagerName}
-                />
+                {!hideAccountManager ? (
+                  <Detail
+                    label="Assigned Account Manager"
+                    value={job.accountManagerName}
+                  />
+                ) : null}
                 <Detail label="Hiring Manager" value={job.hiringManager} />
               </>
             ) : null}
@@ -113,8 +125,8 @@ export function JobDrawer({
             ) : null}
             {!partnerView ? (
               <Detail
-                label="Created"
-                value={job.createdAt ? formatDate(job.createdAt) : null}
+                label="Job Open Date"
+                value={openDate ? formatDate(openDate) : null}
               />
             ) : null}
           </div>
@@ -154,16 +166,29 @@ export function JobDrawer({
                 Documents
               </p>
               <ul className="mt-2 space-y-2">
-                {job.documents.map((doc) => (
+                {job.documents.map((doc, index) => (
                   <li key={`${doc.label}-${doc.url}`}>
-                    <FilePreviewLink
-                      url={doc.url}
-                      filename={doc.filename}
-                      title={`${doc.label}: ${doc.filename}`}
-                      className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
-                    >
-                      {doc.label}: {doc.filename}
-                    </FilePreviewLink>
+                    {partnerView ? (
+                      <a
+                        href={filePreviewHref(doc.url, doc.filename)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
+                      >
+                        {job.documents.length > 1
+                          ? `Job Description ${index + 1}`
+                          : "Job Description"}
+                      </a>
+                    ) : (
+                      <FilePreviewLink
+                        url={doc.url}
+                        filename={doc.filename}
+                        title={`${doc.label}: ${doc.filename}`}
+                        className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
+                      >
+                        {doc.label}: {doc.filename}
+                      </FilePreviewLink>
+                    )}
                   </li>
                 ))}
               </ul>

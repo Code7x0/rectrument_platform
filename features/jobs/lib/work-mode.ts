@@ -1,17 +1,9 @@
 /**
- * Derive WFO / WFH from Jobs.Location (no dedicated Airtable work-mode column).
- * City / office locations → WFO; remote / WFH wording → WFH.
+ * Resolve WFO / WFH from Jobs.Work Mode when present, else infer from Location.
  */
-export type JobWorkMode = "WFO" | "WFH";
+export type JobWorkMode = "WFO" | "WFH" | "Hybrid";
 
-export function deriveJobWorkMode(
-  location: string | null | undefined,
-): JobWorkMode | null {
-  const raw = location?.trim();
-  if (!raw) {
-    return null;
-  }
-
+function classifyWorkModeText(raw: string): JobWorkMode | null {
   const value = raw.toLowerCase();
 
   if (
@@ -23,6 +15,10 @@ export function deriveJobWorkMode(
     return "WFH";
   }
 
+  if (/\bhybrid\b/.test(value)) {
+    return "Hybrid";
+  }
+
   if (
     /\bwfo\b/.test(value) ||
     /work\s*from\s*office/.test(value) ||
@@ -31,6 +27,28 @@ export function deriveJobWorkMode(
     /\boffice\b/.test(value)
   ) {
     return "WFO";
+  }
+
+  return null;
+}
+
+export function deriveJobWorkMode(
+  location: string | null | undefined,
+  explicitWorkMode?: string | null,
+): JobWorkMode | null {
+  const fromField = explicitWorkMode?.trim();
+  if (fromField) {
+    return classifyWorkModeText(fromField) ?? (fromField as JobWorkMode);
+  }
+
+  const raw = location?.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const classified = classifyWorkModeText(raw);
+  if (classified) {
+    return classified;
   }
 
   // City / region codes (BLR, HYD, Bangalore, …) imply office presence.

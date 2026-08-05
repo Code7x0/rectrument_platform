@@ -51,7 +51,7 @@ export function JobActions({
           className="gap-1 px-2"
         >
           <Users className="h-4 w-4" />
-          <span className="hidden xl:inline">Partners</span>
+          <span className="hidden xl:inline">Partners / Remove</span>
         </Button>
       ) : null}
       {canManage && job.status !== "archived" && onAssignAm ? (

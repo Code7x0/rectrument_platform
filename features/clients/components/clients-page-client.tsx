@@ -205,7 +205,7 @@ export function ClientsPageClient({
 
       <ClientTable
         clients={filtered}
-        loading={pending}
+        loading={false}
         canUpdate={canUpdate}
         canArchive={canArchive}
         hideClientName={isAmPath}

@@ -43,26 +43,29 @@ function shouldSkipDuplicate(input: SendEmailInput): boolean {
  * If resend is selected but keys are missing, falls back to console with a warning.
  */
 export function getEmailService(): EmailService {
-  const provider = (process.env.EMAIL_PROVIDER ?? "console").toLowerCase();
+  const provider = (process.env.EMAIL_PROVIDER ?? "").toLowerCase().trim();
 
-  switch (provider) {
-    case "resend": {
-      if (!isResendConfigured()) {
-        console.warn(
-          "[email] EMAIL_PROVIDER=resend but RESEND_API_KEY / EMAIL_FROM missing — using console provider",
-        );
-        return new ConsoleEmailProvider();
-      }
-      return new ResendEmailProvider();
-    }
-    case "console":
-      return new ConsoleEmailProvider();
-    default:
+  // If Resend keys exist, use Resend unless the operator explicitly chose console.
+  if (provider !== "console" && (provider === "resend" || isResendConfigured())) {
+    if (!isResendConfigured()) {
       console.warn(
-        `[email] Unknown EMAIL_PROVIDER="${provider}" — using console`,
+        "[email] EMAIL_PROVIDER=resend but RESEND_API_KEY / EMAIL_FROM missing — using console provider",
       );
       return new ConsoleEmailProvider();
+    }
+    return new ResendEmailProvider();
   }
+
+  if (provider && provider !== "console" && provider !== "resend") {
+    console.warn(
+      `[email] Unknown EMAIL_PROVIDER="${provider}" — using console`,
+    );
+  } else if (provider !== "console") {
+    console.warn(
+      "[email] EMAIL_PROVIDER unset and Resend is not configured — emails log to console only",
+    );
+  }
+  return new ConsoleEmailProvider();
 }
 
 export async function sendEmail(

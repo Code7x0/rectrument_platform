@@ -48,13 +48,12 @@ interface AssignAccountManagerDialogProps {
 }
 
 function amOptionLabel(am: LookupOption): string {
-  // Admin / Super Admin pickers: names only. Short AM IDs are for partners.
-  return am.label;
+  return am.code?.trim() || am.id;
 }
 
 /**
  * Assign or unassign Account Manager — Admin / Super Admin.
- * Shows names (with short AM code). Partners never use this dialog.
+ * Shows business AM IDs only — not personal names.
  */
 export function AssignAccountManagerDialog({
   open,

@@ -1,7 +1,12 @@
 import { cache } from "react";
 
+import { getRecords, type AirtableFields } from "@/lib/airtable/client";
+import { asLinkedIds } from "@/lib/airtable/compat";
+import { PARTNERS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import { getAirtableTableName } from "@/lib/airtable/tables";
 import {
   getAllocationById,
+  listActiveAllocationsForPartner,
   updateAllocation,
 } from "@/features/allocations/services";
 import {
@@ -53,7 +58,6 @@ import {
   DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
   SUBMISSIONS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
-import type { AirtableFields } from "@/lib/airtable/client";
 import { listPartnerOptions } from "@/services/lookups";
 
 /** Request-scoped: one full Candidates/Submissions scan per RSC request. */
@@ -105,6 +109,8 @@ async function withEnrichment(
       linkedIn: candidate?.linkedIn ?? row.linkedIn ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,
+      clientId: job?.clientId ?? null,
+      clientName: job?.clientName ?? null,
       jobPriority: job?.priority ?? null,
       partnerName: partner?.label ?? null,
       partnerCode: partner?.code ?? null,
@@ -231,10 +237,60 @@ export async function listSubmissions(
   return filtered;
 }
 
+async function listPartnerLinkedCandidateIds(
+  partnerId: string,
+): Promise<Set<string>> {
+  try {
+    const records = await getRecords(getAirtableTableName("partnersTable"), {
+      filterByFormula: `RECORD_ID() = '${partnerId.replace(/'/g, "\\'")}'`,
+      fields: [PARTNERS_TABLE_FIELDS.candidates],
+      maxRecords: 1,
+    });
+    const fields = (records[0]?.fields ?? {}) as AirtableFields;
+    return new Set(asLinkedIds(fields[PARTNERS_TABLE_FIELDS.candidates]));
+  } catch (error) {
+    console.warn("[submissions] Partner.Candidates lookup failed", error);
+    return new Set();
+  }
+}
+
 export async function listPartnerSubmissions(
   partnerId: string,
 ): Promise<Submission[]> {
-  return listSubmissions({ partnerId });
+  if (!partnerId) {
+    return [];
+  }
+
+  const [linked, linkedCandidateIds, allocations] = await Promise.all([
+    listSubmissions({ partnerId }),
+    listPartnerLinkedCandidateIds(partnerId),
+    listActiveAllocationsForPartner(partnerId),
+  ]);
+
+  const allocatedJobIds = new Set(allocations.map((row) => row.jobId));
+  const seen = new Set(linked.map((row) => row.id));
+
+  if (linkedCandidateIds.size === 0 && allocatedJobIds.size === 0) {
+    return linked;
+  }
+
+  const extras = (await listSubmissions({ enrich: true })).filter((row) => {
+    if (seen.has(row.id)) {
+      return false;
+    }
+    if (linkedCandidateIds.has(row.id) || linkedCandidateIds.has(row.candidateId)) {
+      return true;
+    }
+    return !row.partnerId && allocatedJobIds.has(row.jobId);
+  });
+
+  if (extras.length === 0) {
+    return linked;
+  }
+
+  return [...linked, ...extras].sort((a, b) =>
+    (b.submissionDate ?? "").localeCompare(a.submissionDate ?? ""),
+  );
 }
 
 export async function getSubmissionById(

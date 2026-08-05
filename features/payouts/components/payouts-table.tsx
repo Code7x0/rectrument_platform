@@ -104,7 +104,6 @@ export function PayoutsTable({
         const q = search.trim().toLowerCase();
         const matches =
           (row.partnerCode?.toLowerCase().includes(q) ?? false) ||
-          (row.partnerName?.toLowerCase().includes(q) ?? false) ||
           (row.candidateName?.toLowerCase().includes(q) ?? false) ||
           (row.jobTitle?.toLowerCase().includes(q) ?? false);
         if (!matches) {
@@ -119,10 +118,10 @@ export function PayoutsTable({
     () => [
       {
         id: "partner",
-        header: "Talent Partner",
+        header: "Partner ID",
         cell: (row) => (
           <span className="font-medium text-[#0F172A]">
-            {row.partnerName ?? row.partnerCode ?? "—"}
+            {row.partnerCode || "—"}
           </span>
         ),
       },
@@ -315,7 +314,7 @@ export function PayoutsTable({
           <option value="all">All talent partners</option>
           {partners.map((partner) => (
             <option key={partner.id} value={partner.id}>
-              {partner.label}
+              {partner.code?.trim() || partner.id}
             </option>
           ))}
         </Select>
@@ -323,7 +322,7 @@ export function PayoutsTable({
           <option value="all">All account managers</option>
           {accountManagers.map((am) => (
             <option key={am.id} value={am.id}>
-              {am.label}
+              {am.code?.trim() || am.id}
             </option>
           ))}
         </Select>
@@ -333,7 +332,7 @@ export function PayoutsTable({
         columns={columns}
         data={filtered}
         getRowId={(row) => row.id}
-        loading={isPending}
+        loading={false}
         emptyTitle="No payouts yet"
         emptyDescription="Payouts are created automatically when talent partners submit candidates."
       />
@@ -355,10 +354,7 @@ export function PayoutsTable({
               ) : null}
               <PayoutStatusBadge status={selected.payoutStatus} />
             </div>
-            <Detail
-              label="Talent Partner"
-              value={selected.partnerName ?? selected.partnerCode}
-            />
+            <Detail label="Partner ID" value={selected.partnerCode} />
             <Detail label="Job" value={selected.jobTitle} />
             <Detail
               label="Amount"

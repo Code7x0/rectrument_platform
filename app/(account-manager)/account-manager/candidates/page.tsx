@@ -17,7 +17,7 @@ import { listSubmissions } from "@/features/submissions/services";
 export default async function AccountManagerReviewQueuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ submissionId?: string }>;
+  searchParams: Promise<{ submissionId?: string; jobId?: string }>;
 }) {
   noStore();
 
@@ -42,6 +42,7 @@ export default async function AccountManagerReviewQueuePage({
 
   const params = await searchParams;
   const submissionId = params.submissionId?.trim() || null;
+  const jobId = params.jobId?.trim() || null;
 
   const jobIds = await listAccountManagerJobIds(accountManagerId);
   const jobIdSet = new Set(jobIds);
@@ -56,6 +57,7 @@ export default async function AccountManagerReviewQueuePage({
     <ReviewQueuePageClient
       initialSubmissions={submissions}
       initialSubmissionId={submissionId}
+      initialJobId={jobId}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
       hideClientName

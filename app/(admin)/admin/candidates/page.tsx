@@ -12,7 +12,7 @@ import { listSubmissions } from "@/features/submissions/services";
 export default async function AdminCandidatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submissionId?: string }>;
+  searchParams: Promise<{ submissionId?: string; jobId?: string }>;
 }) {
   noStore();
 
@@ -28,6 +28,7 @@ export default async function AdminCandidatesPage({
 
   const params = await searchParams;
   const submissionId = params.submissionId?.trim() || null;
+  const jobId = params.jobId?.trim() || null;
 
   const submissions = await listSubmissions({ includePartnerIdentity: true });
   const homeLabel =
@@ -39,6 +40,7 @@ export default async function AdminCandidatesPage({
     <ReviewQueuePageClient
       initialSubmissions={submissions}
       initialSubmissionId={submissionId}
+      initialJobId={jobId}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
       title="Candidates"

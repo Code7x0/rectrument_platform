@@ -101,8 +101,11 @@ export function ClientForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="industry">Industry</Label>
+          <Label htmlFor="industry">Industry *</Label>
           <Input id="industry" {...register("industry")} />
+          {errors.industry ? (
+            <p className="text-xs text-destructive">{errors.industry.message}</p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <Label htmlFor="primaryContact">Primary Contact</Label>
@@ -131,7 +134,7 @@ export function ClientForm({
             <option value="">Unassigned</option>
             {accountManagers.map((am) => (
               <option key={am.id} value={am.id}>
-                {am.label}
+                {am.code?.trim() || am.label}
               </option>
             ))}
           </Select>

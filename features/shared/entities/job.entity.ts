@@ -38,6 +38,8 @@ export interface JobEntity {
   /** Airtable attachment files from Job Description / Sample Profiling / Skill Matrix. */
   documents: JobDocument[];
   location: string | null;
+  /** Airtable Jobs.Work Mode when present (WFO / WFH / hybrid text). */
+  workMode: string | null;
   employmentType: EmploymentType | null;
   experience: string | null;
   salary: string | null;
@@ -52,6 +54,10 @@ export interface JobEntity {
   seniorityLevel: string | null;
   createdById: string | null;
   createdAt: string | null;
+  /** Jobs.Start Date — closest “job open / last activated” date on locked base. */
+  startDate: string | null;
+  /** Jobs.Posted Date (same Airtable column as createdAt chronology). */
+  postedDate: string | null;
 }
 
 export interface JobDocument {

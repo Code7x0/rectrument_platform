@@ -49,17 +49,12 @@ export function AccountManagersPageClient({
   const columns = useMemo<DataTableColumn<AccountManagerDirectoryRow>[]>(
     () => [
       {
-        id: "name",
-        header: "Name",
-        cell: (row) => (
-          <span className="font-medium text-[#0F172A]">{row.name}</span>
-        ),
-      },
-      {
         id: "amCode",
         header: "AM ID",
         cell: (row) => (
-          <span className="font-mono text-sm text-[#64748B]">{row.amCode}</span>
+          <span className="font-mono font-medium text-[#0F172A]">
+            {row.amCode}
+          </span>
         ),
       },
       {
@@ -183,7 +178,7 @@ export function AccountManagersPageClient({
           <DialogHeader>
             <DialogTitle>Assign Account Manager to client</DialogTitle>
             <DialogDescription>
-              Sets Clients.Account Owner for {assignTarget?.name}. All jobs
+              Sets Clients.Account Owner for {assignTarget?.amCode}. All jobs
               under that client become visible to this AM.
             </DialogDescription>
           </DialogHeader>

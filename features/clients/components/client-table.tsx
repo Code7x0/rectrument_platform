@@ -83,12 +83,39 @@ export function ClientTable({
           cell: (row) => row.industry ?? "—",
         },
         {
+          id: "address",
+          header: "Address",
+          className: "text-[#64748B]",
+          cell: (row) => row.primaryAddress || row.addresses || "—",
+        },
+        {
+          id: "employeeSize",
+          header: "Employee Size",
+          className: "text-[#64748B]",
+          cell: (row) => row.employeeSize ?? "—",
+        },
+        {
+          id: "workMode",
+          header: "Mode of Work",
+          className: "text-[#64748B]",
+          cell: (row) => row.modeOfWork ?? "—",
+        },
+        {
+          id: "workDays",
+          header: "Work Days",
+          className: "text-[#64748B]",
+          cell: (row) => row.workDaysInWeek ?? "—",
+        },
+      );
+
+      if (!hideClientName) {
+        cols.push({
           id: "contact",
           header: "Primary Contact",
           className: "text-[#64748B]",
           cell: (row) => row.primaryContact ?? "—",
-        },
-      );
+        });
+      }
 
       if (!hideClientName) {
         cols.push({

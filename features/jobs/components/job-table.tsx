@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, type ReactNode } from "react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import { JobActions } from "@/features/jobs/components/job-actions";
 import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
+import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
 import {
   EMPLOYMENT_TYPE_LABELS,
   JOB_PRIORITY_LABELS,
@@ -19,6 +21,10 @@ interface JobTableProps {
   canManage: boolean;
   canAllocate?: boolean;
   canViewPartners?: boolean;
+  hideAccountManager?: boolean;
+  submittedByJobId?: Record<string, number>;
+  /** Base path for submitted-profile links (e.g. /account-manager/candidates). */
+  submittedProfilesBasePath?: string;
   emptyAction?: ReactNode;
   onView: (job: Job) => void;
   onEdit: (job: Job) => void;
@@ -34,6 +40,9 @@ export function JobTable({
   canManage,
   canAllocate = false,
   canViewPartners = false,
+  hideAccountManager = false,
+  submittedByJobId = {},
+  submittedProfilesBasePath,
   emptyAction,
   onView,
   onEdit,
@@ -64,12 +73,16 @@ export function JobTable({
         className: "text-[#64748B]",
         cell: (job) => job.clientName ?? "—",
       },
-      {
-        id: "accountManager",
-        header: "Account Manager",
-        className: "text-[#64748B]",
-        cell: (job) => job.accountManagerName ?? "—",
-      },
+      ...(hideAccountManager
+        ? []
+        : [
+            {
+              id: "accountManager",
+              header: "Account Manager",
+              className: "text-[#64748B]",
+              cell: (job: Job) => job.accountManagerName ?? "—",
+            },
+          ]),
       {
         id: "hiringManager",
         header: "Hiring Manager",
@@ -81,6 +94,19 @@ export function JobTable({
         header: "Location",
         className: "text-[#64748B]",
         cell: (job) => job.location ?? "—",
+      },
+      {
+        id: "workMode",
+        header: "WFO / WFH",
+        className: "text-[#64748B]",
+        cell: (job) =>
+          deriveJobWorkMode(job.location, job.workMode) ?? job.workMode ?? "—",
+      },
+      {
+        id: "salary",
+        header: "Salary Range",
+        className: "text-[#64748B]",
+        cell: (job) => job.salary ?? "—",
       },
       {
         id: "employmentType",
@@ -116,10 +142,44 @@ export function JobTable({
         cell: (job) => <JobStatusBadge status={job.status} />,
       },
       {
-        id: "createdAt",
-        header: "Created Date",
+        id: "submitted",
+        header: "Submitted Profiles",
         className: "text-[#64748B]",
-        cell: (job) => (job.createdAt ? formatDate(job.createdAt) : "—"),
+        cell: (job) => {
+          const count = submittedByJobId[job.id] ?? 0;
+          if (!submittedProfilesBasePath) {
+            return count;
+          }
+          return (
+            <Link
+              href={`${submittedProfilesBasePath}?jobId=${encodeURIComponent(job.id)}`}
+              className="font-semibold text-[#2563EB] underline-offset-2 hover:underline"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {count}
+            </Link>
+          );
+        },
+      },
+      {
+        id: "jd",
+        header: "JD",
+        className: "text-[#64748B]",
+        cell: (job) =>
+          job.documents.some((doc) => doc.label === "Job Description")
+            ? "Available"
+            : job.description
+              ? "Text"
+              : "—",
+      },
+      {
+        id: "createdAt",
+        header: "Job Open Date",
+        className: "text-[#64748B]",
+        cell: (job) => {
+          const openDate = job.postedDate || job.startDate || job.createdAt;
+          return openDate ? formatDate(openDate) : "—";
+        },
       },
       {
         id: "actions",
@@ -145,12 +205,15 @@ export function JobTable({
       canAllocate,
       canManage,
       canViewPartners,
+      hideAccountManager,
       onAllocate,
       onArchive,
       onAssignAm,
       onEdit,
       onView,
       onViewPartners,
+      submittedByJobId,
+      submittedProfilesBasePath,
     ],
   );
 

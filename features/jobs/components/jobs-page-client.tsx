@@ -35,6 +35,9 @@ interface JobsPageClientProps {
   /** View + unassign partners on a job (Admin / SA / AM with archive). */
   canManagePartners?: boolean;
   canDelete?: boolean;
+  hideAccountManager?: boolean;
+  submittedByJobId?: Record<string, number>;
+  submittedProfilesBasePath?: string;
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
@@ -111,6 +114,9 @@ export function JobsPageClient({
   canAllocate,
   canManagePartners = false,
   canDelete = false,
+  hideAccountManager = false,
+  submittedByJobId = {},
+  submittedProfilesBasePath,
   breadcrumbs,
 }: JobsPageClientProps) {
   const router = useRouter();
@@ -208,10 +214,12 @@ export function JobsPageClient({
 
       <JobTable
         jobs={filteredJobs}
-        loading={pending}
         canManage={canManage}
         canAllocate={canAllocate}
         canViewPartners={canManagePartners || canAllocate}
+        hideAccountManager={hideAccountManager}
+        submittedByJobId={submittedByJobId}
+        submittedProfilesBasePath={submittedProfilesBasePath}
         emptyAction={
           canManage ? (
             <Button type="button" onClick={() => setCreateOpen(true)}>
@@ -270,6 +278,7 @@ export function JobsPageClient({
       <JobDrawer
         job={viewJob}
         open={Boolean(viewJob)}
+        hideAccountManager={hideAccountManager}
         onOpenChange={(open) => {
           if (!open) {
             setViewJob(null);

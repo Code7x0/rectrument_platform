@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AllocationStatusBadge } from "@/features/allocations/components/allocation-status-badge";
+import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
 import { JOB_PRIORITY_LABELS } from "@/features/jobs/types";
 import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
 import type { PartnerWorkTask } from "@/features/tasks/types";
@@ -33,7 +32,7 @@ function Meta({
 
 export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
   const salary = task.job.salary?.trim() || null;
-  const workMode = deriveJobWorkMode(task.location);
+  const workMode = deriveJobWorkMode(task.location, task.job.workMode);
 
   return (
     <article className="rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm transition hover:border-[#CBD5E1]">
@@ -43,30 +42,19 @@ export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
             {task.jobTitle}
           </h3>
           <p className="text-sm text-[#64748B]">
-            Job ID: {task.jobCode?.trim() || "—"}
+            {task.clientName?.trim() || "Client"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {workMode ? (
-            <Badge variant="secondary">{workMode}</Badge>
-          ) : null}
-          {task.priority ? (
-            <Badge
-              variant={
-                task.priority === "urgent" || task.priority === "high"
-                  ? "warning"
-                  : "secondary"
-              }
-            >
-              {JOB_PRIORITY_LABELS[task.priority]}
-            </Badge>
-          ) : null}
-          <AllocationStatusBadge status={task.allocationStatus} />
-        </div>
+        <JobStatusBadge status={task.job.status} />
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Meta label="Job ID" value={task.jobCode} />
+        <Meta label="Client" value={task.clientName} />
+        <Meta
+          label="Priority"
+          value={task.priority ? JOB_PRIORITY_LABELS[task.priority] : "—"}
+        />
         <Meta label="Location" value={task.location} />
         <Meta label="Years of Experience" value={task.experience} />
         <Meta label="Salary Range" value={salary} />
@@ -85,16 +73,10 @@ export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
         />
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#F1F5F9] pt-4">
-        <p className="text-sm text-[#0F172A]">
-          <span className="font-medium">{task.remainingProfiles}</span>
-          <span className="text-[#64748B]"> remaining to submit</span>
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenJob(task)}>
-            Open Job
-          </Button>
-        </div>
+      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-[#F1F5F9] pt-4">
+        <Button type="button" variant="outline" onClick={() => onOpenJob(task)}>
+          Open Job
+        </Button>
       </div>
     </article>
   );

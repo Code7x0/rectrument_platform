@@ -196,6 +196,17 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
     accountManagerId &&
     accountManagerId !== "all"
   ) {
+    const { listClients } = await import("@/features/clients/services");
+    const ownedClients = await listClients({
+      accountManagerId,
+      includeArchived: true,
+    });
+    for (const client of ownedClients) {
+      const existing = clientOwnersById.get(client.id) ?? [];
+      if (!existing.includes(accountManagerId)) {
+        clientOwnersById.set(client.id, [...existing, accountManagerId]);
+      }
+    }
     enriched = filterJobsForAccountManager(
       jobs,
       enriched,

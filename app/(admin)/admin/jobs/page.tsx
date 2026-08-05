@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAppSession, isAdmin, roleHasPermission } from "@/lib/auth";
 import { JobsPageClient } from "@/features/jobs/components";
 import { listJobs, getJobLocations } from "@/features/jobs/services";
+import { listSubmissions } from "@/features/submissions/services";
 import {
   listAccountManagerOptions,
   listClientOptions,
@@ -27,14 +28,20 @@ async function loadJobsPageData() {
     "archive_allocations",
   );
 
-  const [jobs, clients, accountManagers, partners, locations] =
+  const [jobs, clients, accountManagers, partners, locations, submissions] =
     await Promise.all([
       listJobs({ includeArchived: true }),
       listClientOptions(),
       listAccountManagerOptions(),
       listPartnerOptions("identity"),
       getJobLocations(),
+      listSubmissions({ enrich: false }),
     ]);
+
+  const submittedByJobId: Record<string, number> = {};
+  for (const row of submissions) {
+    submittedByJobId[row.jobId] = (submittedByJobId[row.jobId] ?? 0) + 1;
+  }
 
   return {
     session,
@@ -43,6 +50,7 @@ async function loadJobsPageData() {
     accountManagers,
     partners,
     locations,
+    submittedByJobId,
     canManage,
     canAllocate,
     canManagePartners,
@@ -62,6 +70,7 @@ export default async function AdminJobsPage() {
     canAllocate,
     canManagePartners,
     canDelete,
+    submittedByJobId,
   } = await loadJobsPageData();
 
   const homeLabel = session.role === "super_admin" ? "Super Admin" : "Admin";
@@ -78,6 +87,8 @@ export default async function AdminJobsPage() {
       canAllocate={canAllocate}
       canManagePartners={canManagePartners}
       canDelete={canDelete}
+      submittedByJobId={submittedByJobId}
+      submittedProfilesBasePath="/admin/candidates"
       breadcrumbs={[
         { label: homeLabel, href: homeHref },
         { label: "Jobs" },

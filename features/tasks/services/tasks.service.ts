@@ -53,7 +53,7 @@ function priorityRank(priority: JobPriority | null): number {
 }
 
 /**
- * Sort: higher priority first, then more remaining profiles, then newer assign.
+ * Sort Assigned Jobs by Airtable priority: High (then Urgent) first, then Medium, then Low.
  */
 export function sortPartnerWorkTasks(
   tasks: PartnerWorkTask[],
@@ -63,15 +63,7 @@ export function sortPartnerWorkTasks(
     if (byPriority !== 0) {
       return byPriority;
     }
-
-    const byRemaining = b.remainingProfiles - a.remainingProfiles;
-    if (byRemaining !== 0) {
-      return byRemaining;
-    }
-
-    const aDate = a.assignedDate ?? "";
-    const bDate = b.assignedDate ?? "";
-    return bDate.localeCompare(aDate);
+    return (a.jobTitle ?? "").localeCompare(b.jobTitle ?? "");
   });
 }
 

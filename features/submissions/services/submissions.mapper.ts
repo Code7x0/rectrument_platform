@@ -84,11 +84,10 @@ export function mapSubmissionRecord(record: {
   const partnerId = asLinkedId(fields[SUBMISSIONS_TABLE_FIELDS.partner]);
 
   if (mode === "candidates") {
-    if (!jobId || !partnerId) {
-      throw new Error(
-        `Submission ${record.id} is missing Job/Role or Submitted By (Partner)`,
-      );
+    if (!jobId) {
+      throw new Error(`Submission ${record.id} is missing Job/Role`);
     }
+    const resolvedPartnerId = partnerId ?? "";
     const resume = asAttachment(fields[SUBMISSIONS_TABLE_FIELDS.resume]);
     return {
       id: record.id,
@@ -105,8 +104,12 @@ export function mapSubmissionRecord(record: {
       jobId,
       jobTitle: null,
       jobCode: null,
-      allocationId: buildJobPartnerAllocationId(jobId, partnerId),
-      partnerId,
+      clientId: null,
+      clientName: null,
+      allocationId: resolvedPartnerId
+        ? buildJobPartnerAllocationId(jobId, resolvedPartnerId)
+        : `job_${jobId}`,
+      partnerId: resolvedPartnerId,
       partnerName: null,
       partnerCode: null,
       submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
@@ -141,6 +144,8 @@ export function mapSubmissionRecord(record: {
     jobId,
     jobTitle: null,
     jobCode: null,
+    clientId: null,
+    clientName: null,
     allocationId,
     partnerId,
     partnerName: null,

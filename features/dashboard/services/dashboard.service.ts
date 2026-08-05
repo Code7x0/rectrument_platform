@@ -505,10 +505,13 @@ export async function getAccountManagerDashboardData(
   const { unstable_noStore: noStore } = await import("next/cache");
   noStore();
 
-  const jobs = await listJobs({
-    accountManagerId,
-    includeArchived: false,
-  });
+  const [jobs, clients] = await Promise.all([
+    listJobs({
+      accountManagerId,
+      includeArchived: false,
+    }),
+    listClients({ accountManagerId, includeArchived: false }),
+  ]);
   const jobIds = jobs.map((j) => j.id);
   const jobIdSet = new Set(jobIds);
   const jobTitleById = new Map(jobs.map((j) => [j.id, j.title]));
@@ -537,13 +540,24 @@ export async function getAccountManagerDashboardData(
     jobTitle: row.jobTitle ?? jobTitleById.get(row.jobId) ?? null,
   }));
 
-  const assignedJobs = jobs.filter((j) => j.status === "open");
-  const myAllocations = allocations;
+  const activeJobs = jobs.filter(
+    (j) => j.status === "open" || j.status === "on_hold",
+  );
+  const myAllocations = allocations.filter((a) => a.status !== "archived");
+  const uniquePartners = new Set(
+    myAllocations.map((row) => row.partnerId).filter(Boolean),
+  );
   const mySubmissions = allSubmissions;
-  const myReviews = mySubmissions.filter((s) =>
-    REVIEWABLE_SUBMISSION_STATUSES.includes(s.status),
+  const myReviews = mySubmissions.filter(
+    (s) => s.status === "submitted" || s.status === "internal_review",
   );
 
+  const internalScreening = mySubmissions.filter(
+    (s) => s.status === "internal_review",
+  );
+  const beingSubmitted = mySubmissions.filter(
+    (s) => s.status === "client_review",
+  );
   const interviews = mySubmissions.filter((s) => s.status === "interview");
   const offers = mySubmissions.filter((s) => s.status === "offer");
   const joined = mySubmissions.filter((s) => s.status === "joined");
@@ -582,38 +596,60 @@ export async function getAccountManagerDashboardData(
   return {
     metrics: [
       {
+        id: "accounts",
+        label: "Accounts Owned",
+        value: clients.filter((c) => c.status === "active").length,
+        href: "/account-manager/clients",
+      },
+      {
         id: "jobs",
-        label: "Assigned Jobs",
-        value: assignedJobs.length,
+        label: "Active Jobs",
+        value: activeJobs.length,
         href: "/account-manager/jobs",
       },
       {
+        id: "submissions",
+        label: "Profiles Submitted",
+        value: mySubmissions.length,
+        href: "/account-manager/candidates",
+      },
+      {
         id: "reviews",
-        label: "Pending Reviews",
+        label: "Pending My Review",
         value: myReviews.length,
         href: "/account-manager/candidates",
         tone: myReviews.length > 0 ? "attention" : "default",
       },
       {
-        id: "submissions",
-        label: "Candidates Submitted",
-        value: mySubmissions.length,
+        id: "interviewing",
+        label: "In Process With Client",
+        value: interviews.length,
         href: "/account-manager/candidates",
+        hint: "Interviewing",
       },
       {
         id: "allocations",
         label: "Talent Partners Allocated",
-        value: myAllocations.filter((a) => a.status !== "archived").length,
+        value: uniquePartners.size,
         href: "/account-manager/allocations",
+        hint: "Unique partners",
+      },
+    ],
+    funnel: [
+      {
+        id: "internal-screening",
+        label: "Internal Screening in Progress",
+        value: internalScreening.length,
+        href: "/account-manager/candidates",
+      },
+      {
+        id: "being-submitted",
+        label: "Being Submitted to Client",
+        value: beingSubmitted.length,
+        href: "/account-manager/candidates",
       },
     ],
     pipeline: [
-      {
-        id: "interview",
-        label: "Interview Pipeline",
-        value: interviews.length,
-        href: "/account-manager/candidates",
-      },
       {
         id: "offers",
         label: "Offers",
@@ -623,7 +659,7 @@ export async function getAccountManagerDashboardData(
       },
       {
         id: "joined",
-        label: "Joined",
+        label: "Joining / Joined",
         value: joined.length,
         href: "/account-manager/candidates",
         tone: "positive",
@@ -682,8 +718,8 @@ export async function getPartnerDashboardData(
 
   const earnings = summarizePartnerEarnings(payouts);
 
-  const underReview = submissions.filter((s) =>
-    ["submitted", "internal_review", "client_review"].includes(s.status),
+  const pendingReview = submissions.filter(
+    (s) => s.status === "submitted" || s.status === "internal_review",
   );
   const interviews = submissions.filter((s) => s.status === "interview");
   const offers = submissions.filter((s) => s.status === "offer");
@@ -694,7 +730,7 @@ export async function getPartnerDashboardData(
     metrics: [
       {
         id: "jobs",
-        label: "Assigned Jobs",
+        label: "Active Jobs",
         value: tasks.length,
         href: "/partner/jobs",
         tone: tasks.some((t) => t.remainingProfiles > 0)
@@ -703,21 +739,22 @@ export async function getPartnerDashboardData(
       },
       {
         id: "submitted",
-        label: "Candidates Submitted",
+        label: "Profiles Submitted",
         value: submissions.length,
         href: "/partner/candidates",
       },
       {
         id: "review",
-        label: "Under Review",
-        value: underReview.length,
+        label: "Pending My Review",
+        value: pendingReview.length,
         href: "/partner/candidates",
       },
       {
         id: "interviews",
-        label: "Interviewing",
+        label: "In Process With Client",
         value: interviews.length,
         href: "/partner/candidates",
+        hint: "Interviewing",
       },
       {
         id: "offers",
@@ -728,7 +765,7 @@ export async function getPartnerDashboardData(
       },
       {
         id: "joined",
-        label: "Joined",
+        label: "Joining",
         value: joined.length,
         href: "/partner/candidates",
         tone: "positive",
@@ -796,7 +833,7 @@ export async function getPartnerDashboardData(
       },
       {
         id: "submit",
-        label: "Submit Profile",
+        label: "Submit Candidate",
         description: "Tag a JD and submit in one step",
         href: "/partner/submit",
       },

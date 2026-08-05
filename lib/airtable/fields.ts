@@ -148,6 +148,7 @@ export const JOBS_TABLE_FIELDS = {
   sampleProfiling: "Sample Profiling",
   skillMatrixFitment: "Skill Matrix Fitment",
   location: "Location",
+  workMode: "Work Mode",
   employmentType: "Employment Type",
   experience: "Years of Exp",
   salary: "Salary Range",
@@ -229,6 +230,11 @@ export const AIRTABLE_JOB_STATUS = {
   Cancelled: "cancelled",
   Filled: "filled",
   Archived: "archived",
+  /** Legacy / informal labels seen in UI — map to closed, never invent options. */
+  Complete: "closed",
+  Completed: "closed",
+  Active: "open",
+  Assigned: "open",
 } as const;
 
 export const DOMAIN_JOB_STATUS_TO_AIRTABLE = {

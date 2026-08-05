@@ -8,6 +8,7 @@ import {
 import { JobsPageClient } from "@/features/jobs/components";
 import { listJobs, getJobLocations } from "@/features/jobs/services";
 import { listClients } from "@/features/clients/services";
+import { listSubmissions } from "@/features/submissions/services";
 import { listPartnerOptions } from "@/services/lookups";
 
 export default async function AccountManagerJobsPage() {
@@ -32,7 +33,7 @@ export default async function AccountManagerJobsPage() {
     "archive_allocations",
   );
 
-  const [jobs, assignedClients, accountManagers, partners, locations] =
+  const [jobs, assignedClients, accountManagers, partners, locations, submissions] =
     await Promise.all([
       listJobs({
         includeArchived: true,
@@ -42,6 +43,7 @@ export default async function AccountManagerJobsPage() {
       Promise.resolve([{ id: accountManagerId, label: "You" }]),
       listPartnerOptions("operational"),
       getJobLocations(),
+      listSubmissions({ enrich: false }),
     ]);
 
   const codeByClientId = new Map(
@@ -66,6 +68,15 @@ export default async function AccountManagerJobsPage() {
       null,
   }));
 
+  const jobIdSet = new Set(jobs.map((job) => job.id));
+  const submittedByJobId: Record<string, number> = {};
+  for (const row of submissions) {
+    if (!jobIdSet.has(row.jobId)) {
+      continue;
+    }
+    submittedByJobId[row.jobId] = (submittedByJobId[row.jobId] ?? 0) + 1;
+  }
+
   return (
     <JobsPageClient
       initialJobs={jobsForAm}
@@ -76,6 +87,9 @@ export default async function AccountManagerJobsPage() {
       canManage={false}
       canAllocate={canAllocate}
       canManagePartners={canManagePartners}
+      hideAccountManager
+      submittedByJobId={submittedByJobId}
+      submittedProfilesBasePath="/account-manager/candidates"
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },
         { label: "Jobs" },

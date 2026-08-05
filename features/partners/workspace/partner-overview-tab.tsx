@@ -61,7 +61,7 @@ export function PartnerOverviewTab({
           value={performance.profilesSubmitted}
         />
         <WorkspaceMetricCard
-          label="Interviews"
+          label="Interviewing"
           value={performance.interviews}
         />
         <WorkspaceMetricCard label="Offers" value={performance.offers} />
