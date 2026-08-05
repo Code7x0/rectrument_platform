@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -181,14 +182,13 @@ export function CandidateForm({
             ) : currentResumeUrl ? (
               <p className="text-xs text-muted-foreground">
                 Current resume stays unless you upload a replacement.{" "}
-                <a
-                  href={currentResumeUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <FilePreviewLink
+                  url={currentResumeUrl}
+                  title="Current resume"
                   className="font-medium text-[#2563EB] hover:underline"
                 >
-                  Open current
-                </a>
+                  Preview current
+                </FilePreviewLink>
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">

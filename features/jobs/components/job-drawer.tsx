@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Badge } from "@/components/ui/badge";
 import { EntityActivityInline } from "@/features/activity/components/entity-activity-inline";
 import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
@@ -155,14 +156,14 @@ export function JobDrawer({
               <ul className="mt-2 space-y-2">
                 {job.documents.map((doc) => (
                   <li key={`${doc.label}-${doc.url}`}>
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noreferrer"
+                    <FilePreviewLink
+                      url={doc.url}
+                      filename={doc.filename}
+                      title={`${doc.label}: ${doc.filename}`}
                       className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
                     >
                       {doc.label}: {doc.filename}
-                    </a>
+                    </FilePreviewLink>
                   </li>
                 ))}
               </ul>

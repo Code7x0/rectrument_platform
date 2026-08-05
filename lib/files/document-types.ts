@@ -77,6 +77,26 @@ export function hasAllowedExtension(
     .some((ext) => lower.endsWith(ext.toLowerCase()));
 }
 
+export function contentTypeForFilename(filename: string): string | null {
+  const ext = extensionOf(filename);
+  return ext ? (EXT_TO_MIME[ext] ?? null) : null;
+}
+
+export function isInlinePreviewableFile(
+  filename: string,
+  contentType?: string | null,
+): boolean {
+  const type = (
+    contentTypeForFilename(filename) ??
+    contentType ??
+    ""
+  )
+    .toLowerCase()
+    .split(";")[0]
+    ?.trim();
+  return type === "application/pdf" || Boolean(type?.startsWith("image/"));
+}
+
 /**
  * Canonical MIME for Airtable uploads. Extension wins when present.
  */

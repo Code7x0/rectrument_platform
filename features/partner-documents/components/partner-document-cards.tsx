@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { EntityActivityInline } from "@/features/activity/components/entity-activity-inline";
 import { WorkspaceSection } from "@/features/shared/workspace";
 import {
@@ -166,25 +167,31 @@ export function PartnerDocumentCards({
                 <div className="mt-4 flex flex-wrap gap-2">
                   {slot.document?.fileUrl ? (
                     <>
+                      <FilePreviewLink
+                        asButton
+                        url={slot.document.fileUrl}
+                        filename={slot.document.fileName}
+                        title={slot.label}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Preview
+                      </FilePreviewLink>
+                      <FilePreviewLink
+                        asButton
+                        download
+                        url={slot.document.fileUrl}
+                        filename={slot.document.fileName}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </FilePreviewLink>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         onClick={() => setSelected(slot)}
                       >
-                        <Eye className="h-3.5 w-3.5" />
-                        View
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" asChild>
-                        <a
-                          href={slot.document.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={slot.document.fileName ?? undefined}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Download
-                        </a>
+                        Details
                       </Button>
                     </>
                   ) : null}
@@ -264,15 +271,16 @@ export function PartnerDocumentCards({
               value={selected.document.rejectionReason}
             />
             {selected.document.fileUrl ? (
-              <Button type="button" asChild>
-                <a
-                  href={selected.document.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open file
-                </a>
-              </Button>
+              <FilePreviewLink
+                asButton
+                variant="default"
+                size="default"
+                url={selected.document.fileUrl}
+                filename={selected.document.fileName}
+                title={selected.label}
+              >
+                Preview file
+              </FilePreviewLink>
             ) : null}
             <div className="border-t border-[#E2E8F0] pt-4">
               <EntityActivityInline

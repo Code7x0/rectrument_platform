@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -193,15 +194,14 @@ export function PartnerSubmissionsPageClient({
                     </p>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs">
                       {row.resumeUrl ? (
-                        <a
-                          href={row.resumeUrl}
-                          target="_blank"
-                          rel="noreferrer"
+                        <FilePreviewLink
+                          url={row.resumeUrl}
+                          title={`${row.candidateName ?? "Candidate"} resume`}
                           className="inline-flex items-center gap-1 font-medium text-[#2563EB] hover:underline"
                         >
                           <FileText className="h-3.5 w-3.5" />
                           Resume
-                        </a>
+                        </FilePreviewLink>
                       ) : null}
                       {row.linkedIn ? (
                         <a

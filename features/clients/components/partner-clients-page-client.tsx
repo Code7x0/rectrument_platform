@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
-import { Button } from "@/components/ui/button";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import type { PartnerClientView } from "@/features/shared/entities";
 import { CLIENT_STATUS_LABELS } from "@/features/shared/entities";
 
@@ -131,12 +131,16 @@ export function PartnerClientsPageClient({
               {client.briefDeck.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {client.briefDeck.map((file) => (
-                    <Button key={file.url} asChild size="sm" variant="outline">
-                      <a href={file.url} target="_blank" rel="noreferrer">
-                        <FileText className="h-3.5 w-3.5" />
-                        {file.filename}
-                      </a>
-                    </Button>
+                    <FilePreviewLink
+                      key={file.url}
+                      asButton
+                      url={file.url}
+                      filename={file.filename}
+                      title={file.filename}
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {file.filename}
+                    </FilePreviewLink>
                   ))}
                 </div>
               ) : null}

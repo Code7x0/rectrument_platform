@@ -11,6 +11,7 @@ import { DataTable, type DataTableColumn } from "@/components/shared/data-table"
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -404,17 +405,13 @@ export function ReviewQueuePageClient({
                     />
                   </div>
                   {(candidate?.resumeUrl || selected?.resumeUrl) ? (
-                    <Button asChild variant="outline" size="sm">
-                      <a
-                        href={
-                          (candidate?.resumeUrl || selected?.resumeUrl) ?? "#"
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open Resume
-                      </a>
-                    </Button>
+                    <FilePreviewLink
+                      asButton
+                      url={candidate?.resumeUrl || selected?.resumeUrl}
+                      title={`${selected.candidateName ?? "Candidate"} resume`}
+                    >
+                      Preview Resume
+                    </FilePreviewLink>
                   ) : (
                     <p className="text-sm text-[#64748B]">No resume on file</p>
                   )}

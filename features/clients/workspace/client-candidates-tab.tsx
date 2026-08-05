@@ -3,6 +3,7 @@
 import { ClipboardList, ExternalLink, FileText } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import {
   SUBMISSION_STATUS_LABELS,
   type Submission,
@@ -44,15 +45,14 @@ export function ClientCandidatesTab({
               </p>
               <div className="mt-2 flex flex-wrap gap-3 text-xs">
                 {row.resumeUrl ? (
-                  <a
-                    href={row.resumeUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <FilePreviewLink
+                    url={row.resumeUrl}
+                    title={`${row.candidateName ?? "Candidate"} resume`}
                     className="inline-flex items-center gap-1 font-medium text-[#2563EB] hover:underline"
                   >
                     <FileText className="h-3.5 w-3.5" />
                     Resume
-                  </a>
+                  </FilePreviewLink>
                 ) : null}
                 {row.linkedIn ? (
                   <a

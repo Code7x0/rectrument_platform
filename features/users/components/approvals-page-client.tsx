@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ContentContainer } from "@/components/shared/content-container";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -215,14 +216,14 @@ export function ApprovalsPageClient({
                     {doc.fileUrl ? (
                       <>
                         {" · "}
-                        <a
-                          href={doc.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
+                        <FilePreviewLink
+                          url={doc.fileUrl}
+                          filename={doc.fileName}
+                          title={DOCUMENT_TYPE_LABELS[doc.documentType]}
                           className="text-[#2563EB] underline"
                         >
-                          Open
-                        </a>
+                          Preview
+                        </FilePreviewLink>
                       </>
                     ) : null}
                   </li>

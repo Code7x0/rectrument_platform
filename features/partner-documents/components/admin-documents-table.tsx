@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,28 +103,38 @@ export function AdminDocumentsTable({
         header: "Actions",
         cell: (row) => (
           <div className="flex flex-wrap gap-1">
+            {row.fileUrl ? (
+              <FilePreviewLink
+                asButton
+                variant="ghost"
+                url={row.fileUrl}
+                filename={row.fileName}
+                title={DOCUMENT_TYPE_LABELS[row.documentType]}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Preview
+              </FilePreviewLink>
+            ) : null}
+            {row.fileUrl ? (
+              <FilePreviewLink
+                asButton
+                download
+                variant="ghost"
+                url={row.fileUrl}
+                filename={row.fileName}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download
+              </FilePreviewLink>
+            ) : null}
             <Button
               type="button"
               size="sm"
               variant="ghost"
               onClick={() => setSelected(row)}
             >
-              <Eye className="h-3.5 w-3.5" />
-              View
+              Details
             </Button>
-            {row.fileUrl ? (
-              <Button type="button" size="sm" variant="ghost" asChild>
-                <a
-                  href={row.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={row.fileName ?? undefined}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </a>
-              </Button>
-            ) : null}
             {canVerify && row.verificationStatus !== "verified" ? (
               <Button
                 type="button"
@@ -227,15 +238,16 @@ export function AdminDocumentsTable({
             <Detail label="Verified by" value={selected.verifiedByName} />
             <Detail label="Rejection reason" value={selected.rejectionReason} />
             {selected.fileUrl ? (
-              <Button type="button" asChild>
-                <a
-                  href={selected.fileUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open file
-                </a>
-              </Button>
+              <FilePreviewLink
+                asButton
+                variant="default"
+                size="default"
+                url={selected.fileUrl}
+                filename={selected.fileName}
+                title={DOCUMENT_TYPE_LABELS[selected.documentType]}
+              >
+                Preview file
+              </FilePreviewLink>
             ) : null}
             <div className="border-t border-[#E2E8F0] pt-4">
               <EntityActivityInline
