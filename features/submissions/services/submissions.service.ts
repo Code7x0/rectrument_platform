@@ -111,6 +111,7 @@ async function withEnrichment(
       jobCode: job?.jobCode || null,
       clientId: job?.clientId ?? null,
       clientName: job?.clientName ?? null,
+      clientCode: job?.clientCode ?? null,
       jobPriority: job?.priority ?? null,
       partnerName: partner?.label ?? null,
       partnerCode: partner?.code ?? null,

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { WorkspaceShell } from "@/features/shared/workspace";
 import { Button } from "@/components/ui/button";
 import { ClientDialog } from "@/features/clients/components/client-dialog";
+import { JobDialog } from "@/features/jobs/components/job-dialog";
 import { ClientOverviewTab } from "@/features/clients/workspace/client-overview-tab";
 import { ClientJobsTab } from "@/features/clients/workspace/client-jobs-tab";
 import { ClientPartnersTab } from "@/features/clients/workspace/client-partners-tab";
@@ -74,6 +75,7 @@ export function ClientWorkspacePageClient({
 }: ClientWorkspacePageClientProps) {
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
+  const [createJobOpen, setCreateJobOpen] = useState(false);
   const isAmPath = basePath === "/account-manager/clients";
 
   const tabs = [
@@ -124,6 +126,12 @@ export function ClientWorkspacePageClient({
               title={`${isAmPath ? (client.clientCode ?? "Client") : client.name} activity`}
               initial={activityTimeline}
             />
+            {canManageJobs && client.status !== "archived" ? (
+              <Button type="button" onClick={() => setCreateJobOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create Job
+              </Button>
+            ) : null}
             {canUpdate && client.status !== "archived" ? (
               <Button type="button" variant="outline" onClick={() => setEditOpen(true)}>
                 <Pencil className="h-4 w-4" />
@@ -142,6 +150,7 @@ export function ClientWorkspacePageClient({
         ) : null}
         {tab === "jobs" ? (
           <ClientJobsTab
+            clientId={client.id}
             jobs={jobs}
             clients={clients}
             accountManagers={accountManagers}
@@ -149,6 +158,7 @@ export function ClientWorkspacePageClient({
             canManageJobs={canManageJobs}
             canAllocate={canAllocate}
             canManagePartners={canManagePartners}
+            lockAccountManager={isAmPath}
           />
         ) : null}
         {tab === "partners" ? (
@@ -179,6 +189,18 @@ export function ClientWorkspacePageClient({
         lockAccountManager={isAmPath}
         hideClientName={isAmPath}
         onOpenChange={setEditOpen}
+        onCompleted={() => router.refresh()}
+      />
+
+      <JobDialog
+        open={createJobOpen}
+        mode="create"
+        clients={clients}
+        accountManagers={accountManagers}
+        lockAccountManager={isAmPath}
+        defaultClientId={client.id}
+        lockClient
+        onOpenChange={setCreateJobOpen}
         onCompleted={() => router.refresh()}
       />
     </ContentContainer>

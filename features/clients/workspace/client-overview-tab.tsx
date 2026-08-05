@@ -18,9 +18,21 @@ function Detail({
       <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
         {label}
       </p>
-      <p className="mt-1 text-sm text-[#0F172A]">{value || "—"}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">
+        {value || "—"}
+      </p>
     </div>
   );
+}
+
+function formatWfoWfhDays(
+  workDaysInWeek: number | null | undefined,
+  modeOfWork: string | null | undefined,
+) {
+  const days =
+    workDaysInWeek != null ? `${workDaysInWeek} day${workDaysInWeek === 1 ? "" : "s"}` : null;
+  const mode = modeOfWork?.trim() || null;
+  return [days, mode].filter(Boolean).join(" · ") || "—";
 }
 
 interface ClientOverviewTabProps {
@@ -69,17 +81,20 @@ export function ClientOverviewTab({
 
       <WorkspaceSection title="Client Details">
         <div className="grid gap-4 sm:grid-cols-2">
+          <Detail label="Client ID" value={client.clientCode} />
           {!hideClientName ? (
             <Detail label="Client Name" value={client.name} />
           ) : null}
           <Detail label="Industry" value={client.industry} />
           <Detail
-            label="Address"
+            label="Primary address of work"
             value={client.primaryAddress || client.addresses}
           />
           <Detail label="Employee Size" value={client.employeeSize} />
-          <Detail label="Mode of Work" value={client.modeOfWork} />
-          <Detail label="Work Days" value={client.workDaysInWeek} />
+          <Detail
+            label="No of days WFO/WFH"
+            value={formatWfoWfhDays(client.workDaysInWeek, client.modeOfWork)}
+          />
           {!hideClientName ? (
             <Detail label="Primary Contact" value={client.primaryContact} />
           ) : null}
@@ -89,33 +104,32 @@ export function ClientOverviewTab({
           <Detail label="Website" value={client.website} />
           <Detail label="Status" value={client.status} />
         </div>
-        <div className="mt-4">
-          <Detail label="Notes" value={client.notes} />
-        </div>
+      </WorkspaceSection>
+
+      <WorkspaceSection title="Key Notes">
+        <p className="whitespace-pre-wrap text-sm text-[#0F172A]">
+          {client.notes?.trim() || "—"}
+        </p>
+      </WorkspaceSection>
+
+      <WorkspaceSection title="Client Information Kit">
         {(client.briefDeck?.length ?? 0) > 0 ? (
-          <div className="mt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-              Client Brief PPT
-            </p>
-            <ul className="mt-2 space-y-2">
-              {client.briefDeck!.map((file) => (
-                <li key={`${file.filename}-${file.url}`}>
-                  <FilePreviewLink
-                    url={file.url}
-                    filename={file.filename}
-                    title={file.filename}
-                    className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
-                  >
-                    {file.filename}
-                  </FilePreviewLink>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <ul className="space-y-2">
+            {client.briefDeck!.map((file) => (
+              <li key={`${file.filename}-${file.url}`}>
+                <FilePreviewLink
+                  url={file.url}
+                  filename={file.filename}
+                  title={file.filename}
+                  className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
+                >
+                  {file.filename}
+                </FilePreviewLink>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <div className="mt-4">
-            <Detail label="Client Brief PPT" value={null} />
-          </div>
+          <p className="text-sm text-[#64748B]">No kit uploaded yet.</p>
         )}
       </WorkspaceSection>
     </div>

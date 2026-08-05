@@ -33,7 +33,7 @@ export interface ClientEntity {
 }
 
 /**
- * Projection for Talent Partners — never includes notes, AM, or primary contact.
+ * Projection for Talent Partners — view-only client kit (no AM / primary contact).
  */
 export interface PartnerClientView {
   id: string;
@@ -47,6 +47,8 @@ export interface PartnerClientView {
   employeeSize: string | null;
   modeOfWork: string | null;
   workDaysInWeek: number | null;
+  /** Airtable Clients.Notes — shown as Key Notes. */
+  notes: string | null;
   briefDeck: ClientAttachment[];
   /** Jobs currently assigned to this partner under this client. */
   assignedJobTitles: string[];

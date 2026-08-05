@@ -61,6 +61,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "view_dashboard",
     "manage_clients",
     "view_jobs",
+    "manage_jobs",
     "view_allocations",
     "manage_allocations",
     "archive_allocations",

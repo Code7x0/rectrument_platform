@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  CLIENT_MODE_OF_WORK_OPTIONS,
   clientFormSchema,
   type ClientFormValues,
 } from "@/features/clients/schemas/client.schema";
@@ -38,6 +39,9 @@ function toDefaults(client?: Client | null): ClientFormValues {
       primaryContact: "",
       accountManagerId: "",
       status: "active",
+      primaryAddress: "",
+      modeOfWork: "",
+      workDaysInWeek: "",
       notes: "",
     };
   }
@@ -49,6 +53,9 @@ function toDefaults(client?: Client | null): ClientFormValues {
     primaryContact: client.primaryContact ?? "",
     accountManagerId: client.accountManagerId ?? "",
     status: client.status === "archived" ? "active" : client.status,
+    primaryAddress: client.primaryAddress ?? "",
+    modeOfWork: client.modeOfWork ?? "",
+    workDaysInWeek: client.workDaysInWeek ?? "",
     notes: client.notes ?? "",
   };
 }
@@ -159,8 +166,50 @@ export function ClientForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="notes">Notes</Label>
-        <Textarea id="notes" rows={3} {...register("notes")} />
+        <Label htmlFor="primaryAddress">Primary address of work</Label>
+        <Textarea
+          id="primaryAddress"
+          rows={2}
+          {...register("primaryAddress")}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="modeOfWork">Mode of Work</Label>
+          <Select id="modeOfWork" {...register("modeOfWork")}>
+            <option value="">Not set</option>
+            {CLIENT_MODE_OF_WORK_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="workDaysInWeek">No of days WFO/WFH</Label>
+          <Input
+            id="workDaysInWeek"
+            type="number"
+            min={0}
+            max={7}
+            {...register("workDaysInWeek")}
+          />
+          {errors.workDaysInWeek ? (
+            <p className="text-xs text-destructive">
+              {errors.workDaysInWeek.message}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="notes">Key Notes</Label>
+        <Textarea id="notes" rows={4} {...register("notes")} />
+        <p className="text-xs text-[#64748B]">
+          Critical working notes. Assigned partners can view these; only Admin
+          and Account Managers can edit.
+        </p>
       </div>
 
       <div className="flex items-center justify-between gap-2 pt-2">

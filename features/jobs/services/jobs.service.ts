@@ -60,6 +60,9 @@ async function withEnrichment(
   // Need Account Owner ids for inherit — lookup options are labels only.
   const { listClients } = await import("@/features/clients/services");
   const clientRows = await listClients({ includeArchived: true });
+  const clientRecordMap = new Map(
+    clientRows.map((client) => [client.id, client]),
+  );
   const clientOwnersById = new Map(
     clientRows.map((client) => [
       client.id,
@@ -72,7 +75,10 @@ async function withEnrichment(
   );
 
   const enriched = jobs.map((job) => {
-    const client = job.clientId ? clientMap.get(job.clientId) : undefined;
+    const lookup = job.clientId ? clientMap.get(job.clientId) : undefined;
+    const clientRecord = job.clientId
+      ? clientRecordMap.get(job.clientId)
+      : undefined;
     const owners = job.clientId
       ? (clientOwnersById.get(job.clientId) ?? [])
       : [];
@@ -85,7 +91,11 @@ async function withEnrichment(
 
     return {
       ...job,
-      clientName: client?.label ?? null,
+      clientName: clientRecord?.name ?? lookup?.label ?? null,
+      clientCode:
+        clientRecord?.clientCode?.trim() ||
+        lookup?.clientCode?.trim() ||
+        null,
       accountManagerId,
       accountManagerUnassigned: job.accountManagerUnassigned,
       // Admin/SA see names; code available via lookups for partner-facing UIs.

@@ -15,6 +15,16 @@ interface PartnerClientsPageClientProps {
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
+function formatWfoWfhDays(
+  workDaysInWeek: number | null | undefined,
+  modeOfWork: string | null | undefined,
+) {
+  const days =
+    workDaysInWeek != null ? `${workDaysInWeek} day${workDaysInWeek === 1 ? "" : "s"}` : null;
+  const mode = modeOfWork?.trim() || null;
+  return [days, mode].filter(Boolean).join(" · ") || "—";
+}
+
 export function PartnerClientsPageClient({
   clients,
   breadcrumbs,
@@ -59,6 +69,14 @@ export function PartnerClientsPageClient({
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-[#94A3B8]">
+                    Client ID
+                  </dt>
+                  <dd className="mt-1 text-[#0F172A]">
+                    {client.clientCode || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-[#94A3B8]">
                     Website
                   </dt>
                   <dd className="mt-1 text-[#0F172A]">
@@ -79,7 +97,7 @@ export function PartnerClientsPageClient({
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-[#94A3B8]">
-                    Office / Address
+                    Primary address of work
                   </dt>
                   <dd className="mt-1 whitespace-pre-wrap text-[#0F172A]">
                     {client.primaryAddress || client.addresses || "—"}
@@ -93,22 +111,24 @@ export function PartnerClientsPageClient({
                     {client.employeeSize || "—"}
                   </dd>
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <dt className="text-xs uppercase tracking-wide text-[#94A3B8]">
-                    Mode of Work
+                    No of days WFO/WFH
                   </dt>
                   <dd className="mt-1 text-[#0F172A]">
-                    {[
-                      client.modeOfWork,
-                      client.workDaysInWeek != null
-                        ? `${client.workDaysInWeek} days/week`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
+                    {formatWfoWfhDays(client.workDaysInWeek, client.modeOfWork)}
                   </dd>
                 </div>
               </dl>
+
+              <div className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#92400E]">
+                  Key Notes
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-[#0F172A]">
+                  {client.notes?.trim() || "—"}
+                </p>
+              </div>
 
               {client.assignedJobTitles.length > 0 ? (
                 <div className="mt-4">
@@ -128,22 +148,29 @@ export function PartnerClientsPageClient({
                 </div>
               ) : null}
 
-              {client.briefDeck.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {client.briefDeck.map((file) => (
-                    <FilePreviewLink
-                      key={file.url}
-                      asButton
-                      url={file.url}
-                      filename={file.filename}
-                      title={file.filename}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      {file.filename}
-                    </FilePreviewLink>
-                  ))}
-                </div>
-              ) : null}
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#94A3B8]">
+                  Client Information Kit
+                </p>
+                {client.briefDeck.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {client.briefDeck.map((file) => (
+                      <FilePreviewLink
+                        key={file.url}
+                        asButton
+                        url={file.url}
+                        filename={file.filename}
+                        title={file.filename}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {file.filename}
+                      </FilePreviewLink>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-[#64748B]">No kit uploaded yet.</p>
+                )}
+              </div>
             </article>
           ))}
         </div>

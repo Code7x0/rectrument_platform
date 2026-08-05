@@ -29,7 +29,13 @@ function formToInput(values: ClientFormValues) {
     // Empty string clears Account Owner — do not coerce to undefined.
     accountManagerId: values.accountManagerId ?? "",
     status: values.status === "archived" ? ("active" as const) : values.status,
-    notes: values.notes || undefined,
+    notes: values.notes ?? "",
+    primaryAddress: values.primaryAddress ?? "",
+    modeOfWork: values.modeOfWork ?? "",
+    workDaysInWeek:
+      values.workDaysInWeek === "" || values.workDaysInWeek === undefined
+        ? null
+        : Number(values.workDaysInWeek),
   };
 }
 

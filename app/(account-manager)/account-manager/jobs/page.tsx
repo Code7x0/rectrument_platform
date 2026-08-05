@@ -84,7 +84,7 @@ export default async function AccountManagerJobsPage() {
       accountManagers={accountManagers}
       partners={partners}
       locations={locations}
-      canManage={false}
+      canManage={roleHasPermission(session.role, "manage_jobs")}
       canAllocate={canAllocate}
       canManagePartners={canManagePartners}
       hideAccountManager

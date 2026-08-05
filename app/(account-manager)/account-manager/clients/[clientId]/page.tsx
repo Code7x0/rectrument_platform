@@ -117,7 +117,7 @@ export default async function AccountManagerClientWorkspacePage({
       partners={partners}
       activityTimeline={activityTimeline}
       canUpdate={roleHasPermission(session.role, "manage_clients")}
-      canManageJobs={false}
+      canManageJobs={roleHasPermission(session.role, "manage_jobs")}
       canAllocate={roleHasPermission(session.role, "manage_allocations")}
       canManagePartners={roleHasPermission(
         session.role,

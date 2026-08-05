@@ -84,7 +84,7 @@ export function ClientTable({
         },
         {
           id: "address",
-          header: "Address",
+          header: "Primary address of work",
           className: "text-[#64748B]",
           cell: (row) => row.primaryAddress || row.addresses || "—",
         },
@@ -95,16 +95,17 @@ export function ClientTable({
           cell: (row) => row.employeeSize ?? "—",
         },
         {
-          id: "workMode",
-          header: "Mode of Work",
-          className: "text-[#64748B]",
-          cell: (row) => row.modeOfWork ?? "—",
-        },
-        {
           id: "workDays",
-          header: "Work Days",
+          header: "No of days WFO/WFH",
           className: "text-[#64748B]",
-          cell: (row) => row.workDaysInWeek ?? "—",
+          cell: (row) => {
+            const days =
+              row.workDaysInWeek != null
+                ? `${row.workDaysInWeek} day${row.workDaysInWeek === 1 ? "" : "s"}`
+                : null;
+            const mode = row.modeOfWork?.trim() || null;
+            return [days, mode].filter(Boolean).join(" · ") || "—";
+          },
         },
       );
 

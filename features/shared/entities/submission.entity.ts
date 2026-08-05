@@ -36,6 +36,8 @@ export interface SubmissionEntity {
   /** Assigned client on the job — enriched. */
   clientId: string | null;
   clientName: string | null;
+  /** Business Client ID (BCE, AB…) — enriched. */
+  clientCode: string | null;
   /** Job priority for review queue sorting (enriched). */
   jobPriority: JobPriority | null;
   allocationId: string;

@@ -44,7 +44,7 @@ export async function createJobAction(
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_jobs");
-    await requireRole(["admin", "super_admin"]);
+    await requireRole(["admin", "super_admin", "account_manager"]);
     const parsed = jobFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -55,8 +55,29 @@ export async function createJobAction(
       };
     }
 
+    const values = parsed.data;
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsClient, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      const { resolveAccountManagerScopeId } = await import("@/lib/auth");
+      const amId = resolveAccountManagerScopeId(session);
+      if (!amId) {
+        return { success: false, message: "Account Manager profile is missing" };
+      }
+      try {
+        await assertAccountManagerOwnsClient(session, values.clientId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+      values.accountManagerId = amId;
+    }
+
     const job = await createJob(
-      formValuesToInput(parsed.data, session.userId),
+      formValuesToInput(values, session.userId),
     );
 
     revalidatePath("/admin/jobs");
@@ -78,8 +99,8 @@ export async function updateJobAction(
   raw: JobFormValues,
 ): Promise<ActionResult> {
   try {
-    await requirePermission("manage_jobs");
-    await requireRole(["admin", "super_admin"]);
+    const session = await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin", "account_manager"]);
     const parsed = jobFormSchema.safeParse(raw);
 
     if (!parsed.success) {
@@ -90,7 +111,25 @@ export async function updateJobAction(
       };
     }
 
-    const job = await updateJob(jobId, formValuesToInput(parsed.data));
+    const values = parsed.data;
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsJob, assertAccountManagerOwnsClient, ScopeDeniedError } =
+        await import("@/lib/auth/scope");
+      const { resolveAccountManagerScopeId } = await import("@/lib/auth");
+      const amId = resolveAccountManagerScopeId(session);
+      try {
+        await assertAccountManagerOwnsJob(session, jobId);
+        await assertAccountManagerOwnsClient(session, values.clientId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+      values.accountManagerId = amId ?? values.accountManagerId;
+    }
+
+    const job = await updateJob(jobId, formValuesToInput(values));
 
     revalidatePath("/admin/jobs");
     revalidatePath("/account-manager/jobs");
@@ -108,8 +147,21 @@ export async function updateJobAction(
 
 export async function archiveJobAction(jobId: string): Promise<ActionResult> {
   try {
-    await requirePermission("manage_jobs");
-    await requireRole(["admin", "super_admin"]);
+    const session = await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin", "account_manager"]);
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsJob, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      try {
+        await assertAccountManagerOwnsJob(session, jobId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+    }
     const job = await archiveJob(jobId);
 
     revalidatePath("/admin/jobs");

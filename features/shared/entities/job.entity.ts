@@ -25,6 +25,8 @@ export interface JobEntity {
   title: string;
   clientId: string | null;
   clientName: string | null;
+  /** Business Client ID (BCE, AB…) — enriched. */
+  clientCode: string | null;
   /** Operational owner — every job has exactly one Account Manager. */
   accountManagerId: string | null;
   accountManagerName: string | null;

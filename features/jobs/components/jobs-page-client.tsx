@@ -178,7 +178,9 @@ export function JobsPageClient({
         title="Jobs"
         description={
           canManage
-            ? "Create jobs, assign Account Managers, and manage hiring requirements across clients."
+            ? hideAccountManager
+              ? "Create and update jobs for the accounts you own."
+              : "Create jobs, assign Account Managers, and manage hiring requirements across clients."
             : canAllocate
               ? "Jobs for your clients — Allocate partners, or open Partners to unassign them."
               : "Hiring requirements you can view."
@@ -186,16 +188,18 @@ export function JobsPageClient({
         actions={
           canManage ? (
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setAssignAmTarget(null);
-                  setAssignAmOpen(true);
-                }}
-              >
-                Assign Account Manager
-              </Button>
+              {!hideAccountManager ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setAssignAmTarget(null);
+                    setAssignAmOpen(true);
+                  }}
+                >
+                  Assign Account Manager
+                </Button>
+              ) : null}
               <Button type="button" onClick={() => setCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Create Job
@@ -233,7 +237,7 @@ export function JobsPageClient({
         onAllocate={setAllocateJob}
         onViewPartners={setPartnersJob}
         onAssignAm={
-          canManage
+          canManage && !hideAccountManager
             ? (job) => {
                 setAssignAmTarget({
                   kind: "job",
@@ -256,6 +260,7 @@ export function JobsPageClient({
         mode="create"
         clients={clients}
         accountManagers={accountManagers}
+        lockAccountManager={hideAccountManager}
         onOpenChange={setCreateOpen}
         onCompleted={refresh}
       />
@@ -267,6 +272,7 @@ export function JobsPageClient({
         clients={clients}
         accountManagers={accountManagers}
         canDelete={canDelete}
+        lockAccountManager={hideAccountManager}
         onOpenChange={(open) => {
           if (!open) {
             setEditJob(null);

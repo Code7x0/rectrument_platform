@@ -124,6 +124,15 @@ export function toAirtableCreateFields(
   if (input.notes) {
     fields[CLIENTS_TABLE_FIELDS.notes] = input.notes;
   }
+  if (input.primaryAddress) {
+    fields[CLIENTS_TABLE_FIELDS.primaryAddress] = input.primaryAddress;
+  }
+  if (input.modeOfWork) {
+    fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork;
+  }
+  if (input.workDaysInWeek != null) {
+    fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] = input.workDaysInWeek;
+  }
 
   return fields;
 }
@@ -162,6 +171,16 @@ export function toAirtableUpdateFields(
   }
   if (input.notes !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.notes] = input.notes || "";
+  }
+  if (input.primaryAddress !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.primaryAddress] = input.primaryAddress || "";
+  }
+  if (input.modeOfWork !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork || "";
+  }
+  if (input.workDaysInWeek !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] =
+      input.workDaysInWeek === null ? null : input.workDaysInWeek;
   }
 
   return fields;

@@ -106,6 +106,7 @@ export function mapSubmissionRecord(record: {
       jobCode: null,
       clientId: null,
       clientName: null,
+      clientCode: null,
       allocationId: resolvedPartnerId
         ? buildJobPartnerAllocationId(jobId, resolvedPartnerId)
         : `job_${jobId}`,
@@ -146,6 +147,7 @@ export function mapSubmissionRecord(record: {
     jobCode: null,
     clientId: null,
     clientName: null,
+    clientCode: null,
     allocationId,
     partnerId,
     partnerName: null,

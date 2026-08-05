@@ -22,6 +22,9 @@ interface JobDialogProps {
   clients: LookupOption[];
   accountManagers: LookupOption[];
   canDelete?: boolean;
+  lockAccountManager?: boolean;
+  defaultClientId?: string;
+  lockClient?: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: () => void;
 }
@@ -33,6 +36,9 @@ export function JobDialog({
   clients,
   accountManagers,
   canDelete = false,
+  lockAccountManager = false,
+  defaultClientId,
+  lockClient = false,
   onOpenChange,
   onCompleted,
 }: JobDialogProps) {
@@ -98,6 +104,9 @@ export function JobDialog({
           clients={clients}
           accountManagers={accountManagers}
           initialJob={mode === "edit" ? job : null}
+          lockAccountManager={lockAccountManager}
+          defaultClientId={mode === "create" ? defaultClientId : undefined}
+          lockClient={lockClient}
           submitting={submitting || deleting}
           submitLabel={mode === "create" ? "Create Job" : "Save Changes"}
           onCancel={() => onOpenChange(false)}

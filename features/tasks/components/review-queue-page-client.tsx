@@ -123,15 +123,15 @@ export function ReviewQueuePageClient({
       if (!row.clientId) {
         continue;
       }
-      const label = hideClientName
-        ? row.clientId
-        : (row.clientName?.trim() || row.clientId);
-      if (!map.has(row.clientId)) {
-        map.set(row.clientId, label);
+      const label =
+        row.clientName?.trim() || row.clientCode?.trim() || null;
+      if (!label || map.has(row.clientId)) {
+        continue;
       }
+      map.set(row.clientId, label);
     }
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [rows, hideClientName]);
+  }, [rows]);
 
   const partnerOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -285,10 +285,7 @@ export function ReviewQueuePageClient({
         id: "client",
         header: "Client",
         className: "text-[#64748B]",
-        cell: (row) =>
-          hideClientName
-            ? row.clientId || "—"
-            : row.clientName || row.clientId || "—",
+        cell: (row) => row.clientName || row.clientCode || "—",
       },
       {
         id: "partnerCode",
@@ -551,11 +548,10 @@ export function ReviewQueuePageClient({
                     <Detail
                       label="Client"
                       value={
-                        hideClientName
-                          ? selected.clientId || job?.clientId
-                          : job?.clientName ||
-                            selected.clientName ||
-                            selected.clientId
+                        job?.clientName ||
+                        selected.clientName ||
+                        selected.clientCode ||
+                        job?.clientCode
                       }
                     />
                     <Detail label="Location" value={job?.location} />

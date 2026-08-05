@@ -159,6 +159,7 @@ export function mapJobRecord(record: {
     title,
     clientId: asLinkedId(fields[JOBS_TABLE_FIELDS.client]),
     clientName: null,
+    clientCode: null,
     accountManagerId:
       asLinkedId(fields[JOBS_TABLE_FIELDS.accountManager]) ??
       (amAssignment?.kind === "assigned"

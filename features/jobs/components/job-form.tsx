@@ -20,18 +20,25 @@ interface JobFormProps {
   accountManagers: LookupOption[];
   initialJob?: Job | null;
   submitting?: boolean;
+  /** Account Managers own the job — AM field is locked to themselves. */
+  lockAccountManager?: boolean;
+  defaultClientId?: string;
+  lockClient?: boolean;
   onSubmit: (values: JobFormValues) => Promise<void> | void;
   onCancel?: () => void;
   onDelete?: () => void;
   submitLabel?: string;
 }
 
-function jobToFormValues(job?: Job | null): JobFormValues {
+function jobToFormValues(
+  job?: Job | null,
+  defaults?: { accountManagerId?: string; clientId?: string },
+): JobFormValues {
   if (!job) {
     return {
       title: "",
-      clientId: "",
-      accountManagerId: "",
+      clientId: defaults?.clientId ?? "",
+      accountManagerId: defaults?.accountManagerId ?? "",
       hiringManager: "",
       description: "",
       location: "",
@@ -69,22 +76,34 @@ export function JobForm({
   accountManagers,
   initialJob,
   submitting = false,
+  lockAccountManager = false,
+  defaultClientId,
+  lockClient = false,
   onSubmit,
   onCancel,
   onDelete,
   submitLabel = "Save Job",
 }: JobFormProps) {
+  const defaultAccountManagerId = lockAccountManager
+    ? (initialJob?.accountManagerId || accountManagers[0]?.id || "")
+    : undefined;
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema) as Resolver<JobFormValues>,
-    defaultValues: jobToFormValues(initialJob),
+    defaultValues: jobToFormValues(initialJob, {
+      accountManagerId: defaultAccountManagerId,
+      clientId: defaultClientId,
+    }),
   });
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      {lockAccountManager ? (
+        <input type="hidden" {...register("accountManagerId")} />
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="title">Job Title</Label>
@@ -96,7 +115,11 @@ export function JobForm({
 
         <div className="space-y-2">
           <Label htmlFor="clientId">Client</Label>
-          <Select id="clientId" {...register("clientId")} disabled={submitting}>
+          <Select
+            id="clientId"
+            {...register("clientId")}
+            disabled={submitting || lockClient}
+          >
             <option value="">Select client</option>
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
@@ -109,30 +132,32 @@ export function JobForm({
           ) : null}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="accountManagerId">Assigned Account Manager</Label>
-          <Select
-            id="accountManagerId"
-            {...register("accountManagerId")}
-            disabled={submitting}
-          >
-            <option value="">Unassigned</option>
-            {accountManagers.map((am) => (
-              <option key={am.id} value={am.id}>
-                {am.code?.trim() || am.label}
-              </option>
-            ))}
-          </Select>
-          <p className="text-xs text-[#64748B]">
-            Assigns this job only (not every job for the client). Choose
-            Unassigned to clear.
-          </p>
-          {errors.accountManagerId ? (
-            <p className="text-xs text-[#EF4444]">
-              {errors.accountManagerId.message}
+        {lockAccountManager ? null : (
+          <div className="space-y-2">
+            <Label htmlFor="accountManagerId">Assigned Account Manager</Label>
+            <Select
+              id="accountManagerId"
+              {...register("accountManagerId")}
+              disabled={submitting}
+            >
+              <option value="">Unassigned</option>
+              {accountManagers.map((am) => (
+                <option key={am.id} value={am.id}>
+                  {am.code?.trim() || am.label}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-[#64748B]">
+              Assigns this job only (not every job for the client). Choose
+              Unassigned to clear.
             </p>
-          ) : null}
-        </div>
+            {errors.accountManagerId ? (
+              <p className="text-xs text-[#EF4444]">
+                {errors.accountManagerId.message}
+              </p>
+            ) : null}
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="hiringManager">Hiring Manager</Label>

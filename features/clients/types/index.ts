@@ -15,6 +15,9 @@ export interface CreateClientInput {
   accountManagerId?: string;
   status?: import("@/features/shared/entities").ClientStatus;
   notes?: string;
+  primaryAddress?: string;
+  modeOfWork?: string;
+  workDaysInWeek?: number | null;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;

@@ -51,6 +51,7 @@ export async function listPartnerAssignedClients(
       employeeSize: client.employeeSize ?? null,
       modeOfWork: client.modeOfWork ?? null,
       workDaysInWeek: client.workDaysInWeek ?? null,
+      notes: client.notes ?? null,
       briefDeck: client.briefDeck ?? [],
       assignedJobTitles: titlesByClient.get(client.id) ?? [],
     }))
