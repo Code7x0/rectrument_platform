@@ -8,16 +8,35 @@ export type SniffedFileKind =
   | "doc"
   | "unknown";
 
-export function sniffFileKind(bytes: Uint8Array): SniffedFileKind {
-  if (
-    bytes.length >= 5 &&
-    bytes[0] === 0x25 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x44 &&
-    bytes[3] === 0x46
-  ) {
-    return "pdf";
+function bytesContainAscii(bytes: Uint8Array, ascii: string): boolean {
+  const needle = new TextEncoder().encode(ascii);
+  if (needle.length === 0 || bytes.length < needle.length) {
+    return false;
   }
+  outer: for (let i = 0; i <= bytes.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (bytes[i + j] !== needle[j]) {
+        continue outer;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+export function sniffFileKind(bytes: Uint8Array): SniffedFileKind {
+  const searchLimit = Math.min(bytes.length - 4, 1024);
+  for (let i = 0; i <= searchLimit; i++) {
+    if (
+      bytes[i] === 0x25 &&
+      bytes[i + 1] === 0x50 &&
+      bytes[i + 2] === 0x44 &&
+      bytes[i + 3] === 0x46
+    ) {
+      return "pdf";
+    }
+  }
+
   if (
     bytes.length >= 8 &&
     bytes[0] === 0x89 &&
@@ -47,7 +66,13 @@ export function sniffFileKind(bytes: Uint8Array): SniffedFileKind {
     return "webp";
   }
   if (bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4b) {
-    return "docx";
+    if (
+      bytesContainAscii(bytes, "word/document.xml") ||
+      bytesContainAscii(bytes, "word/document2.xml")
+    ) {
+      return "docx";
+    }
+    return "unknown";
   }
   if (
     bytes.length >= 8 &&
@@ -79,6 +104,17 @@ export function contentTypeForKind(kind: SniffedFileKind): string | null {
       return "application/msword";
     default:
       return null;
+  }
+}
+
+export function extensionForKind(kind: SniffedFileKind): string | null {
+  switch (kind) {
+    case "jpeg":
+      return "jpg";
+    case "unknown":
+      return null;
+    default:
+      return kind;
   }
 }
 

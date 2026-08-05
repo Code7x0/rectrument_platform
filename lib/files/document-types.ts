@@ -94,7 +94,13 @@ export function isInlinePreviewableFile(
     .toLowerCase()
     .split(";")[0]
     ?.trim();
-  return type === "application/pdf" || Boolean(type?.startsWith("image/"));
+  return (
+    type === "application/pdf" ||
+    type === "application/msword" ||
+    type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    Boolean(type?.startsWith("image/"))
+  );
 }
 
 /**

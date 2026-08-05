@@ -32,6 +32,23 @@ type PreviewState =
   | { status: "pdf" | "image"; src: string }
   | { status: "html"; html: string };
 
+function headerPreviewKind(response: Response): SniffedFileKind | null {
+  const kind = response.headers.get("X-Preview-Kind");
+  if (
+    kind === "pdf" ||
+    kind === "png" ||
+    kind === "jpeg" ||
+    kind === "gif" ||
+    kind === "webp" ||
+    kind === "docx" ||
+    kind === "doc" ||
+    kind === "unknown"
+  ) {
+    return kind;
+  }
+  return null;
+}
+
 export function FilePreviewDialog({
   open,
   onOpenChange,
@@ -58,29 +75,52 @@ export function FilePreviewDialog({
       try {
         const response = await fetch(previewSrc, { credentials: "include" });
         if (!response.ok) {
-          throw new Error("Unable to load file");
+          let message = "Unable to load file";
+          try {
+            const payload = (await response.json()) as { message?: string };
+            if (payload.message?.trim()) {
+              message = payload.message.trim();
+            }
+          } catch {
+            // Keep the generic message when the body is not JSON.
+          }
+          throw new Error(message);
         }
+
+        const contentType =
+          response.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() ??
+          "application/octet-stream";
+        const headerKind = headerPreviewKind(response);
+
+        if (headerKind === "pdf" || contentType === "application/pdf") {
+          await response.body?.cancel();
+          if (cancelled) {
+            return;
+          }
+          setPreview({ status: "pdf", src: previewSrc });
+          return;
+        }
+
         const buffer = await response.arrayBuffer();
         const bytes = new Uint8Array(buffer);
-        const headerKind = response.headers.get("X-Preview-Kind") as
-          | SniffedFileKind
-          | null;
         const kind =
-          headerKind && headerKind !== "unknown"
-            ? headerKind
-            : sniffFileKind(bytes);
-        const contentType =
-          response.headers.get("Content-Type")?.split(";")[0]?.trim() ??
-          "application/octet-stream";
+          headerKind && headerKind !== "unknown" ? headerKind : sniffFileKind(bytes);
 
         if (cancelled) {
           return;
         }
 
-        if (kind === "pdf" || contentType === "application/pdf") {
-          objectUrl = URL.createObjectURL(
-            new Blob([buffer], { type: "application/pdf" }),
-          );
+        if (contentType === "text/html" || (kind === "docx" && contentType.includes("html"))) {
+          const html = new TextDecoder("utf-8").decode(bytes).trim();
+          if (!html) {
+            throw new Error("This Word document does not contain previewable text.");
+          }
+          setPreview({ status: "html", html });
+          return;
+        }
+
+        if (kind === "pdf") {
+          objectUrl = URL.createObjectURL(new Blob([buffer], { type: "application/pdf" }));
           setPreview({ status: "pdf", src: objectUrl });
           return;
         }
@@ -95,24 +135,17 @@ export function FilePreviewDialog({
           return;
         }
 
-        if (kind === "docx" || kind === "doc" || contentType.includes("word")) {
-          try {
-            const mammoth = await import("mammoth");
-            const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
-            if (cancelled) {
-              return;
-            }
-            if (result.value?.trim()) {
-              setPreview({ status: "html", html: result.value });
-              return;
-            }
-          } catch {
-            // Fall through to generic preview / download.
-          }
+        if (kind === "doc") {
+          throw new Error(
+            "Older Word (.doc) files can’t be previewed in the browser. Download the file to open it.",
+          );
         }
 
-        objectUrl = URL.createObjectURL(new Blob([buffer], { type: contentType }));
-        setPreview({ status: "pdf", src: objectUrl });
+        if (kind === "docx") {
+          throw new Error("Unable to preview this Word document. Download the file to open it.");
+        }
+
+        throw new Error("This file type can’t be previewed in the browser.");
       } catch (error) {
         if (!cancelled) {
           setPreview({
@@ -134,7 +167,10 @@ export function FilePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[90vh] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6">
+      <DialogContent
+        className="inset-x-0 top-[5vh] mx-auto flex h-[90vh] w-[min(64rem,calc(100vw-2rem))] max-w-5xl flex-col gap-3 overflow-hidden p-4 duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none sm:p-6"
+        style={{ transform: "none" }}
+      >
         <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>{title?.trim() || name}</DialogTitle>
           <DialogDescription>
@@ -167,9 +203,11 @@ export function FilePreviewDialog({
               />
             </div>
           ) : preview.status === "html" ? (
-            <div
-              className="h-full overflow-auto bg-white p-6 text-sm leading-relaxed text-[#0F172A] [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-2 [&_table]:mb-3 [&_table]:w-full [&_td]:border [&_td]:border-[#E2E8F0] [&_td]:p-1 [&_th]:border [&_th]:border-[#E2E8F0] [&_th]:p-1"
-              dangerouslySetInnerHTML={{ __html: preview.html }}
+            <iframe
+              title={name}
+              sandbox=""
+              srcDoc={`<!doctype html><html><head><meta charset="utf-8" /><style>body{margin:24px;font:14px/1.55 system-ui,sans-serif;color:#0f172a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #e2e8f0;padding:4px 6px;text-align:left}img{max-width:100%;height:auto}</style></head><body>${preview.html.replace(/<\/(script|style|iframe|object|body|html)/gi, "&lt;/$1")}</body></html>`}
+              className="h-full w-full border-0 bg-white"
             />
           ) : (
             <iframe
