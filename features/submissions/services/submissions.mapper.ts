@@ -4,7 +4,9 @@ import {
   asString,
   buildJobPartnerAllocationId,
   getSubmissionsMode,
+  isClientCompatMode,
 } from "@/lib/airtable/compat";
+import { isValidCandidateCode } from "@/lib/business-ids";
 import {
   AIRTABLE_SUBMISSION_STATUS,
   CANDIDATES_TABLE_FIELDS,
@@ -85,11 +87,8 @@ export function mapSubmissionRecord(record: {
       id: record.id,
       submissionCode: (() => {
         const raw = fields[SUBMISSIONS_TABLE_FIELDS.submissionId];
-        if (typeof raw === "number") {
-          return String(raw);
-        }
-        // Keep Airtable autoNumber when present; never invent SUB-rec… codes.
-        return asString(raw);
+        const value = typeof raw === "number" ? String(raw) : asString(raw);
+        return isValidCandidateCode(value) ? value!.trim().toUpperCase() : null;
       })(),
       candidateId: record.id,
       candidateName: asString(fields[SUBMISSIONS_TABLE_FIELDS.candidateName]),
@@ -211,6 +210,8 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
   remarks?: string;
   jobId: string;
   partnerId: string;
+  candidateCode?: string;
+  stampAnonymous?: boolean;
   status?: SubmissionStatus;
   submissionDate?: string;
 }): AirtableFields {
@@ -224,6 +225,12 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
     [SUBMISSIONS_TABLE_FIELDS.status]:
       DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[input.status ?? "submitted"],
   };
+  if (input.candidateCode?.trim()) {
+    fields[CANDIDATES_TABLE_FIELDS.candidateId] = input.candidateCode.trim().toUpperCase();
+  }
+  if (input.stampAnonymous !== false) {
+    fields[CANDIDATES_TABLE_FIELDS.createdBy] = "Anonymous";
+  }
 
   if (input.phone) {
     fields[SUBMISSIONS_TABLE_FIELDS.phone] = input.phone;
@@ -250,15 +257,17 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
     fields[SUBMISSIONS_TABLE_FIELDS.remarks] = input.remarks;
   }
 
-  // Native person columns that exist on Candidates but are not aliases above.
-  if (input.currentCompany) {
-    fields[CANDIDATES_TABLE_FIELDS.currentCompany] = input.currentCompany;
-  }
-  if (input.experience) {
-    fields[CANDIDATES_TABLE_FIELDS.experience] = input.experience;
-  }
-  if (input.skills?.length) {
-    fields[CANDIDATES_TABLE_FIELDS.skills] = input.skills.join(", ");
+  // Client Candidates table has no Current Company / Skills / Experience columns.
+  if (!isClientCompatMode()) {
+    if (input.currentCompany) {
+      fields[CANDIDATES_TABLE_FIELDS.currentCompany] = input.currentCompany;
+    }
+    if (input.experience) {
+      fields[CANDIDATES_TABLE_FIELDS.experience] = input.experience;
+    }
+    if (input.skills?.length) {
+      fields[CANDIDATES_TABLE_FIELDS.skills] = input.skills.join(", ");
+    }
   }
 
   return fields;

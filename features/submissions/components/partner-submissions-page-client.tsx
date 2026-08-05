@@ -23,9 +23,11 @@ import { Select } from "@/components/ui/select";
 import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
 import type { Payout } from "@/features/payouts/types";
 import { requestSecondLevelReviewAction } from "@/features/submissions/actions/review-fields.actions";
+import { EditCandidateDialog } from "@/features/submissions/components/edit-candidate-dialog";
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
 import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
+import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
 import type { Submission } from "@/features/submissions/types";
 import type { SubmissionStatus } from "@/features/shared/entities";
 import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
@@ -66,6 +68,7 @@ export function PartnerSubmissionsPageClient({
   );
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [requestingReview, setRequestingReview] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     setRows(initialSubmissions);
@@ -110,7 +113,7 @@ export function PartnerSubmissionsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="My Candidates"
-        description="Track status, interview stage, and feedback for profiles you submitted."
+        description="Track status, interview stage, your skill screen, and guidance from Talent Socio."
       />
 
       {filterJobId ? (
@@ -249,6 +252,15 @@ export function PartnerSubmissionsPageClient({
                   >
                     View progress
                   </Button>
+                  {isUnreviewedByStaff(row) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setEditingId(row.id)}
+                    >
+                      Edit
+                    </Button>
+                  ) : null}
                   {row.status === "rejected" && !row.wantsSecondLevelReview ? (
                     <Button
                       type="button"
@@ -278,6 +290,15 @@ export function PartnerSubmissionsPageClient({
         {selected ? (
           <div className="space-y-4">
             <SubmissionReviewPanel submission={selected} canEdit={false} />
+            {isUnreviewedByStaff(selected) ? (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => setEditingId(selected.id)}
+              >
+                Edit candidate
+              </Button>
+            ) : null}
             {selected.status === "rejected" &&
             !selected.wantsSecondLevelReview ? (
               <Button
@@ -298,6 +319,24 @@ export function PartnerSubmissionsPageClient({
           </div>
         ) : null}
       </DetailDrawer>
+
+      <EditCandidateDialog
+        open={Boolean(editingId)}
+        submissionId={editingId}
+        onOpenChange={(next) => {
+          if (!next) {
+            setEditingId(null);
+          }
+        }}
+        onUpdated={(updated) => {
+          setRows((current) =>
+            current.map((item) => (item.id === updated.id ? updated : item)),
+          );
+          setSelected((current) =>
+            current?.id === updated.id ? updated : current,
+          );
+        }}
+      />
     </ContentContainer>
   );
 }

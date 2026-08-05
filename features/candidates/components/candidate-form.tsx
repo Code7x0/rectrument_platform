@@ -1,15 +1,18 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useForm, type Resolver } from "react-hook-form";
+import { useFieldArray, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   candidateFormSchema,
+  emptySkillScreen,
   type CandidateFormValues,
 } from "@/features/candidates/schemas/candidate.schema";
 import {
@@ -21,26 +24,31 @@ interface CandidateFormProps {
   defaultValues?: Partial<CandidateFormValues>;
   submitting?: boolean;
   resumeRequired?: boolean;
+  currentResumeUrl?: string | null;
   onCancel?: () => void;
   onSubmit: (
     values: CandidateFormValues,
     resumeFile: File | null,
   ) => Promise<void> | void;
   submitLabel?: string;
+  submittingLabel?: string;
 }
 
 export function CandidateForm({
   defaultValues,
   submitting = false,
   resumeRequired = true,
+  currentResumeUrl = null,
   onCancel,
   onSubmit,
   submitLabel = "Submit Candidate",
+  submittingLabel = "Uploading & submitting…",
 }: CandidateFormProps) {
   const resumeRef = useRef<HTMLInputElement>(null);
   const [resumeName, setResumeName] = useState<string | null>(null);
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors },
   } = useForm<CandidateFormValues>({
@@ -57,11 +65,17 @@ export function CandidateForm({
       linkedIn: "",
       currentCompany: "",
       experience: "",
-      skills: "",
       remarks: "",
+      skills: "",
       ...defaultValues,
+      skillScreens:
+        defaultValues?.skillScreens && defaultValues.skillScreens.length > 0
+          ? defaultValues.skillScreens
+          : [emptySkillScreen()],
     },
   });
+
+  const skillFields = useFieldArray({ control, name: "skillScreens" });
 
   return (
     <form
@@ -86,7 +100,7 @@ export function CandidateForm({
         await onSubmit(values, file);
       })}
     >
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="fullName">Candidate Name *</Label>
@@ -164,6 +178,18 @@ export function CandidateForm({
               <p className="text-xs text-muted-foreground">
                 Selected: {resumeName}
               </p>
+            ) : currentResumeUrl ? (
+              <p className="text-xs text-muted-foreground">
+                Current resume stays unless you upload a replacement.{" "}
+                <a
+                  href={currentResumeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-[#2563EB] hover:underline"
+                >
+                  Open current
+                </a>
+              </p>
             ) : (
               <p className="text-xs text-muted-foreground">
                 PDF or Word · max 8MB
@@ -236,6 +262,128 @@ export function CandidateForm({
             ) : null}
           </div>
         </div>
+
+        <section className="space-y-3 rounded-xl border border-[#DBEAFE] bg-[#F8FAFC] p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-[#0F172A]">
+              Basic screening (optional)
+            </h3>
+            <p className="mt-1 text-xs text-[#64748B]">
+              Skill set, years, alternate tech, and free notes go to the skill
+              screen. Talent Socio feedback for the candidate stays separate —
+              you will see that under Guidance for partner.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="experience">Total experience</Label>
+            <Input
+              id="experience"
+              placeholder="e.g. 6 years"
+              disabled={submitting}
+              {...register("experience")}
+            />
+            {errors.experience ? (
+              <p className="text-xs text-destructive">
+                {errors.experience.message}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-3">
+            {skillFields.fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="grid gap-3 rounded-lg border border-[#E2E8F0] bg-white p-3 sm:grid-cols-12"
+              >
+                <div className="space-y-1.5 sm:col-span-4">
+                  <Label htmlFor={`skillScreens.${index}.skill`}>Skill</Label>
+                  <Input
+                    id={`skillScreens.${index}.skill`}
+                    placeholder="e.g. React"
+                    disabled={submitting}
+                    {...register(`skillScreens.${index}.skill`)}
+                  />
+                  {errors.skillScreens?.[index]?.skill ? (
+                    <p className="text-xs text-destructive">
+                      {errors.skillScreens[index]?.skill?.message}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="space-y-1.5 sm:col-span-3">
+                  <Label htmlFor={`skillScreens.${index}.years`}>
+                    Years / exposure
+                  </Label>
+                  <Input
+                    id={`skillScreens.${index}.years`}
+                    placeholder="e.g. 4 years"
+                    disabled={submitting}
+                    {...register(`skillScreens.${index}.years`)}
+                  />
+                  {errors.skillScreens?.[index]?.years ? (
+                    <p className="text-xs text-destructive">
+                      {errors.skillScreens[index]?.years?.message}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="space-y-1.5 sm:col-span-4">
+                  <Label htmlFor={`skillScreens.${index}.alternate`}>
+                    Alternate tech if not using
+                  </Label>
+                  <Input
+                    id={`skillScreens.${index}.alternate`}
+                    placeholder="e.g. Vue / Azure"
+                    disabled={submitting}
+                    {...register(`skillScreens.${index}.alternate`)}
+                  />
+                </div>
+                <div className="flex items-end sm:col-span-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={submitting || skillFields.fields.length <= 1}
+                    onClick={() => skillFields.remove(index)}
+                    aria-label="Remove skill"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {errors.skillScreens?.root ? (
+              <p className="text-xs text-destructive">
+                {errors.skillScreens.root.message}
+              </p>
+            ) : errors.skillScreens?.message ? (
+              <p className="text-xs text-destructive">
+                {errors.skillScreens.message}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={submitting}
+              onClick={() => skillFields.append(emptySkillScreen())}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add skill
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="remarks">Other screening notes (optional)</Label>
+            <Textarea
+              id="remarks"
+              rows={3}
+              placeholder="Relocation, notice constraints, why job change, gaps…"
+              disabled={submitting}
+              {...register("remarks")}
+            />
+          </div>
+        </section>
       </div>
 
       <div className="flex shrink-0 justify-end gap-2 border-t border-border bg-card px-6 py-4">
@@ -250,7 +398,7 @@ export function CandidateForm({
           </Button>
         ) : null}
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Uploading & submitting…" : submitLabel}
+          {submitting ? submittingLabel : submitLabel}
         </Button>
       </div>
     </form>

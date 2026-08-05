@@ -35,7 +35,9 @@ function revalidateReviewPaths() {
 }
 
 /**
- * Staff edit Interview Stage / Screening Matrix Notes / Internal Feedback.
+ * Staff edit Interview Stage and Internal Feedback (guidance for partner).
+ * Internal Feedback can be updated at any submission status.
+ * Screening Matrix Notes is partner-owned and is not writable here.
  */
 export async function updateSubmissionReviewFieldsAction(
   submissionId: string,
@@ -48,7 +50,11 @@ export async function updateSubmissionReviewFieldsAction(
 
     const submission = await updateSubmissionReviewFields(
       submissionId,
-      input,
+      {
+        airtableStatus: input.airtableStatus,
+        interviewStage: input.interviewStage,
+        internalFeedback: input.internalFeedback,
+      },
       session.userId,
     );
     revalidateReviewPaths();

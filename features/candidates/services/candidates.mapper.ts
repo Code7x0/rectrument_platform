@@ -1,5 +1,5 @@
 import type { AirtableFields } from "@/lib/airtable/client";
-import { asString } from "@/lib/airtable/compat";
+import { asString, isClientCompatMode } from "@/lib/airtable/compat";
 import { CANDIDATES_TABLE_FIELDS } from "@/lib/airtable/fields";
 import type {
   Candidate,
@@ -88,14 +88,8 @@ export function toAirtableCreateFields(
   if (input.phone) {
     fields[CANDIDATES_TABLE_FIELDS.phone] = input.phone;
   }
-  if (input.currentCompany) {
-    fields[CANDIDATES_TABLE_FIELDS.currentCompany] = input.currentCompany;
-  }
   if (input.currentLocation) {
     fields[CANDIDATES_TABLE_FIELDS.currentLocation] = input.currentLocation;
-  }
-  if (input.experience) {
-    fields[CANDIDATES_TABLE_FIELDS.experience] = input.experience;
   }
   if (input.currentCtc) {
     fields[CANDIDATES_TABLE_FIELDS.currentCtc] = input.currentCtc;
@@ -109,13 +103,41 @@ export function toAirtableCreateFields(
   if (input.linkedIn) {
     fields[CANDIDATES_TABLE_FIELDS.linkedIn] = input.linkedIn;
   }
-  if (input.skills?.length) {
-    fields[CANDIDATES_TABLE_FIELDS.skills] = input.skills.join(", ");
-  }
   if (input.remarks) {
     fields[CANDIDATES_TABLE_FIELDS.remarks] = input.remarks;
   }
+  if (!isClientCompatMode()) {
+    if (input.currentCompany) {
+      fields[CANDIDATES_TABLE_FIELDS.currentCompany] = input.currentCompany;
+    }
+    if (input.experience) {
+      fields[CANDIDATES_TABLE_FIELDS.experience] = input.experience;
+    }
+    if (input.skills?.length) {
+      fields[CANDIDATES_TABLE_FIELDS.skills] = input.skills.join(", ");
+    }
+  }
 
+  return fields;
+}
+
+export function toAirtableUpdateFields(
+  input: CreateCandidateInput,
+): AirtableFields {
+  const fields = toAirtableCreateFields(input);
+  fields[CANDIDATES_TABLE_FIELDS.fullName] = input.fullName;
+  fields[CANDIDATES_TABLE_FIELDS.email] = input.email;
+  fields[CANDIDATES_TABLE_FIELDS.phone] = input.phone ?? "";
+  fields[CANDIDATES_TABLE_FIELDS.currentLocation] = input.currentLocation ?? "";
+  fields[CANDIDATES_TABLE_FIELDS.currentCtc] = input.currentCtc ?? "";
+  fields[CANDIDATES_TABLE_FIELDS.expectedCtc] = input.expectedCtc ?? "";
+  fields[CANDIDATES_TABLE_FIELDS.noticePeriod] = input.noticePeriod ?? "";
+  fields[CANDIDATES_TABLE_FIELDS.linkedIn] = input.linkedIn
+    ? input.linkedIn.startsWith("http")
+      ? input.linkedIn
+      : `https://${input.linkedIn}`
+    : "";
+  fields[CANDIDATES_TABLE_FIELDS.remarks] = input.remarks ?? "";
   return fields;
 }
 

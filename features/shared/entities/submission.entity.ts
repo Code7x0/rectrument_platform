@@ -19,7 +19,7 @@ export type SubmissionStatus =
 
 export interface SubmissionEntity {
   id: string;
-  /** Airtable Candidate ID autoNumber when present — not a separate business code. */
+  /** Business Candidate ID (e.g. YB_451) when present. */
   submissionCode: string | null;
   candidateId: string;
   candidateName: string | null;
@@ -42,11 +42,11 @@ export interface SubmissionEntity {
   status: SubmissionStatus;
   /** Exact Airtable Submission Status option text. */
   airtableStatus: string | null;
-  /** Screening Matrix Notes. (Airtable). */
+  /** Screening Matrix Notes — partner skill/profile screen (Airtable). */
   remarks: string | null;
   /** Exact Airtable Interview Stage option, or null. */
   interviewStage: string | null;
-  /** Internal Feedback (staff notes visible to partners as read-only). */
+  /** Internal Feedback — AM guidance partners read to coach the candidate. */
   internalFeedback: string | null;
   /**
    * True when "Want 2nd level Review of Profile" is set

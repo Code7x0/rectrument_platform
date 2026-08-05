@@ -1,9 +1,17 @@
 import { z } from "zod";
 
+export const skillScreenSchema = z.object({
+  skill: z.string().trim().optional().or(z.literal("")),
+  years: z.string().trim().optional().or(z.literal("")),
+  alternate: z.string().trim().optional().or(z.literal("")),
+});
+
+export type SkillScreenRow = z.infer<typeof skillScreenSchema>;
+
 /**
- * Partner candidate submission form — recruiter-minimal fields only.
- * Extra Airtable columns (company, skills, remarks, experience) stay unused
- * on create so the locked schema remains compatible.
+ * Partner candidate submission + edit form.
+ * Screening fields are optional; anything filled is written to Screening Matrix Notes.
+ * AM coaching for the partner stays in Internal Feedback — do not mix the two.
  */
 export const candidateFormSchema = z.object({
   fullName: z.string().trim().min(2, "Candidate name is required"),
@@ -25,11 +33,11 @@ export const candidateFormSchema = z.object({
         /^linkedin\.com\/.+/i.test(value),
       "Enter a valid LinkedIn profile URL",
     ),
-  // Kept optional for backend compatibility — not shown on the submit form.
-  currentCompany: z.string().trim().optional(),
-  experience: z.string().trim().optional(),
-  skills: z.string().trim().optional(),
-  remarks: z.string().trim().optional(),
+  currentCompany: z.string().trim().optional().or(z.literal("")),
+  experience: z.string().trim().optional().or(z.literal("")),
+  skillScreens: z.array(skillScreenSchema).optional().default([]),
+  remarks: z.string().trim().optional().or(z.literal("")),
+  skills: z.string().trim().optional().or(z.literal("")),
 });
 
 export type CandidateFormValues = z.infer<typeof candidateFormSchema>;
@@ -38,3 +46,7 @@ export const candidateLookupSchema = z.object({
   email: z.string().trim().email().optional().or(z.literal("")),
   phone: z.string().trim().optional(),
 });
+
+export function emptySkillScreen(): SkillScreenRow {
+  return { skill: "", years: "", alternate: "" };
+}

@@ -2,6 +2,7 @@ import {
   createRecord,
   findRecord,
   getRecords,
+  updateRecord,
   type AirtableFields,
   type AirtableListOptions,
 } from "@/lib/airtable/client";
@@ -43,6 +44,17 @@ export async function insertCandidate(
   fields: AirtableFields,
 ): Promise<Candidate> {
   const record = await createRecord(getTableName(), fields);
+  return mapCandidateRecord({
+    id: record.id,
+    fields: record.fields as AirtableFields,
+  });
+}
+
+export async function updateCandidateRecord(
+  recordId: string,
+  fields: AirtableFields,
+): Promise<Candidate> {
+  const record = await updateRecord(getTableName(), recordId, fields);
   return mapCandidateRecord({
     id: record.id,
     fields: record.fields as AirtableFields,

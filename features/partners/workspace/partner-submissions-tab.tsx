@@ -40,7 +40,8 @@ export function PartnerSubmissionsTab({
                 {row.candidateName ?? "Candidate"}
               </h3>
               <p className="text-sm text-[#64748B]">
-                {row.jobTitle ?? "Job"} · {row.submissionCode}
+                {row.jobTitle ?? "Job"}
+                {row.submissionCode ? ` · ${row.submissionCode}` : ""}
               </p>
             </div>
             <SubmissionStatusBadge status={row.status} />

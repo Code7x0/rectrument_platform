@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { CandidateForm } from "@/features/candidates/components/candidate-form";
+import { appendCandidateFormFields } from "@/features/candidates/lib/candidate-form-data";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 import type { Candidate } from "@/features/candidates/types";
 import { submitCandidateAction } from "@/features/submissions/actions/submissions.actions";
@@ -100,18 +101,7 @@ export function PartnerSubmitProfilePageClient({
     const formData = new FormData();
     formData.set("jobId", selected.jobId);
     formData.set("allocationId", selected.allocationId);
-    formData.set("fullName", values.fullName);
-    formData.set("email", values.email);
-    formData.set("phone", values.phone);
-    formData.set("currentLocation", values.currentLocation ?? "");
-    formData.set("currentCtc", values.currentCtc ?? "");
-    formData.set("expectedCtc", values.expectedCtc ?? "");
-    formData.set("noticePeriod", values.noticePeriod ?? "");
-    formData.set("linkedIn", values.linkedIn ?? "");
-    formData.set("currentCompany", "");
-    formData.set("experience", "");
-    formData.set("skills", "");
-    formData.set("remarks", "");
+    appendCandidateFormFields(formData, values);
 
     if (options?.existingCandidateId) {
       formData.set("existingCandidateId", options.existingCandidateId);

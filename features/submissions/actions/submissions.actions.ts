@@ -10,12 +10,19 @@ import {
   ScopeDeniedError,
 } from "@/lib/auth/scope";
 import { candidateFormSchema } from "@/features/candidates/schemas/candidate.schema";
+import { parseCandidateFormData } from "@/features/candidates/lib/candidate-form-data";
 import {
   deleteSubmission,
+  getSubmissionById,
   stageResumeFile,
   submitCandidateForAllocation,
+  updatePartnerSubmissionProfile,
 } from "@/features/submissions/services";
+import { parseScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
+import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
 import type { Candidate } from "@/features/candidates/types";
+import type { Submission } from "@/features/submissions/types";
+import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 
 export type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -122,20 +129,7 @@ export async function submitCandidateAction(
       };
     }
 
-    const raw = {
-      fullName: String(formData.get("fullName") ?? ""),
-      email: String(formData.get("email") ?? ""),
-      phone: String(formData.get("phone") ?? ""),
-      currentCompany: String(formData.get("currentCompany") ?? ""),
-      currentLocation: String(formData.get("currentLocation") ?? ""),
-      experience: String(formData.get("experience") ?? ""),
-      currentCtc: String(formData.get("currentCtc") ?? ""),
-      expectedCtc: String(formData.get("expectedCtc") ?? ""),
-      noticePeriod: String(formData.get("noticePeriod") ?? ""),
-      linkedIn: String(formData.get("linkedIn") ?? ""),
-      skills: String(formData.get("skills") ?? ""),
-      remarks: String(formData.get("remarks") ?? ""),
-    };
+    const raw = parseCandidateFormData(formData);
 
     const parsed = candidateFormSchema.safeParse(raw);
     if (!parsed.success) {
@@ -203,6 +197,109 @@ export async function submitCandidateAction(
       success: false,
       message:
         actionErrorMessage(error, "Unable to submit candidate"),
+    };
+  }
+}
+
+export async function getOwnSubmissionForEditAction(
+  submissionId: string,
+): Promise<
+  ActionResult<{
+    submission: Submission;
+    form: CandidateFormValues;
+    resumeUrl: string | null;
+  }>
+> {
+  try {
+    const session = await requirePermission("submit_candidates");
+    if (session.role !== "partner" || !session.partnerId) {
+      return { success: false, message: "Only partners can edit candidates" };
+    }
+
+    const submission = await getSubmissionById(submissionId);
+    if (!submission || submission.partnerId !== session.partnerId) {
+      return { success: false, message: "Candidate not found" };
+    }
+    if (!isUnreviewedByStaff(submission)) {
+      return {
+        success: false,
+        message: "This profile is locked after internal review",
+      };
+    }
+
+    const { getCandidateById } = await import("@/features/candidates/services");
+    const candidate = await getCandidateById(submission.candidateId);
+    const parsedNotes = parseScreeningMatrixNotes(
+      submission.remarks ?? candidate?.remarks ?? "",
+    );
+
+    return {
+      success: true,
+      data: {
+        submission,
+        resumeUrl: candidate?.resumeUrl ?? submission.resumeUrl ?? null,
+        form: {
+          fullName: candidate?.fullName ?? submission.candidateName ?? "",
+          email: candidate?.email ?? "",
+          phone: candidate?.phone ?? "",
+          currentLocation: candidate?.currentLocation ?? "",
+          currentCtc: candidate?.currentCtc ?? "",
+          expectedCtc: candidate?.expectedCtc ?? "",
+          noticePeriod: candidate?.noticePeriod ?? "",
+          linkedIn: candidate?.linkedIn ?? submission.linkedIn ?? "",
+          currentCompany: candidate?.currentCompany ?? "",
+          experience: parsedNotes.experience || candidate?.experience || "",
+          skillScreens: parsedNotes.skillScreens,
+          remarks: parsedNotes.remarks,
+          skills: candidate?.skills.join(", ") ?? "",
+        },
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to load candidate for edit"),
+    };
+  }
+}
+
+export async function updateOwnCandidateAction(
+  formData: FormData,
+): Promise<ActionResult<Submission>> {
+  try {
+    const session = await requirePermission("submit_candidates");
+    if (session.role !== "partner" || !session.partnerId) {
+      return { success: false, message: "Only partners can edit candidates" };
+    }
+
+    const submissionId = String(formData.get("submissionId") ?? "");
+    if (!submissionId) {
+      return { success: false, message: "Submission is required" };
+    }
+
+    const parsed = candidateFormSchema.safeParse(parseCandidateFormData(formData));
+    if (!parsed.success) {
+      return {
+        success: false,
+        message: "Validation failed",
+        errors: parsed.error.issues.map((issue) => issue.message),
+      };
+    }
+
+    const resumeUpload = await parseResumeFromFormData(formData);
+    const updated = await updatePartnerSubmissionProfile({
+      submissionId,
+      partnerId: session.partnerId,
+      form: parsed.data,
+      resumeUpload,
+    });
+
+    revalidateSubmissionPaths();
+    return { success: true, data: updated };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to update candidate"),
     };
   }
 }

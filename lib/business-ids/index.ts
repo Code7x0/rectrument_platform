@@ -8,6 +8,9 @@ export const JOB_ID_MARKER_PREFIX = "[RP_JOBID]";
 /** Valid Partner Code: HN_254 or HN_254_2 */
 export const PARTNER_CODE_RE = /^[A-Z]{2}_\d{3}(?:_\d+)?$/;
 
+/** Candidate business IDs use the same shape as Partner Codes. */
+export const CANDIDATE_CODE_RE = PARTNER_CODE_RE;
+
 /** Valid Job ID: AB_001 or IBM_012 */
 export const JOB_CODE_RE = /^[A-Z0-9]+_\d{3}$/;
 
@@ -30,6 +33,13 @@ export function isValidPartnerCode(value: string | null | undefined): boolean {
     return false;
   }
   return PARTNER_CODE_RE.test(value.trim().toUpperCase());
+}
+
+export function isValidCandidateCode(value: string | null | undefined): boolean {
+  if (!value?.trim() || isSyntheticDisplayId(value) || /^\d+$/.test(value.trim())) {
+    return false;
+  }
+  return CANDIDATE_CODE_RE.test(value.trim().toUpperCase());
 }
 
 export function isValidJobCode(value: string | null | undefined): boolean {
@@ -263,6 +273,20 @@ export function allocateUniquePartnerCode(
     suffix += 1;
   }
   return `${normalizedBase}_${suffix}`;
+}
+
+export function buildCandidateCodeBase(
+  fullName: string | null | undefined,
+  phone: string | null | undefined,
+): string {
+  return buildPartnerCodeBase(fullName, phone);
+}
+
+export function allocateUniqueCandidateCode(
+  base: string,
+  existingCodes: Iterable<string>,
+): string {
+  return allocateUniquePartnerCode(base, existingCodes);
 }
 
 export function formatJobCode(clientCode: string, sequence: number): string {

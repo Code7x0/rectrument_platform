@@ -8,6 +8,7 @@ export {
   requestSecondLevelReview,
   stageResumeFile,
   submitCandidateForAllocation,
+  updatePartnerSubmissionProfile,
   updateSubmissionReviewFields,
 } from "./submissions.service";
 export type {

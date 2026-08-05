@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { CandidateForm } from "@/features/candidates/components/candidate-form";
+import { appendCandidateFormFields } from "@/features/candidates/lib/candidate-form-data";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 import type { Candidate } from "@/features/candidates/types";
 import { submitCandidateAction } from "@/features/submissions/actions/submissions.actions";
@@ -56,19 +57,7 @@ export function SubmitCandidateDialog({
     const formData = new FormData();
     formData.set("jobId", jobId);
     formData.set("allocationId", allocationId);
-    formData.set("fullName", values.fullName);
-    formData.set("email", values.email);
-    formData.set("phone", values.phone);
-    formData.set("currentLocation", values.currentLocation ?? "");
-    formData.set("currentCtc", values.currentCtc ?? "");
-    formData.set("expectedCtc", values.expectedCtc ?? "");
-    formData.set("noticePeriod", values.noticePeriod ?? "");
-    formData.set("linkedIn", values.linkedIn ?? "");
-    // Unused on the simplified form — keep empty for Airtable compatibility.
-    formData.set("currentCompany", "");
-    formData.set("experience", "");
-    formData.set("skills", "");
-    formData.set("remarks", "");
+    appendCandidateFormFields(formData, values);
 
     if (options?.existingCandidateId) {
       formData.set("existingCandidateId", options.existingCandidateId);
@@ -152,8 +141,8 @@ export function SubmitCandidateDialog({
           onOpenChange(next);
         }}
         title="Submit Candidate"
-        description={`Quick submit for ${jobTitle}. Required fields take under a minute.`}
-        className="h-[min(90vh,44rem)] sm:max-w-xl"
+        description={`Submit a candidate for ${jobTitle}. Screening notes are optional.`}
+        className="h-[min(92vh,52rem)] sm:max-w-2xl"
         bodyLayout="split"
       >
         <CandidateForm

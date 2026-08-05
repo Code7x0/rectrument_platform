@@ -50,7 +50,6 @@ export function SubmissionReviewPanel({
   const [interviewStage, setInterviewStage] = useState(
     submission.interviewStage ?? "",
   );
-  const [remarks, setRemarks] = useState(submission.remarks ?? "");
   const [internalFeedback, setInternalFeedback] = useState(
     submission.internalFeedback ?? "",
   );
@@ -59,28 +58,20 @@ export function SubmissionReviewPanel({
   useEffect(() => {
     setAirtableStatus(resolveAirtableStatusValue(submission));
     setInterviewStage(submission.interviewStage ?? "");
-    setRemarks(submission.remarks ?? "");
     setInternalFeedback(submission.internalFeedback ?? "");
   }, [
     submission.id,
     submission.airtableStatus,
     submission.status,
     submission.interviewStage,
-    submission.remarks,
     submission.internalFeedback,
   ]);
 
   const timeline = buildCandidateTimeline(submission, activities);
   const currentStatusValue = resolveAirtableStatusValue(submission);
   const currentStage = submission.interviewStage ?? "";
-  const currentRemarks = submission.remarks ?? "";
   const currentFeedback = submission.internalFeedback ?? "";
-
-  const statusDirty = airtableStatus !== currentStatusValue;
-  const stageDirty = interviewStage !== currentStage;
-  const remarksDirty = remarks !== currentRemarks;
   const feedbackDirty = internalFeedback !== currentFeedback;
-  const notesDirty = remarksDirty || feedbackDirty;
 
   const statusOptions = (() => {
     const options = [...AIRTABLE_SUBMISSION_STATUS_OPTIONS];
@@ -178,17 +169,14 @@ export function SubmissionReviewPanel({
   }
 
   async function saveNotes() {
-    if (!notesDirty) {
+    if (!feedbackDirty) {
       return;
     }
-    const patch: UpdateSubmissionReviewFieldsInput = {};
-    if (remarksDirty) {
-      patch.remarks = remarks;
-    }
-    if (feedbackDirty) {
-      patch.internalFeedback = internalFeedback;
-    }
-    await savePatch("notes", patch, "Review details saved");
+    await savePatch(
+      "notes",
+      { internalFeedback },
+      "Guidance saved",
+    );
   }
 
   const busy = Boolean(savingField);
@@ -273,27 +261,28 @@ export function SubmissionReviewPanel({
         <h3 className="text-sm font-semibold text-[#0F172A]">Review Details</h3>
 
         <div className="space-y-1.5">
-          <Label htmlFor={`notes-${submission.id}`}>
-            Screening Matrix Notes
-          </Label>
-          {canEdit ? (
-            <Textarea
-              id={`notes-${submission.id}`}
-              value={remarks}
-              disabled={busy}
-              onChange={(event) => setRemarks(event.target.value)}
-              rows={4}
-              placeholder="Fitment notes, relocation, job-change reasons…"
-            />
-          ) : (
-            <p className="whitespace-pre-wrap text-sm text-[#0F172A]">
-              {submission.remarks || "—"}
-            </p>
-          )}
+          <Label htmlFor={`notes-${submission.id}`}>Skill screen</Label>
+          <p className="text-xs text-[#64748B]">
+            From the partner — skills, years, alternate tech, and profile notes.
+            Only the partner can edit this.
+          </p>
+          <p
+            id={`notes-${submission.id}`}
+            className="whitespace-pre-wrap text-sm text-[#0F172A]"
+          >
+            {submission.remarks || "—"}
+          </p>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor={`feedback-${submission.id}`}>Internal Feedback</Label>
+          <Label htmlFor={`feedback-${submission.id}`}>
+            Guidance for partner
+          </Label>
+          <p className="text-xs text-[#64748B]">
+            {canEdit
+              ? "AM / admin notes for the partner — prep, gaps, next steps. You can update this at any stage. Partners can read this, not edit it."
+              : "From Talent Socio — use this to guide the candidate on what to do next."}
+          </p>
           {canEdit ? (
             <Textarea
               id={`feedback-${submission.id}`}
@@ -301,7 +290,7 @@ export function SubmissionReviewPanel({
               disabled={busy}
               onChange={(event) => setInternalFeedback(event.target.value)}
               rows={4}
-              placeholder="Internal feedback for the hiring team…"
+              placeholder="Tell the partner: candidate should prep X, close gap on Y, share Z…"
             />
           ) : (
             <p className="whitespace-pre-wrap text-sm text-[#0F172A]">
@@ -313,10 +302,10 @@ export function SubmissionReviewPanel({
         {canEdit ? (
           <Button
             type="button"
-            disabled={!notesDirty || busy}
+            disabled={!feedbackDirty || busy}
             onClick={() => void saveNotes()}
           >
-            {savingField === "notes" ? "Saving…" : "Save notes & feedback"}
+            {savingField === "notes" ? "Saving…" : "Save guidance"}
           </Button>
         ) : null}
 

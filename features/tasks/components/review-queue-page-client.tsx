@@ -28,6 +28,10 @@ import { getReviewDetailAction } from "@/features/workflows/actions/review.actio
 import { signalLiveDataChange } from "@/lib/live-sync";
 import type { SubmissionStatus } from "@/features/shared/entities";
 import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import {
+  formatSkillScreensForDisplay,
+  parseScreeningMatrixNotes,
+} from "@/features/submissions/lib/build-screening-matrix-notes";
 import { formatDate } from "@/lib/utils";
 
 interface ReviewQueuePageClientProps {
@@ -115,6 +119,23 @@ export function ReviewQueuePageClient({
     }
     return next;
   }, [rows, statusFilter, jobTitleFilter]);
+
+  const selectedScreen = useMemo(() => {
+    if (!selected) {
+      return { experience: null as string | null, skills: null as string | null };
+    }
+    const parsed = parseScreeningMatrixNotes(selected.remarks);
+    return {
+      experience:
+        candidate?.experience || parsed.experience || null,
+      skills:
+        candidate?.skills.join(", ") ||
+        formatSkillScreensForDisplay(parsed.skillScreens) ||
+        parsed.remarks ||
+        selected.remarks ||
+        null,
+    };
+  }, [selected, candidate]);
 
   async function openReview(row: Submission) {
     setSelected(row);
@@ -351,12 +372,6 @@ export function ReviewQueuePageClient({
               <p className="text-sm text-[#64748B]">Loading details…</p>
             ) : (
               <>
-                <SubmissionReviewPanel
-                  submission={selected}
-                  canEdit={canTransition}
-                  onUpdated={patchRow}
-                />
-
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-[#0F172A]">
                     Candidate Details
@@ -365,7 +380,7 @@ export function ReviewQueuePageClient({
                     <Detail label="Name" value={candidate?.fullName} />
                     <Detail label="Email" value={candidate?.email} />
                     <Detail label="Phone" value={candidate?.phone} />
-                    <Detail label="Experience" value={candidate?.experience} />
+                    <Detail label="Experience" value={selectedScreen.experience} />
                     <Detail
                       label="Current Company"
                       value={candidate?.currentCompany}
@@ -384,8 +399,8 @@ export function ReviewQueuePageClient({
                       value={candidate?.noticePeriod}
                     />
                     <Detail
-                      label="Skills"
-                      value={candidate?.skills.join(", ") || null}
+                      label="Skills / tech screen"
+                      value={selectedScreen.skills}
                     />
                   </div>
                   {(candidate?.resumeUrl || selected?.resumeUrl) ? (
@@ -417,6 +432,12 @@ export function ReviewQueuePageClient({
                     </Button>
                   ) : null}
                 </section>
+
+                <SubmissionReviewPanel
+                  submission={selected}
+                  canEdit={canTransition}
+                  onUpdated={patchRow}
+                />
 
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-[#0F172A]">

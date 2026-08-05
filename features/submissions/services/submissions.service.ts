@@ -22,6 +22,10 @@ import {
   patchSubmission,
   destroySubmission,
 } from "@/features/submissions/repositories/submissions.repository";
+import { buildScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
+import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
+import { updateCandidateRecord } from "@/features/candidates/repositories/candidates.repository";
+import { toAirtableUpdateFields } from "@/features/candidates/services/candidates.mapper";
 import {
   buildSubmissionsFilterFormula,
   toAirtableCandidateSubmissionCreateFields,
@@ -327,6 +331,12 @@ export async function submitCandidateForAllocation(
     throw new Error("Job does not match this allocation");
   }
 
+  const screeningNotes = buildScreeningMatrixNotes({
+    experience: payload.form.experience,
+    skillScreens: payload.form.skillScreens ?? [],
+    remarks: payload.form.remarks,
+  });
+
   const candidatesMode = getSubmissionsMode() === "candidates";
   let candidate: Candidate;
   let reusedCandidate = false;
@@ -369,7 +379,7 @@ export async function submitCandidateForAllocation(
         allocationId: payload.allocationId,
         partnerId: payload.partnerId,
         status: "submitted",
-        remarks: payload.form.remarks?.trim() || undefined,
+        remarks: screeningNotes || undefined,
       }),
     );
 
@@ -410,26 +420,60 @@ export async function submitCandidateForAllocation(
     }
 
     if (candidatesMode) {
-      // Single Airtable create: person + Role + Partner + status.
-      submission = await insertSubmission(
-        toAirtableCandidateSubmissionCreateFields({
-          fullName: payload.form.fullName,
-          email: payload.form.email,
-          phone: payload.form.phone || undefined,
-          currentCompany: payload.form.currentCompany || undefined,
-          currentLocation: payload.form.currentLocation || undefined,
-          experience: payload.form.experience || undefined,
-          currentCtc: payload.form.currentCtc || undefined,
-          expectedCtc: payload.form.expectedCtc || undefined,
-          noticePeriod: payload.form.noticePeriod || undefined,
-          linkedIn: payload.form.linkedIn?.trim() || undefined,
-          skills: parseSkillsInput(payload.form.skills),
-          remarks: payload.form.remarks?.trim() || undefined,
-          jobId: payload.jobId,
-          partnerId: payload.partnerId,
-          status: "submitted",
-        }),
+      const { allocateCandidateCodeForPerson } = await import(
+        "@/features/shared/services/business-ids.service"
       );
+      const candidateCode = await allocateCandidateCodeForPerson({
+        fullName: payload.form.fullName,
+        phone: payload.form.phone,
+      });
+
+      const createInput = {
+        fullName: payload.form.fullName,
+        email: payload.form.email,
+        phone: payload.form.phone || undefined,
+        currentCompany: payload.form.currentCompany || undefined,
+        currentLocation: payload.form.currentLocation || undefined,
+        experience: payload.form.experience || undefined,
+        currentCtc: payload.form.currentCtc || undefined,
+        expectedCtc: payload.form.expectedCtc || undefined,
+        noticePeriod: payload.form.noticePeriod || undefined,
+        linkedIn: payload.form.linkedIn?.trim() || undefined,
+        skills: parseSkillsInput(payload.form.skills),
+        remarks: screeningNotes || undefined,
+        jobId: payload.jobId,
+        partnerId: payload.partnerId,
+        candidateCode,
+        status: "submitted" as const,
+      };
+
+      // Person + Role + Partner + business ID + Anonymous Created By.
+      // Retry without schema-sensitive fields if Airtable still uses system types.
+      const createAttempts = [
+        createInput,
+        { ...createInput, stampAnonymous: false as const },
+        { ...createInput, candidateCode: undefined },
+        { ...createInput, candidateCode: undefined, stampAnonymous: false as const },
+      ];
+      let lastCreateError: unknown;
+      let createdSubmission: Submission | null = null;
+      for (const attempt of createAttempts) {
+        try {
+          createdSubmission = await insertSubmission(
+            toAirtableCandidateSubmissionCreateFields(attempt),
+          );
+          lastCreateError = null;
+          break;
+        } catch (error) {
+          lastCreateError = error;
+        }
+      }
+      if (!createdSubmission) {
+        throw lastCreateError instanceof Error
+          ? lastCreateError
+          : new Error("Unable to create candidate submission");
+      }
+      submission = createdSubmission;
 
       const created = await getCandidateById(submission.candidateId);
       if (!created) {
@@ -472,7 +516,7 @@ export async function submitCandidateForAllocation(
           noticePeriod: payload.form.noticePeriod || undefined,
           linkedIn: payload.form.linkedIn?.trim() || undefined,
           skills: parseSkillsInput(payload.form.skills),
-          remarks: payload.form.remarks?.trim() || undefined,
+          remarks: screeningNotes || undefined,
         },
         { skipDuplicateCheck: duplicates.length > 0 },
       );
@@ -502,7 +546,7 @@ export async function submitCandidateForAllocation(
           allocationId: payload.allocationId,
           partnerId: payload.partnerId,
           status: "submitted",
-          remarks: payload.form.remarks?.trim() || undefined,
+          remarks: screeningNotes || undefined,
         }),
       );
     }
@@ -591,8 +635,9 @@ function isKnownAirtableStatus(value: string): boolean {
 }
 
 /**
- * Staff review fields: Submission Status, Interview Stage, Screening Notes,
- * Internal Feedback. Each field is optional — only provided keys are written.
+ * Staff review fields: Submission Status, Interview Stage, Internal Feedback.
+ * Screening Matrix Notes stays partner-owned — callers should not send remarks.
+ * Each field is optional — only provided keys are written.
  */
 export async function updateSubmissionReviewFields(
   submissionId: string,
@@ -819,6 +864,66 @@ export async function requestSecondLevelReview(
   }
 
   return enriched;
+}
+
+export async function updatePartnerSubmissionProfile(input: {
+  submissionId: string;
+  partnerId: string;
+  form: CandidateFormValues;
+  resumeUpload?: UploadedFile | null;
+}): Promise<Submission> {
+  const current = await findSubmissionById(input.submissionId);
+  if (!current) {
+    throw new Error("Candidate not found");
+  }
+  if (current.partnerId !== input.partnerId) {
+    throw new Error("You can only edit candidates you submitted");
+  }
+  if (!isUnreviewedByStaff(current)) {
+    throw new Error("This profile is locked after internal review");
+  }
+
+  const fresh = await findSubmissionById(input.submissionId);
+  if (!fresh || !isUnreviewedByStaff(fresh)) {
+    throw new Error("This profile is locked after internal review");
+  }
+
+  const screeningNotes = buildScreeningMatrixNotes({
+    experience: input.form.experience,
+    skillScreens: input.form.skillScreens ?? [],
+    remarks: input.form.remarks,
+  });
+
+  const linkedIn = input.form.linkedIn?.trim()
+    ? input.form.linkedIn.trim().startsWith("http")
+      ? input.form.linkedIn.trim()
+      : `https://${input.form.linkedIn.trim()}`
+    : "";
+
+  await updateCandidateRecord(
+    fresh.candidateId,
+    toAirtableUpdateFields({
+      fullName: input.form.fullName,
+      email: input.form.email,
+      phone: input.form.phone,
+      currentLocation: input.form.currentLocation,
+      currentCtc: input.form.currentCtc || undefined,
+      expectedCtc: input.form.expectedCtc || undefined,
+      noticePeriod: input.form.noticePeriod,
+      linkedIn: linkedIn || undefined,
+      remarks: screeningNotes || undefined,
+    }),
+  );
+
+  if (input.resumeUpload) {
+    await attachResumeToCandidate(fresh.candidateId, input.resumeUpload);
+  }
+
+  const updated = await getSubmissionById(input.submissionId);
+  if (!updated) {
+    throw new Error("Candidate was updated but could not be reloaded");
+  }
+  return updated;
 }
 
 /**

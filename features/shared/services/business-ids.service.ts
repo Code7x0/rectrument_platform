@@ -8,13 +8,16 @@ import { findJobs } from "@/features/jobs/repositories/jobs.repository";
 import { findPartners } from "@/features/partners/repositories/partners.repository";
 import {
   allocateUniqueAmCode,
+  allocateUniqueCandidateCode,
   allocateUniqueClientCode,
   allocateUniquePartnerCode,
   buildAmCodeBase,
+  buildCandidateCodeBase,
   buildClientCodeBase,
   buildPartnerCodeBase,
   formatJobCode,
   isValidAmCode,
+  isValidCandidateCode,
   isValidClientCode,
   isValidPartnerCode,
   nextJobSequence,
@@ -23,10 +26,12 @@ import {
 } from "@/lib/business-ids";
 import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
+  CANDIDATES_TABLE_FIELDS,
   CLIENTS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { patchClient } from "@/features/clients/repositories/clients.repository";
 import { getRecords, updateRecord } from "@/lib/airtable/client";
+import { getAirtableTableName } from "@/lib/airtable/tables";
 import { getOptionalEnv } from "@/lib/api/env";
 import { asString, isClientCompatMode } from "@/lib/airtable/compat";
 
@@ -85,6 +90,32 @@ export async function allocatePartnerCodeForPerson(input: {
   const base = buildPartnerCodeBase(input.fullName, input.phone);
   const existing = await listExistingPartnerCodes(input.excludePartnerId);
   return allocateUniquePartnerCode(base, existing);
+}
+
+export async function listExistingCandidateCodes(
+  excludeRecordId?: string,
+): Promise<string[]> {
+  const records = await getRecords(
+    getAirtableTableName("candidatesTable"),
+    { fields: [CANDIDATES_TABLE_FIELDS.candidateId] },
+  );
+  return records
+    .filter((record) => record.id !== excludeRecordId)
+    .map((record) => asString(record.fields[CANDIDATES_TABLE_FIELDS.candidateId]))
+    .filter((code): code is string => Boolean(code && isValidCandidateCode(code)));
+}
+
+export async function allocateCandidateCodeForPerson(input: {
+  fullName: string | null | undefined;
+  phone: string | null | undefined;
+  excludeRecordId?: string;
+  existingCodes?: string[];
+}): Promise<string> {
+  const base = buildCandidateCodeBase(input.fullName, input.phone);
+  const existing =
+    input.existingCodes ??
+    (await listExistingCandidateCodes(input.excludeRecordId));
+  return allocateUniqueCandidateCode(base, existing);
 }
 
 export async function ensurePartnerHasBusinessCode(partner: {

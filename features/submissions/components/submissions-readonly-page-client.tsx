@@ -83,7 +83,8 @@ export function SubmissionsReadonlyPageClient({
                 </span>
               </div>
               <p className="mt-3 text-xs text-[#94A3B8]">
-                {row.submissionCode} · Submitted{" "}
+                {row.submissionCode ? `${row.submissionCode} · ` : ""}
+                Submitted{" "}
                 {row.submissionDate ? formatDate(row.submissionDate) : "—"}
               </p>
             </article>

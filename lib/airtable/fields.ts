@@ -338,6 +338,7 @@ export const CANDIDATES_TABLE_FIELDS = {
    */
   wantsSecondLevelReview: "Want 2nd level Review of Profile",
   candidateId: "Candidate ID",
+  createdBy: "Created By",
 } as const;
 
 /**
@@ -369,6 +370,7 @@ export const SUBMISSIONS_TABLE_FIELDS = {
   interviewStage: "Interview Stage",
   internalFeedback: "Internal Feedback",
   wantsSecondLevelReview: "Want 2nd level Review of Profile",
+  createdBy: "Created By",
 } as const;
 
 /** Exact Airtable Interview Stage options (locked client base). */
