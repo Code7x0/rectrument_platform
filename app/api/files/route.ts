@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { getAppSession } from "@/lib/auth";
-import {
-  contentTypeForFilename,
-} from "@/lib/files/document-types";
+import { contentTypeForFilename } from "@/lib/files/document-types";
 import {
   isAllowedAttachmentUrl,
   sanitizeDownloadFilename,
 } from "@/lib/files/file-preview";
+import { contentTypeForKind, sniffFileKind } from "@/lib/files/sniff-file";
 
 export const runtime = "nodejs";
 
@@ -27,28 +26,35 @@ export async function GET(request: Request) {
   }
 
   const upstream = await fetch(url, { cache: "no-store" });
-  if (!upstream.ok || !upstream.body) {
+  if (!upstream.ok) {
     return NextResponse.json(
       { message: "Unable to load file" },
       { status: upstream.status || 502 },
     );
   }
 
+  const buffer = Buffer.from(await upstream.arrayBuffer());
+  const kind = sniffFileKind(new Uint8Array(buffer));
   const contentType =
     contentTypeForFilename(filename) ??
+    contentTypeForKind(kind) ??
     upstream.headers.get("content-type")?.split(";")[0]?.trim() ??
     "application/octet-stream";
 
   const dispositionType = download ? "attachment" : "inline";
-  const encoded = encodeURIComponent(filename);
+  const downloadName =
+    filename.includes(".") || kind === "unknown"
+      ? filename
+      : `${filename}.${kind === "jpeg" ? "jpg" : kind === "docx" ? "docx" : kind === "doc" ? "doc" : kind === "pdf" ? "pdf" : kind === "png" ? "png" : kind === "gif" ? "gif" : kind === "webp" ? "webp" : "bin"}`;
 
-  return new NextResponse(upstream.body, {
+  return new NextResponse(buffer, {
     status: 200,
     headers: {
       "Content-Type": contentType,
-      "Content-Disposition": `${dispositionType}; filename="${filename}"; filename*=UTF-8''${encoded}`,
+      "Content-Disposition": `${dispositionType}; filename="${downloadName}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
       "Cache-Control": "private, max-age=120",
       "X-Content-Type-Options": "nosniff",
+      "X-Preview-Kind": kind,
     },
   });
 }
