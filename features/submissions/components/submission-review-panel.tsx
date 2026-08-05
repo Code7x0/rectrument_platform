@@ -11,6 +11,7 @@ import { CandidateTimeline } from "@/features/submissions/components/candidate-t
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import { buildCandidateTimeline } from "@/features/submissions/lib/candidate-timeline";
+import { parseScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
 import { updateSubmissionReviewFieldsAction } from "@/features/submissions/actions/review-fields.actions";
 import type { UpdateSubmissionReviewFieldsInput } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
@@ -29,6 +30,94 @@ interface SubmissionReviewPanelProps {
   canEdit: boolean;
   activities?: Activity[];
   onUpdated?: (next: Submission) => void;
+}
+
+function NoteBlock({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
+  if (!value?.trim()) {
+    return null;
+  }
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+        {label}
+      </p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">{value}</p>
+    </div>
+  );
+}
+
+function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
+  const parsed = parseScreeningMatrixNotes(text);
+  const skillLines = parsed.skillScreens
+    .map((row) => {
+      const skill = row.skill?.trim() ?? "";
+      const years = row.years?.trim() ?? "";
+      const alternate = row.alternate?.trim() ?? "";
+      if (!skill && !years && !alternate) {
+        return null;
+      }
+      if (skill && alternate) {
+        return `${skill} — not using; alternate: ${alternate}${years ? ` (${years})` : ""}`;
+      }
+      if (skill && years) {
+        return `${skill} — ${years}`;
+      }
+      if (skill) {
+        return skill;
+      }
+      if (alternate) {
+        return `alternate: ${alternate}${years ? ` (${years})` : ""}`;
+      }
+      return years;
+    })
+    .filter((line): line is string => Boolean(line));
+
+  const raw = text?.trim() ?? "";
+  const showStructured = Boolean(parsed.experience || skillLines.length > 0);
+
+  if (!raw) {
+    return (
+      <p id="screening-matrix-notes" className="text-sm text-[#0F172A]">
+        —
+      </p>
+    );
+  }
+
+  if (!showStructured) {
+    return (
+      <p
+        id="screening-matrix-notes"
+        className="whitespace-pre-wrap text-sm text-[#0F172A]"
+      >
+        {raw}
+      </p>
+    );
+  }
+
+  return (
+    <div id="screening-matrix-notes" className="space-y-3">
+      <NoteBlock label="Total experience" value={parsed.experience} />
+      {skillLines.length > 0 ? (
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+            Skills
+          </p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[#0F172A]">
+            {skillLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <NoteBlock label="Additional notes" value={parsed.remarks} />
+    </div>
+  );
 }
 
 function resolveAirtableStatusValue(submission: Submission): string {
@@ -260,54 +349,49 @@ export function SubmissionReviewPanel({
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-[#0F172A]">Review Details</h3>
 
-        <div className="space-y-1.5">
-          <Label htmlFor={`notes-${submission.id}`}>Skill screen</Label>
-          <p className="text-xs text-[#64748B]">
-            From the partner — skills, years, alternate tech, and profile notes.
-            Only the partner can edit this.
-          </p>
-          <p
-            id={`notes-${submission.id}`}
-            className="whitespace-pre-wrap text-sm text-[#0F172A]"
-          >
-            {submission.remarks || "—"}
-          </p>
+        <div className="space-y-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+          <div>
+            <Label htmlFor="screening-matrix-notes">Screening Matrix</Label>
+            <p className="mt-1 text-xs text-[#64748B]">
+              Partner notes about the candidate. Only the partner can edit this.
+            </p>
+          </div>
+          <ScreeningMatrixNotes text={submission.remarks} />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor={`feedback-${submission.id}`}>
-            Guidance for partner
-          </Label>
-          <p className="text-xs text-[#64748B]">
-            {canEdit
-              ? "AM / admin notes for the partner — prep, gaps, next steps. You can update this at any stage. Partners can read this, not edit it."
-              : "From Talent Socio — use this to guide the candidate on what to do next."}
-          </p>
+        <div className="space-y-3 rounded-xl border border-[#E2E8F0] p-4">
+          <div>
+            <Label htmlFor={`feedback-${submission.id}`}>Internal Feedback</Label>
+            <p className="mt-1 text-xs text-[#64748B]">
+              {canEdit
+                ? "AM / admin notes. You can update this at any stage. Partners can read this, not edit it."
+                : "Notes from Talent Socio about this candidate."}
+            </p>
+          </div>
           {canEdit ? (
             <Textarea
               id={`feedback-${submission.id}`}
               value={internalFeedback}
               disabled={busy}
               onChange={(event) => setInternalFeedback(event.target.value)}
-              rows={4}
-              placeholder="Tell the partner: candidate should prep X, close gap on Y, share Z…"
+              rows={5}
+              placeholder="Add internal feedback for the partner…"
             />
           ) : (
             <p className="whitespace-pre-wrap text-sm text-[#0F172A]">
               {submission.internalFeedback || "—"}
             </p>
           )}
+          {canEdit ? (
+            <Button
+              type="button"
+              disabled={!feedbackDirty || busy}
+              onClick={() => void saveNotes()}
+            >
+              {savingField === "notes" ? "Saving…" : "Save internal feedback"}
+            </Button>
+          ) : null}
         </div>
-
-        {canEdit ? (
-          <Button
-            type="button"
-            disabled={!feedbackDirty || busy}
-            onClick={() => void saveNotes()}
-          >
-            {savingField === "notes" ? "Saving…" : "Save guidance"}
-          </Button>
-        ) : null}
 
         <p className="text-xs text-[#94A3B8]">
           Last known submission time{" "}

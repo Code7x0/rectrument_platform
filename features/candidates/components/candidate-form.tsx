@@ -266,12 +266,11 @@ export function CandidateForm({
         <section className="space-y-3 rounded-xl border border-[#DBEAFE] bg-[#F8FAFC] p-4">
           <div>
             <h3 className="text-sm font-semibold text-[#0F172A]">
-              Basic screening (optional)
+              Screening Matrix (optional)
             </h3>
             <p className="mt-1 text-xs text-[#64748B]">
-              Skill set, years, alternate tech, and free notes go to the skill
-              screen. Talent Socio feedback for the candidate stays separate —
-              you will see that under Guidance for partner.
+              Skills, years, alternate tech, and extra notes go here. Internal
+              Feedback from Talent Socio stays separate.
             </p>
           </div>
 

@@ -399,7 +399,7 @@ export function ReviewQueuePageClient({
                       value={candidate?.noticePeriod}
                     />
                     <Detail
-                      label="Skills / tech screen"
+                      label="Screening Matrix"
                       value={selectedScreen.skills}
                     />
                   </div>

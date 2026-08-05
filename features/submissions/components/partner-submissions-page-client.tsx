@@ -113,7 +113,7 @@ export function PartnerSubmissionsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="My Candidates"
-        description="Track status, interview stage, your skill screen, and guidance from Talent Socio."
+        description="Track status, interview stage, Screening Matrix, and Internal Feedback."
       />
 
       {filterJobId ? (
