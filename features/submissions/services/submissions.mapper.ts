@@ -34,12 +34,18 @@ function mapStatus(value: unknown): SubmissionStatus {
   );
 }
 
-function asAttachmentUrl(value: unknown): string | null {
+function asAttachment(value: unknown): {
+  url: string | null;
+  filename: string | null;
+} {
   if (!Array.isArray(value) || value.length === 0) {
-    return null;
+    return { url: null, filename: null };
   }
-  const first = value[0] as { url?: string };
-  return typeof first.url === "string" ? first.url : null;
+  const first = value[0] as { url?: string; filename?: string };
+  return {
+    url: typeof first.url === "string" ? first.url : null,
+    filename: typeof first.filename === "string" ? first.filename : null,
+  };
 }
 
 function mapWantsSecondLevelReview(value: unknown): {
@@ -83,6 +89,7 @@ export function mapSubmissionRecord(record: {
         `Submission ${record.id} is missing Job/Role or Submitted By (Partner)`,
       );
     }
+    const resume = asAttachment(fields[SUBMISSIONS_TABLE_FIELDS.resume]);
     return {
       id: record.id,
       submissionCode: (() => {
@@ -92,7 +99,8 @@ export function mapSubmissionRecord(record: {
       })(),
       candidateId: record.id,
       candidateName: asString(fields[SUBMISSIONS_TABLE_FIELDS.candidateName]),
-      resumeUrl: asAttachmentUrl(fields[SUBMISSIONS_TABLE_FIELDS.resume]),
+      resumeUrl: resume.url,
+      resumeFilename: resume.filename,
       linkedIn: asString(fields[SUBMISSIONS_TABLE_FIELDS.linkedIn]),
       jobId,
       jobTitle: null,
@@ -128,6 +136,7 @@ export function mapSubmissionRecord(record: {
     candidateId,
     candidateName: null,
     resumeUrl: null,
+    resumeFilename: null,
     linkedIn: null,
     jobId,
     jobTitle: null,

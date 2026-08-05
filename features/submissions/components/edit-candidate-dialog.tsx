@@ -34,11 +34,13 @@ export function EditCandidateDialog({
   const [loading, setLoading] = useState(false);
   const [formValues, setFormValues] = useState<CandidateFormValues | null>(null);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [resumeFilename, setResumeFilename] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !submissionId) {
       setFormValues(null);
       setResumeUrl(null);
+      setResumeFilename(null);
       return;
     }
 
@@ -56,6 +58,7 @@ export function EditCandidateDialog({
       }
       setFormValues(result.data.form);
       setResumeUrl(result.data.resumeUrl);
+      setResumeFilename(result.data.resumeFilename);
     });
 
     return () => {
@@ -115,6 +118,7 @@ export function EditCandidateDialog({
           submitting={submitting}
           resumeRequired={false}
           currentResumeUrl={resumeUrl}
+          currentResumeFilename={resumeFilename}
           submitLabel="Save changes"
           submittingLabel="Saving…"
           onCancel={() => {

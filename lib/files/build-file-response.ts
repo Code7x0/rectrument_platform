@@ -1,4 +1,5 @@
 import { contentTypeForFilename } from "@/lib/files/document-types";
+import { convertDocToHtml, convertDocxToHtml } from "@/lib/files/convert-word";
 import {
   contentTypeForKind,
   extensionForKind,
@@ -14,40 +15,66 @@ export interface ProxiedFilePayload {
   dispositionType: "inline" | "attachment";
 }
 
+function binaryPayload(
+  buffer: Buffer,
+  kind: SniffedFileKind,
+  filename: string,
+  download: boolean,
+): ProxiedFilePayload {
+  const binaryType =
+    contentTypeForKind(kind) ??
+    contentTypeForFilename(filename) ??
+    "application/octet-stream";
+  const ext = extensionForKind(kind);
+  const downloadName =
+    filename.includes(".") || !ext ? filename : `${filename}.${ext}`;
+
+  return {
+    body: buffer,
+    contentType: binaryType,
+    kind,
+    downloadName,
+    dispositionType: download ? "attachment" : "inline",
+  };
+}
+
 export async function buildProxiedFilePayload(input: {
   buffer: Buffer;
   filename: string;
   download: boolean;
 }): Promise<ProxiedFilePayload> {
   const kind = sniffFileKind(new Uint8Array(input.buffer));
-  const binaryType =
-    contentTypeForKind(kind) ??
-    contentTypeForFilename(input.filename) ??
-    "application/octet-stream";
-  const ext = extensionForKind(kind);
-  const downloadName =
-    input.filename.includes(".") || !ext ? input.filename : `${input.filename}.${ext}`;
+  const binary = binaryPayload(input.buffer, kind, input.filename, input.download);
 
-  if (!input.download && kind === "docx") {
-    const mammoth = await import("mammoth");
-    const result = await mammoth.convertToHtml({ buffer: input.buffer });
-    if (!result.value?.trim()) {
-      throw new Error("Unable to preview Word document");
-    }
-    return {
-      body: result.value,
-      contentType: "text/html; charset=utf-8",
-      kind,
-      downloadName,
-      dispositionType: "inline",
-    };
+  if (input.download) {
+    return binary;
   }
 
-  return {
-    body: input.buffer,
-    contentType: binaryType,
-    kind,
-    downloadName,
-    dispositionType: input.download ? "attachment" : "inline",
-  };
+  if (kind === "docx" || kind === "unknown") {
+    const html = await convertDocxToHtml(input.buffer);
+    if (html) {
+      return {
+        ...binary,
+        body: html,
+        contentType: "text/html; charset=utf-8",
+        kind: kind === "unknown" ? "docx" : kind,
+        dispositionType: "inline",
+      };
+    }
+  }
+
+  if (kind === "doc" || kind === "unknown") {
+    const html = await convertDocToHtml(input.buffer);
+    if (html) {
+      return {
+        ...binary,
+        body: html,
+        contentType: "text/html; charset=utf-8",
+        kind: kind === "unknown" ? "doc" : kind,
+        dispositionType: "inline",
+      };
+    }
+  }
+
+  return binary;
 }

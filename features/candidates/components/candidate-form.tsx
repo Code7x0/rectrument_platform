@@ -26,6 +26,7 @@ interface CandidateFormProps {
   submitting?: boolean;
   resumeRequired?: boolean;
   currentResumeUrl?: string | null;
+  currentResumeFilename?: string | null;
   onCancel?: () => void;
   onSubmit: (
     values: CandidateFormValues,
@@ -40,6 +41,7 @@ export function CandidateForm({
   submitting = false,
   resumeRequired = true,
   currentResumeUrl = null,
+  currentResumeFilename = null,
   onCancel,
   onSubmit,
   submitLabel = "Submit Candidate",
@@ -184,6 +186,7 @@ export function CandidateForm({
                 Current resume stays unless you upload a replacement.{" "}
                 <FilePreviewLink
                   url={currentResumeUrl}
+                  filename={currentResumeFilename}
                   title="Current resume"
                   className="font-medium text-[#2563EB] hover:underline"
                 >

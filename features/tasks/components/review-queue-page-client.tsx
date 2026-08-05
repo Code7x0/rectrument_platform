@@ -408,6 +408,9 @@ export function ReviewQueuePageClient({
                     <FilePreviewLink
                       asButton
                       url={candidate?.resumeUrl || selected?.resumeUrl}
+                      filename={
+                        candidate?.resumeFilename || selected?.resumeFilename
+                      }
                       title={`${selected.candidateName ?? "Candidate"} resume`}
                     >
                       Preview Resume

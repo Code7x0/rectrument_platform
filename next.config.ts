@@ -8,6 +8,7 @@ import type { NextConfig } from "next";
 const UPLOAD_BODY_LIMIT = "10mb";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["pdfjs-dist"],
   experimental: {
     serverActions: {
       bodySizeLimit: UPLOAD_BODY_LIMIT,

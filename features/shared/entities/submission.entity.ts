@@ -25,6 +25,8 @@ export interface SubmissionEntity {
   candidateName: string | null;
   /** Resume attachment URL when available (enriched / candidates mode). */
   resumeUrl: string | null;
+  /** Airtable attachment filename when available. Preview must not require it. */
+  resumeFilename: string | null;
   /** LinkedIn profile URL when available. */
   linkedIn: string | null;
   jobId: string;

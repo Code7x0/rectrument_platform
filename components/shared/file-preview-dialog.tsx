@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 
+import { PdfCanvasPreview } from "@/components/shared/pdf-canvas-preview";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,10 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { fileDownloadHref, filePreviewHref } from "@/lib/files/file-preview";
 import {
-  isImageKind,
-  sniffFileKind,
-  type SniffedFileKind,
-} from "@/lib/files/sniff-file";
+  headerPreviewKind,
+  resolveClientPreview,
+  type ClientPreview,
+} from "@/lib/files/resolve-client-preview";
 
 interface FilePreviewDialogProps {
   open: boolean;
@@ -28,25 +29,13 @@ interface FilePreviewDialogProps {
 
 type PreviewState =
   | { status: "idle" | "loading" }
-  | { status: "error"; message: string }
-  | { status: "pdf" | "image"; src: string }
-  | { status: "html"; html: string };
+  | Extract<ClientPreview, { status: "error" | "html" }>
+  | { status: "pdf"; bytes: Uint8Array }
+  | { status: "image"; src: string };
 
-function headerPreviewKind(response: Response): SniffedFileKind | null {
-  const kind = response.headers.get("X-Preview-Kind");
-  if (
-    kind === "pdf" ||
-    kind === "png" ||
-    kind === "jpeg" ||
-    kind === "gif" ||
-    kind === "webp" ||
-    kind === "docx" ||
-    kind === "doc" ||
-    kind === "unknown"
-  ) {
-    return kind;
-  }
-  return null;
+function wrapPreviewHtml(html: string): string {
+  const safe = html.replace(/<\/(script|style|iframe|object|body|html)/gi, "&lt;/$1");
+  return `<!doctype html><html><head><meta charset="utf-8" /><style>body{margin:24px;font:14px/1.55 system-ui,sans-serif;color:#0f172a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #e2e8f0;padding:4px 6px;text-align:left}img{max-width:100%;height:auto}</style></head><body>${safe}</body></html>`;
 }
 
 export function FilePreviewDialog({
@@ -56,9 +45,9 @@ export function FilePreviewDialog({
   filename,
   title,
 }: FilePreviewDialogProps) {
-  const name = filename?.trim() || "Document";
-  const previewSrc = url ? filePreviewHref(url, name) : "";
-  const downloadSrc = url ? fileDownloadHref(url, name) : "";
+  const name = filename?.trim() || title?.trim() || "Document";
+  const previewSrc = url ? filePreviewHref(url, filename?.trim() || name) : "";
+  const downloadSrc = url ? fileDownloadHref(url, filename?.trim() || name) : "";
   const [preview, setPreview] = useState<PreviewState>({ status: "idle" });
 
   useEffect(() => {
@@ -87,65 +76,29 @@ export function FilePreviewDialog({
           throw new Error(message);
         }
 
-        const contentType =
-          response.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() ??
-          "application/octet-stream";
-        const headerKind = headerPreviewKind(response);
-
-        if (headerKind === "pdf" || contentType === "application/pdf") {
-          await response.body?.cancel();
-          if (cancelled) {
-            return;
-          }
-          setPreview({ status: "pdf", src: previewSrc });
-          return;
-        }
-
-        const buffer = await response.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-        const kind =
-          headerKind && headerKind !== "unknown" ? headerKind : sniffFileKind(bytes);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        const resolved = resolveClientPreview({
+          headerKind: headerPreviewKind(response.headers.get("X-Preview-Kind")),
+          contentType:
+            response.headers.get("Content-Type") ?? "application/octet-stream",
+          bytes,
+        });
 
         if (cancelled) {
           return;
         }
 
-        if (contentType === "text/html" || (kind === "docx" && contentType.includes("html"))) {
-          const html = new TextDecoder("utf-8").decode(bytes).trim();
-          if (!html) {
-            throw new Error("This Word document does not contain previewable text.");
-          }
-          setPreview({ status: "html", html });
-          return;
-        }
-
-        if (kind === "pdf") {
-          objectUrl = URL.createObjectURL(new Blob([buffer], { type: "application/pdf" }));
-          setPreview({ status: "pdf", src: objectUrl });
-          return;
-        }
-
-        if (isImageKind(kind) || contentType.startsWith("image/")) {
+        if (resolved.status === "image") {
+          const copy = new ArrayBuffer(resolved.bytes.byteLength);
+          new Uint8Array(copy).set(resolved.bytes);
           objectUrl = URL.createObjectURL(
-            new Blob([buffer], {
-              type: contentType.startsWith("image/") ? contentType : "image/jpeg",
-            }),
+            new Blob([copy], { type: resolved.contentType }),
           );
           setPreview({ status: "image", src: objectUrl });
           return;
         }
 
-        if (kind === "doc") {
-          throw new Error(
-            "Older Word (.doc) files can’t be previewed in the browser. Download the file to open it.",
-          );
-        }
-
-        if (kind === "docx") {
-          throw new Error("Unable to preview this Word document. Download the file to open it.");
-        }
-
-        throw new Error("This file type can’t be previewed in the browser.");
+        setPreview(resolved);
       } catch (error) {
         if (!cancelled) {
           setPreview({
@@ -168,8 +121,8 @@ export function FilePreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="inset-x-0 top-[5vh] mx-auto flex h-[90vh] w-[min(64rem,calc(100vw-2rem))] max-w-5xl flex-col gap-3 overflow-hidden p-4 duration-0 data-[state=closed]:animate-none data-[state=open]:animate-none sm:p-6"
-        style={{ transform: "none" }}
+        disableTransform
+        className="inset-x-0 top-[5vh] mx-auto flex h-[90vh] w-[min(64rem,calc(100vw-2rem))] max-w-5xl flex-col gap-3 overflow-hidden p-4 sm:p-6"
       >
         <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>{title?.trim() || name}</DialogTitle>
@@ -189,7 +142,7 @@ export function FilePreviewDialog({
               <Button asChild>
                 <a href={downloadSrc}>
                   <Download className="h-4 w-4" />
-                  Download {name}
+                  Download
                 </a>
               </Button>
             </div>
@@ -206,16 +159,12 @@ export function FilePreviewDialog({
             <iframe
               title={name}
               sandbox=""
-              srcDoc={`<!doctype html><html><head><meta charset="utf-8" /><style>body{margin:24px;font:14px/1.55 system-ui,sans-serif;color:#0f172a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #e2e8f0;padding:4px 6px;text-align:left}img{max-width:100%;height:auto}</style></head><body>${preview.html.replace(/<\/(script|style|iframe|object|body|html)/gi, "&lt;/$1")}</body></html>`}
+              srcDoc={wrapPreviewHtml(preview.html)}
               className="h-full w-full border-0 bg-white"
             />
-          ) : (
-            <iframe
-              title={name}
-              src={preview.src}
-              className="h-full w-full border-0 bg-white"
-            />
-          )}
+          ) : preview.status === "pdf" ? (
+            <PdfCanvasPreview data={preview.bytes} title={name} />
+          ) : null}
         </div>
 
         {url ? (

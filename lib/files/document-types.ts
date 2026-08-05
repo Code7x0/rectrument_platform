@@ -82,27 +82,6 @@ export function contentTypeForFilename(filename: string): string | null {
   return ext ? (EXT_TO_MIME[ext] ?? null) : null;
 }
 
-export function isInlinePreviewableFile(
-  filename: string,
-  contentType?: string | null,
-): boolean {
-  const type = (
-    contentTypeForFilename(filename) ??
-    contentType ??
-    ""
-  )
-    .toLowerCase()
-    .split(";")[0]
-    ?.trim();
-  return (
-    type === "application/pdf" ||
-    type === "application/msword" ||
-    type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    Boolean(type?.startsWith("image/"))
-  );
-}
-
 /**
  * Canonical MIME for Airtable uploads. Extension wins when present.
  */

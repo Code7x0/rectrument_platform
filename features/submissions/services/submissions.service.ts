@@ -101,6 +101,7 @@ async function withEnrichment(
       ...row,
       candidateName: candidate?.fullName ?? row.candidateName ?? null,
       resumeUrl: candidate?.resumeUrl ?? row.resumeUrl ?? null,
+      resumeFilename: candidate?.resumeFilename ?? row.resumeFilename ?? null,
       linkedIn: candidate?.linkedIn ?? row.linkedIn ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,

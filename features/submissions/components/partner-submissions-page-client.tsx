@@ -196,6 +196,7 @@ export function PartnerSubmissionsPageClient({
                       {row.resumeUrl ? (
                         <FilePreviewLink
                           url={row.resumeUrl}
+                          filename={row.resumeFilename}
                           title={`${row.candidateName ?? "Candidate"} resume`}
                           className="inline-flex items-center gap-1 font-medium text-[#2563EB] hover:underline"
                         >

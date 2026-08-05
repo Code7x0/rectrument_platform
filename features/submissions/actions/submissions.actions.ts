@@ -208,6 +208,7 @@ export async function getOwnSubmissionForEditAction(
     submission: Submission;
     form: CandidateFormValues;
     resumeUrl: string | null;
+    resumeFilename: string | null;
   }>
 > {
   try {
@@ -238,6 +239,8 @@ export async function getOwnSubmissionForEditAction(
       data: {
         submission,
         resumeUrl: candidate?.resumeUrl ?? submission.resumeUrl ?? null,
+        resumeFilename:
+          candidate?.resumeFilename ?? submission.resumeFilename ?? null,
         form: {
           fullName: candidate?.fullName ?? submission.candidateName ?? "",
           email: candidate?.email ?? "",
