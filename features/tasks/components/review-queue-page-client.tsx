@@ -27,8 +27,10 @@ import type { Submission } from "@/features/submissions/types";
 import { deleteSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { getReviewDetailAction } from "@/features/workflows/actions/review.actions";
 import { signalLiveDataChange } from "@/lib/live-sync";
-import type { SubmissionStatus } from "@/features/shared/entities";
-import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import {
+  AIRTABLE_SUBMISSION_STATUS_OPTIONS,
+  resolveAirtableSubmissionStatusOption,
+} from "@/lib/airtable/fields";
 import {
   formatSkillScreensForDisplay,
   parseScreeningMatrixNotes,
@@ -68,16 +70,22 @@ function Detail({
   );
 }
 
-const STATUS_FILTER_OPTIONS: Array<SubmissionStatus | "all"> = [
+const STATUS_FILTER_OPTIONS = [
   "all",
-  "submitted",
-  "internal_review",
-  "client_review",
-  "interview",
-  "offer",
-  "joined",
-  "rejected",
-];
+  ...AIRTABLE_SUBMISSION_STATUS_OPTIONS,
+] as const;
+
+function matchesAirtableStatusFilter(row: Submission, filter: string): boolean {
+  if (filter === "all") {
+    return true;
+  }
+  const current = resolveAirtableSubmissionStatusOption(row.airtableStatus);
+  const want = resolveAirtableSubmissionStatusOption(filter);
+  if (current && want) {
+    return current === want || current.trim() === want.trim();
+  }
+  return (row.airtableStatus ?? "").trim() === filter.trim();
+}
 
 export function ReviewQueuePageClient({
   initialSubmissions,
@@ -100,9 +108,7 @@ export function ReviewQueuePageClient({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [partnerFilter, setPartnerFilter] = useState("all");
@@ -111,6 +117,15 @@ export function ReviewQueuePageClient({
 
   useEffect(() => {
     setRows(initialSubmissions);
+    // Keep an open review drawer in sync with Airtable / other-user updates.
+    setSelected((current) => {
+      if (!current) {
+        return null;
+      }
+      return (
+        initialSubmissions.find((row) => row.id === current.id) ?? current
+      );
+    });
   }, [initialSubmissions]);
 
   useEffect(() => {
@@ -150,7 +165,7 @@ export function ReviewQueuePageClient({
   const filteredRows = useMemo(() => {
     let next = rows;
     if (statusFilter !== "all") {
-      next = next.filter((row) => row.status === statusFilter);
+      next = next.filter((row) => matchesAirtableStatusFilter(row, statusFilter));
     }
     const q = jobTitleFilter.trim().toLowerCase();
     if (q) {
@@ -313,7 +328,12 @@ export function ReviewQueuePageClient({
       {
         id: "status",
         header: "Current Status",
-        cell: (row) => <SubmissionStatusBadge status={row.status} />,
+        cell: (row) => (
+          <SubmissionStatusBadge
+            status={row.status}
+            airtableStatus={row.airtableStatus}
+          />
+        ),
       },
       {
         id: "stage",
@@ -383,15 +403,11 @@ export function ReviewQueuePageClient({
           <Select
             id="status-filter"
             value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as SubmissionStatus | "all")
-            }
+            onChange={(event) => setStatusFilter(event.target.value)}
           >
             {STATUS_FILTER_OPTIONS.map((status) => (
               <option key={status} value={status}>
-                {status === "all"
-                  ? "All statuses"
-                  : SUBMISSION_STATUS_LABELS[status]}
+                {status === "all" ? "All statuses" : status.trim()}
               </option>
             ))}
           </Select>

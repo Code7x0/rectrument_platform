@@ -15,11 +15,12 @@ import { parseScreeningMatrixNotes } from "@/features/submissions/lib/build-scre
 import { updateSubmissionReviewFieldsAction } from "@/features/submissions/actions/review-fields.actions";
 import type { UpdateSubmissionReviewFieldsInput } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
-import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import { submissionStatusDisplayLabel } from "@/features/shared/entities";
 import {
   AIRTABLE_INTERVIEW_STAGES,
   AIRTABLE_SUBMISSION_STATUS_OPTIONS,
   DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
+  resolveAirtableSubmissionStatusOption,
 } from "@/lib/airtable/fields";
 import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -121,10 +122,17 @@ function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
 }
 
 function resolveAirtableStatusValue(submission: Submission): string {
-  if (submission.airtableStatus?.trim()) {
-    return submission.airtableStatus;
+  const fromAirtable = resolveAirtableSubmissionStatusOption(
+    submission.airtableStatus,
+  );
+  if (fromAirtable) {
+    return fromAirtable;
   }
-  return DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status];
+  return (
+    resolveAirtableSubmissionStatusOption(
+      DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status],
+    ) ?? DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status]
+  );
 }
 
 export function SubmissionReviewPanel({
@@ -164,11 +172,14 @@ export function SubmissionReviewPanel({
 
   const statusOptions = (() => {
     const options = [...AIRTABLE_SUBMISSION_STATUS_OPTIONS];
+    const resolved = resolveAirtableSubmissionStatusOption(airtableStatus);
     if (
-      airtableStatus &&
-      !options.includes(airtableStatus as (typeof options)[number])
+      resolved &&
+      !options.some(
+        (option) => option === resolved || option.trim() === resolved.trim(),
+      )
     ) {
-      options.unshift(airtableStatus as (typeof options)[number]);
+      options.unshift(resolved as (typeof options)[number]);
     }
     return options;
   })();
@@ -201,20 +212,29 @@ export function SubmissionReviewPanel({
 
   async function saveStatus(nextStatus: string) {
     const previous = airtableStatus;
-    setAirtableStatus(nextStatus);
-    if (nextStatus === currentStatusValue) {
+    const resolvedNext =
+      resolveAirtableSubmissionStatusOption(nextStatus) ?? nextStatus;
+    setAirtableStatus(resolvedNext);
+    if (
+      resolvedNext === currentStatusValue ||
+      resolvedNext.trim() === currentStatusValue.trim()
+    ) {
       return;
     }
     setSavingField("status");
     try {
       const result = await updateSubmissionReviewFieldsAction(submission.id, {
-        airtableStatus: nextStatus,
+        airtableStatus: resolvedNext,
       });
       if (!result.success) {
         setAirtableStatus(previous);
         toast.error(result.message);
         return;
       }
+      const saved =
+        resolveAirtableSubmissionStatusOption(result.data.airtableStatus) ??
+        resolvedNext;
+      setAirtableStatus(saved);
       toast.success("Submission status updated");
       onUpdated?.(result.data);
       signalLiveDataChange();
@@ -273,7 +293,10 @@ export function SubmissionReviewPanel({
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
-        <SubmissionStatusBadge status={submission.status} />
+        <SubmissionStatusBadge
+          status={submission.status}
+          airtableStatus={airtableStatus || submission.airtableStatus}
+        />
         {submission.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
       </div>
       <p className="text-xs text-[#94A3B8]">
@@ -282,8 +305,10 @@ export function SubmissionReviewPanel({
           ? formatDateTime(submission.submissionDate)
           : "—"}
         {" · "}
-        {submission.airtableStatus ||
-          SUBMISSION_STATUS_LABELS[submission.status]}
+        {submissionStatusDisplayLabel({
+          status: submission.status,
+          airtableStatus: airtableStatus || submission.airtableStatus,
+        })}
       </p>
 
       <section className="space-y-3">
@@ -308,8 +333,10 @@ export function SubmissionReviewPanel({
             </Select>
           ) : (
             <p className="text-sm text-[#0F172A]">
-              {submission.airtableStatus ||
-                SUBMISSION_STATUS_LABELS[submission.status]}
+              {submissionStatusDisplayLabel({
+                status: submission.status,
+                airtableStatus: airtableStatus || submission.airtableStatus,
+              })}
             </p>
           )}
           {savingField === "status" ? (

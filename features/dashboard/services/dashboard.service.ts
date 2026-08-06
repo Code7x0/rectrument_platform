@@ -20,7 +20,7 @@ import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { JOB_STATUS_LABELS } from "@/features/jobs/types";
 import {
   REVIEWABLE_SUBMISSION_STATUSES,
-  SUBMISSION_STATUS_LABELS,
+  submissionStatusDisplayLabel,
 } from "@/features/shared/entities";
 import { PAYOUT_STATUS_LABELS } from "@/features/payouts/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -368,7 +368,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     id: row.id,
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
-    badge: SUBMISSION_STATUS_LABELS[row.status],
+    badge: submissionStatusDisplayLabel(row),
     href: "/admin/candidates",
   }));
 
@@ -566,7 +566,7 @@ export async function getAccountManagerDashboardData(
     id: row.id,
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
-    badge: SUBMISSION_STATUS_LABELS[row.status],
+    badge: submissionStatusDisplayLabel(row),
     href: "/account-manager/candidates",
     meta: row.submissionDate ? formatDate(row.submissionDate) : undefined,
   }));
@@ -575,7 +575,7 @@ export async function getAccountManagerDashboardData(
     id: row.id,
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
-    badge: SUBMISSION_STATUS_LABELS[row.status],
+    badge: submissionStatusDisplayLabel(row),
     href: "/account-manager/candidates",
   }));
 
@@ -813,14 +813,14 @@ export async function getPartnerDashboardData(
       id: row.id,
       title: row.candidateName ?? "Candidate",
       subtitle: row.jobTitle ?? "Job",
-      badge: SUBMISSION_STATUS_LABELS[row.status],
+      badge: submissionStatusDisplayLabel(row),
       href: "/partner/candidates",
     })),
     // Own submissions only — never the global activity feed.
     recentActivity: submissions.slice(0, 8).map((row) => ({
       id: `sub_${row.id}`,
       title: row.candidateName ?? "Candidate",
-      subtitle: `${row.jobTitle ?? "Job"} · ${SUBMISSION_STATUS_LABELS[row.status]}`,
+      subtitle: `${row.jobTitle ?? "Job"} · ${submissionStatusDisplayLabel(row)}`,
       timestamp: row.submissionDate ?? new Date().toISOString(),
       href: "/partner/candidates",
     })),

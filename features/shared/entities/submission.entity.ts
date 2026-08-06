@@ -75,14 +75,29 @@ export interface CreateSubmissionInput {
 }
 
 export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
-  submitted: "Submitted",
-  internal_review: "Internal Review",
-  client_review: "Client Review",
+  submitted: "Pending Review",
+  internal_review: "Internal Screening in Progress",
+  client_review: "Being Submitted to Client",
   interview: "Interviewing",
-  offer: "Offer",
+  offer: "Offered",
   joined: "Joined",
-  rejected: "Rejected",
+  rejected: "Rejected Resume Review-TS",
 };
+
+/**
+ * Prefer the exact Airtable Submission Status label (Hold, Candidate Backed Out, …).
+ * Domain buckets are only a fallback when Airtable's value is missing — never invent
+ * coarse labels like "Internal Review" / "Rejected" that are not in the live catalog.
+ */
+export function submissionStatusDisplayLabel(
+  submission: Pick<SubmissionEntity, "status" | "airtableStatus">,
+): string {
+  const raw = submission.airtableStatus?.trim();
+  if (raw) {
+    return raw;
+  }
+  return SUBMISSION_STATUS_LABELS[submission.status];
+}
 
 /** Queue: open pipeline (not joined / rejected). */
 export const REVIEWABLE_SUBMISSION_STATUSES: SubmissionStatus[] = [

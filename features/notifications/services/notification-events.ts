@@ -509,6 +509,8 @@ export async function notifySubmissionStatusChanged(input: {
   jobTitle: string;
   submissionId: string;
   toStatus: SubmissionStatus;
+  /** Exact Airtable label when available (Hold, Candidate Backed Out, …). */
+  statusLabel?: string | null;
 }): Promise<void> {
   const config = STATUS_NOTIFICATION[input.toStatus];
   if (!config) {
@@ -521,11 +523,13 @@ export async function notifySubmissionStatusChanged(input: {
   }
 
   const candidatesUrl = `${appBaseUrl()}/partner/candidates`;
+  const statusLabel =
+    input.statusLabel?.trim() || input.toStatus.replace(/_/g, " ");
 
   await publishNotification({
     recipientUserId: partnerUserId,
     title: config.title,
-    description: `${input.candidateName} on ${input.jobTitle} is now ${input.toStatus.replace(/_/g, " ")}.`,
+    description: `${input.candidateName} on ${input.jobTitle} is now ${statusLabel}.`,
     type: config.type,
     category: "candidates",
     priority: input.toStatus === "joined" ? "critical" : "high",
@@ -538,7 +542,7 @@ export async function notifySubmissionStatusChanged(input: {
     emailData: {
       candidateName: input.candidateName,
       jobTitle: input.jobTitle,
-      statusLabel: input.toStatus.replace(/_/g, " "),
+      statusLabel,
       candidatesUrl,
     },
   });

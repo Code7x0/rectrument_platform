@@ -44,7 +44,10 @@ export function PartnerSubmissionsTab({
                 {row.submissionCode ? ` · ${row.submissionCode}` : ""}
               </p>
             </div>
-            <SubmissionStatusBadge status={row.status} />
+            <SubmissionStatusBadge
+              status={row.status}
+              airtableStatus={row.airtableStatus}
+            />
           </div>
           <p className="mt-3 text-xs text-[#94A3B8]">
             Submitted{" "}

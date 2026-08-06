@@ -41,4 +41,5 @@ export type {
 export {
   REVIEWABLE_SUBMISSION_STATUSES,
   SUBMISSION_STATUS_LABELS,
+  submissionStatusDisplayLabel,
 } from "./submission.entity";

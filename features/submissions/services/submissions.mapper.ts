@@ -27,11 +27,18 @@ function mapStatus(value: unknown): SubmissionStatus {
   if (!raw) {
     return "submitted";
   }
-  return (
-    AIRTABLE_SUBMISSION_STATUS[
-      raw as keyof typeof AIRTABLE_SUBMISSION_STATUS
-    ] ?? "submitted"
-  );
+  const direct =
+    AIRTABLE_SUBMISSION_STATUS[raw as keyof typeof AIRTABLE_SUBMISSION_STATUS];
+  if (direct) {
+    return direct;
+  }
+  const trimmed = raw.trim();
+  for (const [key, domain] of Object.entries(AIRTABLE_SUBMISSION_STATUS)) {
+    if (key.trim() === trimmed) {
+      return domain as SubmissionStatus;
+    }
+  }
+  return "submitted";
 }
 
 function asAttachment(value: unknown): {

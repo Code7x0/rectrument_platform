@@ -359,6 +359,8 @@ export async function getSyncFingerprint(userId: string): Promise<{
       "@/lib/airtable/fields"
     );
 
+    // Sample recent + a wider status digest so Airtable-only status edits
+    // (Hold → Candidate Backed Out, etc.) bump the pulse for other viewers.
     const crmHeadPromise = findSubmissionsSafe({
       sort: [
         {
@@ -366,10 +368,11 @@ export async function getSyncFingerprint(userId: string): Promise<{
           direction: "desc",
         },
       ],
-      maxRecords: 25,
+      maxRecords: 100,
     })
-      .then((rows) =>
-        rows
+      .then((rows) => {
+        const detail = rows
+          .slice(0, 40)
           .map((row) =>
             [
               row.id,
@@ -382,8 +385,13 @@ export async function getSyncFingerprint(userId: string): Promise<{
               row.wantsSecondLevelReview ? "1" : "0",
             ].join(":"),
           )
-          .join(";"),
-      )
+          .join(";");
+        const statusDigest = rows
+          .map((row) => `${row.id}:${row.airtableStatus ?? row.status}`)
+          .sort()
+          .join(",");
+        return `${detail}#${statusDigest}`;
+      })
       .catch(() => "");
 
     if (!isNotificationsStorageAvailable()) {

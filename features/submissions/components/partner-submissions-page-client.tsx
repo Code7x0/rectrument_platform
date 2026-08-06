@@ -30,8 +30,10 @@ import { SubmissionReviewPanel } from "@/features/submissions/components/submiss
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
 import type { Submission } from "@/features/submissions/types";
-import type { SubmissionStatus } from "@/features/shared/entities";
-import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import {
+  AIRTABLE_SUBMISSION_STATUS_OPTIONS,
+  resolveAirtableSubmissionStatusOption,
+} from "@/lib/airtable/fields";
 import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
@@ -43,16 +45,22 @@ interface PartnerSubmissionsPageClientProps {
   filterJobLabel?: string | null;
 }
 
-const STATUS_FILTER_OPTIONS: Array<SubmissionStatus | "all"> = [
+const STATUS_FILTER_OPTIONS = [
   "all",
-  "submitted",
-  "internal_review",
-  "client_review",
-  "interview",
-  "offer",
-  "joined",
-  "rejected",
-];
+  ...AIRTABLE_SUBMISSION_STATUS_OPTIONS,
+] as const;
+
+function matchesAirtableStatusFilter(row: Submission, filter: string): boolean {
+  if (filter === "all") {
+    return true;
+  }
+  const current = resolveAirtableSubmissionStatusOption(row.airtableStatus);
+  const want = resolveAirtableSubmissionStatusOption(filter);
+  if (current && want) {
+    return current === want || current.trim() === want.trim();
+  }
+  return (row.airtableStatus ?? "").trim() === filter.trim();
+}
 
 export function PartnerSubmissionsPageClient({
   submissions: initialSubmissions,
@@ -64,21 +72,27 @@ export function PartnerSubmissionsPageClient({
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
   const [selected, setSelected] = useState<Submission | null>(null);
-  const [statusFilter, setStatusFilter] = useState<SubmissionStatus | "all">(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [requestingReview, setRequestingReview] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     setRows(initialSubmissions);
+    setSelected((current) => {
+      if (!current) {
+        return null;
+      }
+      return (
+        initialSubmissions.find((row) => row.id === current.id) ?? current
+      );
+    });
   }, [initialSubmissions]);
 
   const filteredRows = useMemo(() => {
     let next = rows;
     if (statusFilter !== "all") {
-      next = next.filter((row) => row.status === statusFilter);
+      next = next.filter((row) => matchesAirtableStatusFilter(row, statusFilter));
     }
     const q = jobTitleFilter.trim().toLowerCase();
     if (q) {
@@ -140,15 +154,11 @@ export function PartnerSubmissionsPageClient({
           <Select
             id="partner-status-filter"
             value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as SubmissionStatus | "all")
-            }
+            onChange={(event) => setStatusFilter(event.target.value)}
           >
             {STATUS_FILTER_OPTIONS.map((status) => (
               <option key={status} value={status}>
-                {status === "all"
-                  ? "All statuses"
-                  : SUBMISSION_STATUS_LABELS[status]}
+                {status === "all" ? "All statuses" : status.trim()}
               </option>
             ))}
           </Select>
@@ -218,7 +228,10 @@ export function PartnerSubmissionsPageClient({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <SubmissionStatusBadge status={row.status} />
+                    <SubmissionStatusBadge
+                      status={row.status}
+                      airtableStatus={row.airtableStatus}
+                    />
                     {row.wantsSecondLevelReview ? (
                       <SecondLevelReviewBadge />
                     ) : null}

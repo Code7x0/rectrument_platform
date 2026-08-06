@@ -1,6 +1,6 @@
 import type { Activity } from "@/features/workflows/types";
 import type { Submission } from "@/features/submissions/types";
-import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
+import { submissionStatusDisplayLabel } from "@/features/shared/entities";
 
 export type CandidateTimelineTone =
   | "done"
@@ -52,16 +52,21 @@ export function buildCandidateTimeline(
 
   if (statusChanges.length > 0) {
     for (const row of statusChanges) {
-      const to = row.toStatus ?? "";
+      // Prefer exact Airtable label stored in note when present.
+      const noteLabel = row.note?.trim();
       const label =
-        SUBMISSION_STATUS_LABELS[to as keyof typeof SUBMISSION_STATUS_LABELS] ??
-        to.replace(/_/g, " ");
+        noteLabel &&
+        noteLabel !== "interview_stage_updated" &&
+        noteLabel !== "Want 2nd level Review of Profile"
+          ? noteLabel
+          : submissionStatusDisplayLabel({
+              status: (row.toStatus as Submission["status"]) ?? submission.status,
+              airtableStatus: null,
+            });
       steps.push({
         id: `activity-${row.id}`,
         label,
-        detail: row.note && row.note !== "Want 2nd level Review of Profile"
-          ? row.note
-          : null,
+        detail: null,
         at: row.createdAt,
         tone: "done",
       });
@@ -69,7 +74,7 @@ export function buildCandidateTimeline(
   } else if (submission.status !== "submitted") {
     steps.push({
       id: `status-${submission.status}`,
-      label: SUBMISSION_STATUS_LABELS[submission.status],
+      label: submissionStatusDisplayLabel(submission),
       detail: null,
       at: null,
       tone: submission.status === "rejected" ? "attention" : "done",

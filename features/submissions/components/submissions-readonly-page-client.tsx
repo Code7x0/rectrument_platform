@@ -8,9 +8,9 @@ import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
 import {
-  SUBMISSION_STATUS_LABELS,
-  type Submission,
+  submissionStatusDisplayLabel,
 } from "@/features/submissions/types";
+import type { Submission } from "@/features/submissions/types";
 import { formatDate } from "@/lib/utils";
 
 interface SubmissionsReadonlyPageClientProps {
@@ -80,7 +80,7 @@ export function SubmissionsReadonlyPageClient({
                   </div>
                 </div>
                 <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-xs font-medium text-[#334155]">
-                  {SUBMISSION_STATUS_LABELS[row.status]}
+                  {submissionStatusDisplayLabel(row)}
                 </span>
               </div>
               <p className="mt-3 text-xs text-[#94A3B8]">

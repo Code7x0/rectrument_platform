@@ -6,6 +6,7 @@ export type {
 export {
   REVIEWABLE_SUBMISSION_STATUSES,
   SUBMISSION_STATUS_LABELS,
+  submissionStatusDisplayLabel,
 } from "@/features/shared/entities";
 
 export interface SubmissionListFilters {

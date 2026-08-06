@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import {
   SUBMISSION_STATUS_LABELS,
+  submissionStatusDisplayLabel,
   type SubmissionStatus,
 } from "@/features/shared/entities";
 
@@ -19,12 +20,20 @@ const STATUS_VARIANT: Record<
 
 interface SubmissionStatusBadgeProps {
   status: SubmissionStatus;
+  /** Exact Airtable Submission Status when available (Hold, Candidate Backed Out, …). */
+  airtableStatus?: string | null;
+  label?: string | null;
 }
 
-export function SubmissionStatusBadge({ status }: SubmissionStatusBadgeProps) {
-  return (
-    <Badge variant={STATUS_VARIANT[status]}>
-      {SUBMISSION_STATUS_LABELS[status]}
-    </Badge>
-  );
+export function SubmissionStatusBadge({
+  status,
+  airtableStatus,
+  label,
+}: SubmissionStatusBadgeProps) {
+  const display =
+    label?.trim() ||
+    submissionStatusDisplayLabel({ status, airtableStatus: airtableStatus ?? null }) ||
+    SUBMISSION_STATUS_LABELS[status];
+
+  return <Badge variant={STATUS_VARIANT[status]}>{display}</Badge>;
 }

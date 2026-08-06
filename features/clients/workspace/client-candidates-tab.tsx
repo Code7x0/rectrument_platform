@@ -5,7 +5,7 @@ import { ClipboardList, ExternalLink, FileText } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import {
-  SUBMISSION_STATUS_LABELS,
+  submissionStatusDisplayLabel,
   type Submission,
 } from "@/features/submissions/types";
 import { formatDate } from "@/lib/utils";
@@ -69,7 +69,7 @@ export function ClientCandidatesTab({
               </div>
             </div>
             <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-xs font-medium text-[#334155]">
-              {SUBMISSION_STATUS_LABELS[row.status]}
+              {submissionStatusDisplayLabel(row)}
             </span>
           </div>
           <p className="mt-3 text-xs text-[#94A3B8]">

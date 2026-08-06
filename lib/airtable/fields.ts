@@ -404,6 +404,7 @@ export const AIRTABLE_SECOND_LEVEL_REVIEW_YES =
 /**
  * Client Submission Status → domain SubmissionStatus.
  * Trailing spaces in Airtable option names are preserved as keys.
+ * Domain buckets power filters/workflows; UI should prefer the exact Airtable label.
  */
 export const AIRTABLE_SUBMISSION_STATUS = {
   Submitted: "submitted",
@@ -416,7 +417,7 @@ export const AIRTABLE_SUBMISSION_STATUS = {
   Offer: "offer",
   Joined: "joined",
   Rejected: "rejected",
-  /** Client Partner Relationship Manager options */
+  /** Client Partner Relationship Manager options (live Candidates table). */
   "Pending Review": "submitted",
   "Internal Screening in Progress": "internal_review",
   "Being Submitted to Client ": "client_review",
@@ -435,11 +436,14 @@ export const AIRTABLE_SUBMISSION_STATUS = {
   "Internal Review Reject": "rejected",
   "Not Responding": "rejected",
   "Not Moved,Role Closed": "rejected",
+  "Not Moved, Role Closed": "rejected",
+  /** Added on locked client base — must stay in OPTIONS for AM/Admin writes. */
+  "Candidate Backed Out": "rejected",
 } as const;
 
 /**
  * Exact Airtable Submission Status options (locked client Candidates table).
- * Staff dropdown writes these values verbatim.
+ * Order matches the live singleSelect catalog — staff/partner UIs write these verbatim.
  */
 export const AIRTABLE_SUBMISSION_STATUS_OPTIONS = [
   "Pending Review",
@@ -458,10 +462,25 @@ export const AIRTABLE_SUBMISSION_STATUS_OPTIONS = [
   "Rejected Interview Process",
   "Not Responding",
   "Not Moved,Role Closed",
+  "Candidate Backed Out",
 ] as const;
 
 export type AirtableSubmissionStatusOption =
   (typeof AIRTABLE_SUBMISSION_STATUS_OPTIONS)[number];
+
+/** Resolve a UI/Airtable value to the exact catalog option (preserves trailing spaces). */
+export function resolveAirtableSubmissionStatusOption(
+  value: string | null | undefined,
+): string | null {
+  const raw = typeof value === "string" ? value : "";
+  if (!raw.trim()) {
+    return null;
+  }
+  const exact = (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).find(
+    (option) => option === raw || option.trim() === raw.trim(),
+  );
+  return exact ?? raw.trim();
+}
 
 export const DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE = {
   submitted: "Pending Review",

@@ -55,6 +55,7 @@ import {
   AIRTABLE_SECOND_LEVEL_REVIEW_YES,
   AIRTABLE_SUBMISSION_STATUS,
   AIRTABLE_SUBMISSION_STATUS_OPTIONS,
+  resolveAirtableSubmissionStatusOption,
   DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
   SUBMISSIONS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
@@ -679,17 +680,31 @@ export interface UpdateSubmissionReviewFieldsInput {
 }
 
 function mapAirtableStatusToDomain(raw: string): SubmissionStatus {
-  return (
-    AIRTABLE_SUBMISSION_STATUS[
-      raw as keyof typeof AIRTABLE_SUBMISSION_STATUS
-    ] ?? "submitted"
-  );
+  const direct =
+    AIRTABLE_SUBMISSION_STATUS[raw as keyof typeof AIRTABLE_SUBMISSION_STATUS];
+  if (direct) {
+    return direct;
+  }
+  const trimmed = raw.trim();
+  for (const [key, domain] of Object.entries(AIRTABLE_SUBMISSION_STATUS)) {
+    if (key.trim() === trimmed) {
+      return domain as SubmissionStatus;
+    }
+  }
+  return "submitted";
 }
 
 function isKnownAirtableStatus(value: string): boolean {
   const trimmed = value.trim();
-  return (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).some(
-    (option) => option === value || option.trim() === trimmed,
+  if (
+    (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).some(
+      (option) => option === value || option.trim() === trimmed,
+    )
+  ) {
+    return true;
+  }
+  return Object.keys(AIRTABLE_SUBMISSION_STATUS).some(
+    (key) => key === value || key.trim() === trimmed,
   );
 }
 
@@ -710,7 +725,9 @@ export async function updateSubmissionReviewFields(
 
   const fields: AirtableFields = {};
   const previousStatus = current.status;
+  const previousAirtableStatus = (current.airtableStatus ?? "").trim();
   let nextDomainStatus = current.status;
+  let nextAirtableStatus = previousAirtableStatus;
 
   if (input.airtableStatus !== undefined) {
     const statusValue = input.airtableStatus?.trim() || "";
@@ -719,14 +736,14 @@ export async function updateSubmissionReviewFields(
     }
     // Prefer exact catalog value (preserves trailing spaces on Airtable options).
     const exact =
-      (AIRTABLE_SUBMISSION_STATUS_OPTIONS as readonly string[]).find(
-        (option) => option === input.airtableStatus || option.trim() === statusValue,
-      ) ?? input.airtableStatus;
+      resolveAirtableSubmissionStatusOption(input.airtableStatus) ??
+      input.airtableStatus;
     if (!exact || !isKnownAirtableStatus(exact)) {
       throw new Error(`Invalid submission status: ${statusValue}`);
     }
     fields[SUBMISSIONS_TABLE_FIELDS.status] = exact;
     nextDomainStatus = mapAirtableStatusToDomain(exact);
+    nextAirtableStatus = exact.trim();
   }
 
   if (input.interviewStage !== undefined) {
@@ -760,7 +777,9 @@ export async function updateSubmissionReviewFields(
   }
 
   const statusChanged =
-    input.airtableStatus !== undefined && previousStatus !== nextDomainStatus;
+    input.airtableStatus !== undefined &&
+    (previousStatus !== nextDomainStatus ||
+      previousAirtableStatus !== nextAirtableStatus);
   const stageChanged =
     input.interviewStage !== undefined &&
     (input.interviewStage?.trim() || "") !== (current.interviewStage ?? "");
@@ -818,6 +837,7 @@ export async function updateSubmissionReviewFields(
         jobTitle: enriched.jobTitle ?? "Job",
         submissionId: enriched.id,
         toStatus: nextDomainStatus,
+        statusLabel: enriched.airtableStatus,
       });
     } else if (stageChanged || notesChanged) {
       const { notifySubmissionReviewUpdated } = await import(
