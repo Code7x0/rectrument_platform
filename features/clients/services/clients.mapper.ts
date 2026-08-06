@@ -179,8 +179,10 @@ export function toAirtableUpdateFields(
     fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork || "";
   }
   if (input.workDaysInWeek !== undefined) {
-    fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] =
-      input.workDaysInWeek === null ? null : input.workDaysInWeek;
+    // Airtable FieldSet types disallow null; runtime null clears the number field.
+    fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] = (
+      input.workDaysInWeek === null ? null : input.workDaysInWeek
+    ) as AirtableFields[string];
   }
 
   return fields;
