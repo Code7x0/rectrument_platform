@@ -332,6 +332,7 @@ export function ReviewQueuePageClient({
           <SubmissionStatusBadge
             status={row.status}
             airtableStatus={row.airtableStatus}
+            label={row.airtableStatus}
           />
         ),
       },

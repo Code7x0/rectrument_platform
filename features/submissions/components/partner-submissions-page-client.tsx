@@ -231,6 +231,7 @@ export function PartnerSubmissionsPageClient({
                     <SubmissionStatusBadge
                       status={row.status}
                       airtableStatus={row.airtableStatus}
+                      label={row.airtableStatus}
                     />
                     {row.wantsSecondLevelReview ? (
                       <SecondLevelReviewBadge />

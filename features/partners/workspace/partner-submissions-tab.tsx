@@ -47,6 +47,7 @@ export function PartnerSubmissionsTab({
             <SubmissionStatusBadge
               status={row.status}
               airtableStatus={row.airtableStatus}
+              label={row.airtableStatus}
             />
           </div>
           <p className="mt-3 text-xs text-[#94A3B8]">

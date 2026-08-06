@@ -289,13 +289,17 @@ export function SubmissionReviewPanel({
   }
 
   const busy = Boolean(savingField);
+  const exactStatusLabel =
+    (airtableStatus || submission.airtableStatus || "").trim() ||
+    submissionStatusDisplayLabel(submission);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <SubmissionStatusBadge
           status={submission.status}
-          airtableStatus={airtableStatus || submission.airtableStatus}
+          airtableStatus={exactStatusLabel}
+          label={exactStatusLabel}
         />
         {submission.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
       </div>
@@ -305,10 +309,7 @@ export function SubmissionReviewPanel({
           ? formatDateTime(submission.submissionDate)
           : "—"}
         {" · "}
-        {submissionStatusDisplayLabel({
-          status: submission.status,
-          airtableStatus: airtableStatus || submission.airtableStatus,
-        })}
+        {exactStatusLabel}
       </p>
 
       <section className="space-y-3">
@@ -332,12 +333,7 @@ export function SubmissionReviewPanel({
               ))}
             </Select>
           ) : (
-            <p className="text-sm text-[#0F172A]">
-              {submissionStatusDisplayLabel({
-                status: submission.status,
-                airtableStatus: airtableStatus || submission.airtableStatus,
-              })}
-            </p>
+            <p className="text-sm text-[#0F172A]">{exactStatusLabel}</p>
           )}
           {savingField === "status" ? (
             <p className="text-xs text-[#64748B]">Saving status…</p>
