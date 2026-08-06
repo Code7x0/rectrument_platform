@@ -84,11 +84,6 @@ export const SUBMISSION_STATUS_LABELS: Record<SubmissionStatus, string> = {
   rejected: "Rejected Resume Review-TS",
 };
 
-/**
- * Prefer the exact Airtable Submission Status label (Hold, Candidate Backed Out, …).
- * Domain buckets are only a fallback when Airtable's value is missing — never invent
- * coarse labels like "Internal Review" / "Rejected" that are not in the live catalog.
- */
 export function submissionStatusDisplayLabel(
   submission: Pick<SubmissionEntity, "status" | "airtableStatus">,
 ): string {

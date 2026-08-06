@@ -9,13 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { CandidateTimeline } from "@/features/submissions/components/candidate-timeline";
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
-import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
+import {
+  InterviewStageBadge,
+  SubmissionStatusBadge,
+} from "@/features/submissions/components/submission-status-badge";
 import { buildCandidateTimeline } from "@/features/submissions/lib/candidate-timeline";
 import { parseScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
 import { updateSubmissionReviewFieldsAction } from "@/features/submissions/actions/review-fields.actions";
 import type { UpdateSubmissionReviewFieldsInput } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
-import { submissionStatusDisplayLabel } from "@/features/shared/entities";
 import {
   AIRTABLE_INTERVIEW_STAGES,
   AIRTABLE_SUBMISSION_STATUS_OPTIONS,
@@ -164,7 +166,21 @@ export function SubmissionReviewPanel({
     submission.internalFeedback,
   ]);
 
-  const timeline = buildCandidateTimeline(submission, activities);
+  const exactStatusLabel =
+    (
+      resolveAirtableSubmissionStatusOption(airtableStatus) ||
+      airtableStatus ||
+      submission.airtableStatus ||
+      ""
+    ).trim() ||
+    DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status].trim();
+
+  const timelineSubmission: Submission = {
+    ...submission,
+    airtableStatus: exactStatusLabel,
+    interviewStage: interviewStage || submission.interviewStage,
+  };
+  const timeline = buildCandidateTimeline(timelineSubmission, activities);
   const currentStatusValue = resolveAirtableStatusValue(submission);
   const currentStage = submission.interviewStage ?? "";
   const currentFeedback = submission.internalFeedback ?? "";
@@ -289,9 +305,7 @@ export function SubmissionReviewPanel({
   }
 
   const busy = Boolean(savingField);
-  const exactStatusLabel =
-    (airtableStatus || submission.airtableStatus || "").trim() ||
-    submissionStatusDisplayLabel(submission);
+  const stageLabel = (interviewStage || submission.interviewStage || "").trim();
 
   return (
     <div className="space-y-5">
@@ -301,6 +315,7 @@ export function SubmissionReviewPanel({
           airtableStatus={exactStatusLabel}
           label={exactStatusLabel}
         />
+        <InterviewStageBadge stage={stageLabel} />
         {submission.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
       </div>
       <p className="text-xs text-[#94A3B8]">
@@ -310,6 +325,7 @@ export function SubmissionReviewPanel({
           : "—"}
         {" · "}
         {exactStatusLabel}
+        {stageLabel ? ` · Interview: ${stageLabel}` : ""}
       </p>
 
       <section className="space-y-3">

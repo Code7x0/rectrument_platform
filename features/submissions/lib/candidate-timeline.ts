@@ -1,6 +1,6 @@
 import type { Activity } from "@/features/workflows/types";
 import type { Submission } from "@/features/submissions/types";
-import { submissionStatusDisplayLabel } from "@/features/shared/entities";
+import { DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE } from "@/lib/airtable/fields";
 
 export type CandidateTimelineTone =
   | "done"
@@ -16,10 +16,62 @@ export interface CandidateTimelineStep {
   tone: CandidateTimelineTone;
 }
 
+function exactSubmissionStatusLabel(submission: Submission): string {
+  const raw = submission.airtableStatus?.trim();
+  if (raw) {
+    return raw;
+  }
+  return (
+    DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status]?.trim() ||
+    submission.status
+  );
+}
+
+function activityStatusLabel(
+  row: Activity,
+  submission: Submission,
+): string | null {
+  const note = row.note?.trim() ?? "";
+  if (
+    note &&
+    note !== "interview_stage_updated" &&
+    note !== "review_fields_updated" &&
+    note !== "Want 2nd level Review of Profile"
+  ) {
+    // Activity note stores the exact Airtable Submission Status when available.
+    return note;
+  }
+
+  const to = row.toStatus?.trim() ?? "";
+  if (!to || to === "second_level_review") {
+    return null;
+  }
+
+  // Prefer live Airtable label when this activity matches current domain bucket.
+  if (to === submission.status) {
+    return exactSubmissionStatusLabel(submission);
+  }
+
+  // Domain → default Airtable catalog label (never "Internal Review" / bare "Rejected").
+  const mapped =
+    DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[
+      to as keyof typeof DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE
+    ];
+  if (mapped) {
+    return mapped.trim();
+  }
+
+  // Already an Airtable-looking label (no underscores).
+  if (!to.includes("_")) {
+    return to;
+  }
+
+  return null;
+}
+
 /**
- * Derive a partner-facing recruitment journey from current fields + activities.
- * No Airtable schema changes — uses Submission Status, Interview Stage,
- * 2nd-level review flag, Submission Date, and status_change activities when present.
+ * Partner-facing journey from Submission Status + Interview Stage (independent).
+ * Labels always prefer exact Airtable values — never coarse domain badges.
  */
 export function buildCandidateTimeline(
   submission: Submission,
@@ -42,6 +94,7 @@ export function buildCandidateTimeline(
       (row) =>
         row.action === "status_change" &&
         row.note !== "review_fields_updated" &&
+        row.note !== "interview_stage_updated" &&
         row.toStatus &&
         row.toStatus !== "second_level_review",
     )
@@ -52,17 +105,10 @@ export function buildCandidateTimeline(
 
   if (statusChanges.length > 0) {
     for (const row of statusChanges) {
-      // Prefer exact Airtable label stored in note when present.
-      const noteLabel = row.note?.trim();
-      const label =
-        noteLabel &&
-        noteLabel !== "interview_stage_updated" &&
-        noteLabel !== "Want 2nd level Review of Profile"
-          ? noteLabel
-          : submissionStatusDisplayLabel({
-              status: (row.toStatus as Submission["status"]) ?? submission.status,
-              airtableStatus: null,
-            });
+      const label = activityStatusLabel(row, submission);
+      if (!label) {
+        continue;
+      }
       steps.push({
         id: `activity-${row.id}`,
         label,
@@ -71,16 +117,20 @@ export function buildCandidateTimeline(
         tone: "done",
       });
     }
-  } else if (submission.status !== "submitted") {
+  } else if (
+    submission.airtableStatus?.trim() ||
+    submission.status !== "submitted"
+  ) {
     steps.push({
-      id: `status-${submission.status}`,
-      label: submissionStatusDisplayLabel(submission),
-      detail: null,
+      id: `status-${submission.id}`,
+      label: exactSubmissionStatusLabel(submission),
+      detail: "Submission status",
       at: null,
       tone: submission.status === "rejected" ? "attention" : "done",
     });
   }
 
+  // Interview Stage is a separate Airtable field — never folded into submission status.
   if (submission.interviewStage?.trim()) {
     steps.push({
       id: "interview-stage",

@@ -754,8 +754,10 @@ export async function updateSubmissionReviewFields(
     ) {
       throw new Error(`Invalid interview stage: ${stage}`);
     }
-    // Empty string clears Interview Stage — allowed when stage is not set yet.
-    fields[SUBMISSIONS_TABLE_FIELDS.interviewStage] = stage;
+    // Airtable singleSelect rejects "" (tries to create option ""). Clear with null.
+    fields[SUBMISSIONS_TABLE_FIELDS.interviewStage] = (
+      stage ? stage : null
+    ) as AirtableFields[string];
   }
   if (input.remarks !== undefined) {
     fields[SUBMISSIONS_TABLE_FIELDS.remarks] = input.remarks?.trim() || "";

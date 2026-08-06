@@ -1,4 +1,7 @@
-export { SubmissionStatusBadge } from "./submission-status-badge";
+export {
+  InterviewStageBadge,
+  SubmissionStatusBadge,
+} from "./submission-status-badge";
 export { SubmitCandidateDialog } from "./submit-candidate-dialog";
 export { EditCandidateDialog } from "./edit-candidate-dialog";
 export { PartnerSubmitProfilePageClient } from "./partner-submit-profile-page-client";
