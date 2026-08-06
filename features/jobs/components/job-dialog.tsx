@@ -55,7 +55,11 @@ export function JobDialog({
           : await updateJobAction(job!.id, values);
 
       if (!result.success) {
-        toast.error(result.message);
+        toast.error(
+          result.errors?.length
+            ? `${result.message}: ${result.errors.join("; ")}`
+            : result.message,
+        );
         return;
       }
 

@@ -23,13 +23,17 @@ export const jobFormSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   accountManagerId: z.string().optional().default(""),
   hiringManager: z.string().trim().optional(),
-  description: z.string().trim().min(1, "Job description is required"),
-  location: z.string().trim().min(1, "Location is required"),
-  employmentType: employmentTypeSchema,
-  experience: z.string().trim().min(1, "Years of experience is required"),
-  salary: z.string().trim().min(1, "Salary range is required"),
-  priority: jobPrioritySchema,
-  openPositions: z.coerce.number().int().min(1, "At least 1 position"),
+  /**
+   * Legacy Airtable jobs often only have a JD attachment / Comments notes.
+   * Do not block create/edit when text fields were never filled.
+   */
+  description: z.string().trim().optional().or(z.literal("")),
+  location: z.string().trim().optional().or(z.literal("")),
+  employmentType: employmentTypeSchema.optional().default("full_time"),
+  experience: z.string().trim().optional().or(z.literal("")),
+  salary: z.string().trim().optional().or(z.literal("")),
+  priority: jobPrioritySchema.optional().default("medium"),
+  openPositions: z.coerce.number().int().min(1, "At least 1 position").default(1),
   skills: z.string().trim().optional(),
   status: jobStatusSchema,
   notes: z.string().trim().optional(),

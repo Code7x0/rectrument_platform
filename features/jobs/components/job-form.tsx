@@ -169,19 +169,29 @@ export function JobForm({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="description">Job Description *</Label>
+          <Label htmlFor="description">Comments / Notes</Label>
           <Textarea
             id="description"
             {...register("description")}
             disabled={submitting}
           />
+          {initialJob?.documents?.length ? (
+            <p className="text-xs text-[#64748B]">
+              Job Description files are attached on this role (
+              {initialJob.documents.length}). Text comments above are optional.
+            </p>
+          ) : (
+            <p className="text-xs text-[#64748B]">
+              Optional. JD files can live as attachments in Airtable.
+            </p>
+          )}
           {errors.description ? (
             <p className="text-xs text-[#EF4444]">{errors.description.message}</p>
           ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="location">Location *</Label>
+          <Label htmlFor="location">Location</Label>
           <Input id="location" {...register("location")} disabled={submitting} />
           {errors.location ? (
             <p className="text-xs text-[#EF4444]">{errors.location.message}</p>
@@ -189,7 +199,7 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="employmentType">Employment Type *</Label>
+          <Label htmlFor="employmentType">Employment Type</Label>
           <Select
             id="employmentType"
             {...register("employmentType", {
@@ -212,7 +222,7 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="experience">Years of Experience *</Label>
+          <Label htmlFor="experience">Years of Experience</Label>
           <Input
             id="experience"
             placeholder="e.g. 3-5 years"
@@ -225,7 +235,7 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="salary">Salary Range *</Label>
+          <Label htmlFor="salary">Salary Range</Label>
           <Input id="salary" {...register("salary")} disabled={submitting} />
           {errors.salary ? (
             <p className="text-xs text-[#EF4444]">{errors.salary.message}</p>
@@ -233,7 +243,7 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="priority">Priority *</Label>
+          <Label htmlFor="priority">Priority</Label>
           <Select id="priority" {...register("priority")} disabled={submitting}>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -277,11 +287,6 @@ export function JobForm({
             {...register("skills")}
             disabled={submitting}
           />
-        </div>
-
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="notes">Notes</Label>
-          <Textarea id="notes" {...register("notes")} disabled={submitting} />
         </div>
       </div>
 

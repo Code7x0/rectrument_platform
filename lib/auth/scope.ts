@@ -64,9 +64,19 @@ export async function assertAccountManagerOwnsJob(
     throw new ScopeDeniedError();
   }
   const ownedJobIds = await listAccountManagerJobIds(amId);
-  if (!ownedJobIds.includes(jobId)) {
-    throw new ScopeDeniedError("Job is outside your assignment");
+  if (ownedJobIds.includes(jobId)) {
+    return;
   }
+
+  // Fallback: Account Owner of the job's client can always edit that job.
+  const { getJobById } = await import("@/features/jobs/services");
+  const job = await getJobById(jobId);
+  if (job?.clientId) {
+    await assertAccountManagerOwnsClient(session, job.clientId);
+    return;
+  }
+
+  throw new ScopeDeniedError("Job is outside your assignment");
 }
 
 export async function assertAccountManagerOwnsAllocation(

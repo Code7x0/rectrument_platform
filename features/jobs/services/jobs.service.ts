@@ -283,8 +283,69 @@ export async function updateJob(
   const existing = await findJobById(jobId);
   const fields = toAirtableUpdateFields(input, valueMaps);
 
-  // Preserve business Job ID marker in Comments when notes/description are rewritten.
+  // Locked client Jobs store text JD/notes + system markers in Comments.
+  // Always merge markers onto the intended body — never discard a new description
+  // by reloading the previous Comments value over it.
   if (
+    isClientCompatMode() &&
+    (input.description !== undefined ||
+      input.notes !== undefined ||
+      input.accountManagerId !== undefined ||
+      Boolean(existing?.jobCode))
+  ) {
+    const {
+      upsertJobIdMarker,
+      upsertJobAmMarker,
+      parseJobAmAssignment,
+      parsePartnerAssignedByMap,
+      upsertPartnerAssignedByMarker,
+      stripJobSystemMarkers,
+    } = await import("@/lib/business-ids");
+    const { findRecord } = await import("@/lib/airtable/client");
+    const { getAirtableTableName } = await import("@/lib/airtable/tables");
+
+    let airtableComments = "";
+    try {
+      const record = await findRecord(getAirtableTableName("jobsTable"), jobId);
+      const notesField = record.fields[JOBS_TABLE_FIELDS.notes];
+      if (typeof notesField === "string") {
+        airtableComments = notesField;
+      }
+    } catch {
+      airtableComments = existing?.notes ?? "";
+    }
+
+    const body =
+      input.description !== undefined
+        ? input.description || ""
+        : input.notes !== undefined
+          ? input.notes || ""
+          : stripJobSystemMarkers(airtableComments) ?? "";
+
+    let next = body;
+    if (existing?.jobCode) {
+      next = upsertJobIdMarker(next, existing.jobCode);
+    }
+
+    if (input.accountManagerId !== undefined) {
+      next = upsertJobAmMarker(next, input.accountManagerId.trim() || null);
+    } else {
+      const priorAm = parseJobAmAssignment(airtableComments);
+      if (priorAm?.kind === "assigned") {
+        next = upsertJobAmMarker(next, priorAm.accountManagerId);
+      } else if (priorAm?.kind === "unassigned") {
+        next = upsertJobAmMarker(next, null);
+      }
+    }
+
+    for (const [partnerId, assignedByUserId] of parsePartnerAssignedByMap(
+      airtableComments,
+    )) {
+      next = upsertPartnerAssignedByMarker(next, partnerId, assignedByUserId);
+    }
+
+    fields[JOBS_TABLE_FIELDS.notes] = next;
+  } else if (
     existing?.jobCode &&
     (input.description !== undefined || input.notes !== undefined)
   ) {
@@ -297,42 +358,6 @@ export async function updateJob(
       nextNotes,
       existing.jobCode,
     );
-  }
-
-  // Locked client Jobs have no AM link — store per-job AM in Comments [RP_AM].
-  if (isClientCompatMode() && input.accountManagerId !== undefined) {
-    const { upsertJobAmMarker, upsertJobIdMarker } = await import(
-      "@/lib/business-ids"
-    );
-    const { findRecord } = await import("@/lib/airtable/client");
-    const { getAirtableTableName } = await import("@/lib/airtable/tables");
-    let commentsRaw =
-      typeof fields[JOBS_TABLE_FIELDS.notes] === "string"
-        ? (fields[JOBS_TABLE_FIELDS.notes] as string)
-        : "";
-    try {
-      const record = await findRecord(
-        getAirtableTableName("jobsTable"),
-        jobId,
-      );
-      const notesField = record.fields[JOBS_TABLE_FIELDS.notes];
-      if (typeof notesField === "string") {
-        commentsRaw = notesField;
-      }
-    } catch {
-      // fall through with fields/existing notes
-    }
-    if (!commentsRaw && existing?.notes) {
-      commentsRaw = existing.notes;
-    }
-    let next = upsertJobAmMarker(
-      commentsRaw,
-      input.accountManagerId.trim() || null,
-    );
-    if (existing?.jobCode) {
-      next = upsertJobIdMarker(next, existing.jobCode);
-    }
-    fields[JOBS_TABLE_FIELDS.notes] = next;
   }
 
   const updated = await patchJob(jobId, fields);
