@@ -46,13 +46,19 @@ export function JobDialog({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function handleSubmit(values: JobFormValues) {
+  async function handleSubmit(values: JobFormValues, jdFile: File | null) {
     setSubmitting(true);
     try {
+      const formData = new FormData();
+      formData.set("payload", JSON.stringify(values));
+      if (jdFile) {
+        formData.set("jd", jdFile);
+      }
+
       const result =
         mode === "create"
-          ? await createJobAction(values)
-          : await updateJobAction(job!.id, values);
+          ? await createJobAction(formData)
+          : await updateJobAction(job!.id, formData);
 
       if (!result.success) {
         toast.error(

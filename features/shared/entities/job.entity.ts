@@ -27,8 +27,10 @@ export interface JobEntity {
   clientName: string | null;
   /** Business Client ID (BCE, AB…) — enriched. */
   clientCode: string | null;
-  /** Operational owner — every job has exactly one Account Manager. */
+  /** Primary operational owner (first of accountManagerIds). */
   accountManagerId: string | null;
+  /** All Account Managers tagged on this job. */
+  accountManagerIds: string[];
   accountManagerName: string | null;
   /**
    * Explicit per-job unassign ([RP_AM] none). When true, do not inherit

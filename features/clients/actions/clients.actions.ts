@@ -21,13 +21,23 @@ export type ActionResult<T = unknown> =
   | { success: false; message: string; errors?: string[] };
 
 function formToInput(values: ClientFormValues) {
+  const accountManagerIds = Array.from(
+    new Set(
+      (values.accountManagerIds?.length
+        ? values.accountManagerIds
+        : values.accountManagerId
+          ? [values.accountManagerId]
+          : []
+      ).filter(Boolean),
+    ),
+  );
   return {
     name: values.name,
     industry: values.industry || undefined,
     website: values.website || undefined,
     primaryContact: values.primaryContact || undefined,
-    // Empty string clears Account Owner — do not coerce to undefined.
-    accountManagerId: values.accountManagerId ?? "",
+    accountManagerIds,
+    accountManagerId: accountManagerIds[0] ?? "",
     status: values.status === "archived" ? ("active" as const) : values.status,
     notes: values.notes ?? "",
     primaryAddress: values.primaryAddress ?? "",
@@ -109,8 +119,11 @@ export async function updateClientAction(
     // AMs cannot reassign Account Owner away from themselves.
     const input = formToInput(parsed.data);
     if (session.role === "account_manager") {
-      input.accountManagerId =
-        session.accountManagerId ?? session.userId;
+      const selfId = session.accountManagerId ?? session.userId;
+      if (selfId && !input.accountManagerIds?.includes(selfId)) {
+        input.accountManagerIds = [...(input.accountManagerIds ?? []), selfId];
+      }
+      input.accountManagerId = selfId ?? input.accountManagerId;
     }
 
     const client = await updateClient(clientId, input);

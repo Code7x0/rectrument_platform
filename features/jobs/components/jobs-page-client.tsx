@@ -248,6 +248,7 @@ export function JobsPageClient({
                   clientId: job.clientId,
                   clientLabel: job.clientName,
                   accountManagerId: job.accountManagerId,
+                  accountManagerIds: job.accountManagerIds,
                 });
                 setAssignAmOpen(true);
               }

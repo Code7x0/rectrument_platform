@@ -38,6 +38,7 @@ function toDefaults(client?: Client | null): ClientFormValues {
       website: "",
       primaryContact: "",
       accountManagerId: "",
+      accountManagerIds: [],
       status: "active",
       primaryAddress: "",
       modeOfWork: "",
@@ -46,12 +47,20 @@ function toDefaults(client?: Client | null): ClientFormValues {
     };
   }
 
+  const accountManagerIds =
+    client.accountManagerIds?.length > 0
+      ? client.accountManagerIds
+      : client.accountManagerId
+        ? [client.accountManagerId]
+        : [];
+
   return {
     name: client.name,
     industry: client.industry ?? "",
     website: client.website ?? "",
     primaryContact: client.primaryContact ?? "",
-    accountManagerId: client.accountManagerId ?? "",
+    accountManagerId: accountManagerIds[0] ?? "",
+    accountManagerIds,
     status: client.status === "archived" ? "active" : client.status,
     primaryAddress: client.primaryAddress ?? "",
     modeOfWork: client.modeOfWork ?? "",
@@ -74,11 +83,23 @@ export function ClientForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema) as Resolver<ClientFormValues>,
     defaultValues: toDefaults(initialClient),
   });
+
+  const selectedAmIds = watch("accountManagerIds") ?? [];
+
+  function toggleAccountManager(id: string, checked: boolean) {
+    const next = checked
+      ? Array.from(new Set([...selectedAmIds, id]))
+      : selectedAmIds.filter((row) => row !== id);
+    setValue("accountManagerIds", next, { shouldDirty: true });
+    setValue("accountManagerId", next[0] ?? "", { shouldDirty: true });
+  }
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
@@ -130,30 +151,54 @@ export function ClientForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="accountManagerId">
-            Account Manager
-          </Label>
-          <Select
-            id="accountManagerId"
-            {...register("accountManagerId")}
-            disabled={lockAccountManager || submitting}
-          >
-            <option value="">Unassigned</option>
-            {accountManagers.map((am) => (
-              <option key={am.id} value={am.id}>
-                {am.code?.trim() || am.label}
-              </option>
-            ))}
-          </Select>
-          {errors.accountManagerId ? (
+          <Label>Account Managers</Label>
+          {lockAccountManager ? (
+            <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#0F172A]">
+              {selectedAmIds.length
+                ? accountManagers
+                    .filter((am) => selectedAmIds.includes(am.id))
+                    .map((am) => am.code?.trim() || am.label)
+                    .join(", ")
+                : "Unassigned"}
+            </p>
+          ) : (
+            <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] p-3">
+              {accountManagers.length === 0 ? (
+                <p className="text-xs text-[#64748B]">No account managers</p>
+              ) : (
+                accountManagers.map((am) => {
+                  const checked = selectedAmIds.includes(am.id);
+                  return (
+                    <label
+                      key={am.id}
+                      className="flex cursor-pointer items-center gap-2 text-sm text-[#0F172A]"
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-[#CBD5E1]"
+                        checked={checked}
+                        disabled={submitting}
+                        onChange={(event) =>
+                          toggleAccountManager(am.id, event.target.checked)
+                        }
+                      />
+                      <span>{am.code?.trim() || am.label}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          )}
+          <input type="hidden" {...register("accountManagerId")} />
+          {errors.accountManagerIds ? (
             <p className="text-xs text-destructive">
-              {errors.accountManagerId.message}
+              {errors.accountManagerIds.message}
             </p>
           ) : null}
           <p className="text-xs text-[#64748B]">
             {lockAccountManager
               ? "You own this client. Only Admin / Super Admin can reassign ownership."
-              : "Sets the client Account Owner. Choose Unassigned to clear."}
+              : "Tag one or more Account Owners. Large accounts can have multiple AMs."}
           </p>
         </div>
         <div className="space-y-2">

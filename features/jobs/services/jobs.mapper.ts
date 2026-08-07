@@ -129,6 +129,18 @@ function descriptionFromFields(fields: AirtableFields): string | null {
   return null;
 }
 
+function resolveAccountManagerIds(
+  input: Pick<CreateJobInput, "accountManagerId" | "accountManagerIds">,
+): string[] {
+  if (input.accountManagerIds !== undefined) {
+    return Array.from(
+      new Set(input.accountManagerIds.map((id) => id.trim()).filter(Boolean)),
+    );
+  }
+  const single = input.accountManagerId?.trim();
+  return single ? [single] : [];
+}
+
 function resolveJobCode(fields: AirtableFields): string {
   const fromField = asString(fields[JOBS_TABLE_FIELDS.jobId]);
   if (isValidJobCode(fromField)) {
@@ -152,6 +164,11 @@ export function mapJobRecord(record: {
 
   const notesRaw = asString(fields[JOBS_TABLE_FIELDS.notes]);
   const amAssignment = parseJobAmAssignment(notesRaw);
+  const linkedAmIds = asLinkedIds(fields[JOBS_TABLE_FIELDS.accountManager]);
+  const markerAmIds =
+    amAssignment?.kind === "assigned" ? amAssignment.accountManagerIds : [];
+  const accountManagerIds =
+    linkedAmIds.length > 0 ? linkedAmIds : markerAmIds;
 
   return {
     id: record.id,
@@ -160,11 +177,8 @@ export function mapJobRecord(record: {
     clientId: asLinkedId(fields[JOBS_TABLE_FIELDS.client]),
     clientName: null,
     clientCode: null,
-    accountManagerId:
-      asLinkedId(fields[JOBS_TABLE_FIELDS.accountManager]) ??
-      (amAssignment?.kind === "assigned"
-        ? amAssignment.accountManagerId
-        : null),
+    accountManagerId: accountManagerIds[0] ?? null,
+    accountManagerIds,
     accountManagerName: null,
     accountManagerUnassigned: amAssignment?.kind === "unassigned",
     hiringManager: asString(fields[JOBS_TABLE_FIELDS.hiringManager]),
@@ -216,8 +230,9 @@ export function toAirtableCreateFields(
   };
 
   if (!clientMode) {
-    if (input.accountManagerId) {
-      fields[JOBS_TABLE_FIELDS.accountManager] = [input.accountManagerId];
+    const amIds = resolveAccountManagerIds(input);
+    if (amIds.length > 0) {
+      fields[JOBS_TABLE_FIELDS.accountManager] = amIds;
     }
     fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions ?? 1;
   }
@@ -238,14 +253,20 @@ export function toAirtableCreateFields(
       fields[JOBS_TABLE_FIELDS.jobId] = options.jobCode;
     }
   }
-  if (clientMode && input.accountManagerId) {
-    commentsText = upsertJobAmMarker(commentsText, input.accountManagerId);
+  if (clientMode) {
+    const amIds = resolveAccountManagerIds(input);
+    if (amIds.length > 0) {
+      commentsText = upsertJobAmMarker(commentsText, amIds);
+    }
   }
   if (commentsText) {
     fields[JOBS_TABLE_FIELDS.notes] = commentsText;
   }
   if (input.location) {
     fields[JOBS_TABLE_FIELDS.location] = input.location;
+  }
+  if (input.workMode?.trim()) {
+    fields[JOBS_TABLE_FIELDS.workMode] = input.workMode.trim();
   }
   if (!clientMode && input.employmentType) {
     fields[JOBS_TABLE_FIELDS.employmentType] =
@@ -290,7 +311,11 @@ export function toAirtableUpdateFields(
   if (input.clientId !== undefined) {
     fields[JOBS_TABLE_FIELDS.client] = [input.clientId];
   }
-  if (!clientMode && input.accountManagerId !== undefined) {
+  if (!clientMode && input.accountManagerIds !== undefined) {
+    fields[JOBS_TABLE_FIELDS.accountManager] = input.accountManagerIds.filter(
+      Boolean,
+    );
+  } else if (!clientMode && input.accountManagerId !== undefined) {
     fields[JOBS_TABLE_FIELDS.accountManager] = input.accountManagerId
       ? [input.accountManagerId]
       : [];
@@ -307,6 +332,9 @@ export function toAirtableUpdateFields(
   }
   if (input.location !== undefined) {
     fields[JOBS_TABLE_FIELDS.location] = input.location || "";
+  }
+  if (input.workMode !== undefined) {
+    fields[JOBS_TABLE_FIELDS.workMode] = input.workMode?.trim() || "";
   }
   if (!clientMode && input.employmentType !== undefined) {
     fields[JOBS_TABLE_FIELDS.employmentType] = input.employmentType

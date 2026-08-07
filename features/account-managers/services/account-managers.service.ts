@@ -146,16 +146,33 @@ export async function listAccountManagersDirectory(): Promise<{
  * Unassign also strips per-job [RP_AM] markers so the AM loses those jobs
  * (otherwise leftover job markers keep them on the AM dashboard).
  */
+/**
+ * Assign (or clear) Account Owner(s) on a Client.
+ * Locked schema: Account Owner is multipleRecordLinks — supports multi-AM.
+ * Clearing all owners also strips per-job [RP_AM] markers under the client.
+ */
 export async function assignAccountManagerToClient(input: {
   clientId: string;
-  accountManagerId: string | null;
+  accountManagerId?: string | null;
+  accountManagerIds?: string[];
 }): Promise<void> {
   const { updateClient } = await import("@/features/clients/services");
+  const accountManagerIds = Array.from(
+    new Set(
+      (input.accountManagerIds !== undefined
+        ? input.accountManagerIds
+        : input.accountManagerId
+          ? [input.accountManagerId]
+          : []
+      ).filter(Boolean),
+    ),
+  );
   await updateClient(input.clientId, {
-    accountManagerId: input.accountManagerId ?? "",
+    accountManagerIds,
+    accountManagerId: accountManagerIds[0] ?? "",
   });
 
-  if (input.accountManagerId?.trim()) {
+  if (accountManagerIds.length > 0) {
     return;
   }
 

@@ -118,7 +118,11 @@ export function toAirtableCreateFields(
   if (!clientMode && input.primaryContact) {
     fields[CLIENTS_TABLE_FIELDS.primaryContact] = input.primaryContact;
   }
-  if (input.accountManagerId) {
+  if (input.accountManagerIds !== undefined && input.accountManagerIds.length > 0) {
+    fields[CLIENTS_TABLE_FIELDS.accountManager] = input.accountManagerIds.filter(
+      Boolean,
+    );
+  } else if (input.accountManagerId) {
     fields[CLIENTS_TABLE_FIELDS.accountManager] = [input.accountManagerId];
   }
   if (input.notes) {
@@ -160,7 +164,11 @@ export function toAirtableUpdateFields(
   if (!clientMode && input.primaryContact !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.primaryContact] = input.primaryContact || "";
   }
-  if (input.accountManagerId !== undefined) {
+  if (input.accountManagerIds !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.accountManager] = input.accountManagerIds.filter(
+      Boolean,
+    );
+  } else if (input.accountManagerId !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.accountManager] = input.accountManagerId
       ? [input.accountManagerId]
       : [];

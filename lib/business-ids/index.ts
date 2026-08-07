@@ -420,10 +420,11 @@ export function stripJobIdMarker(
 }
 
 /**
- * Per-job Account Manager on the locked client Jobs table (no AM link column).
+ * Per-job Account Manager(s) on the locked client Jobs table (no AM link column).
  * Stored in Comments alongside [RP_JOBID] — does not change Airtable schema.
  *
- * - `[RP_AM] recXXX` — explicit assignment
+ * - `[RP_AM] recXXX` — single assignment
+ * - `[RP_AM] recXXX,recYYY` — multiple AMs on one job
  * - `[RP_AM] none` — explicitly unassigned (do NOT inherit Client Account Owner)
  * - no marker — inherit Client Account Owner when present
  */
@@ -431,11 +432,31 @@ export const JOB_AM_MARKER_PREFIX = "[RP_AM]";
 export const JOB_AM_UNASSIGNED_TOKEN = "none";
 
 export type JobAmAssignment =
-  | { kind: "assigned"; accountManagerId: string }
+  | { kind: "assigned"; accountManagerIds: string[]; accountManagerId: string }
   | { kind: "unassigned" };
 
-export function buildJobAmMarker(accountManagerId: string): string {
-  return `${JOB_AM_MARKER_PREFIX} ${accountManagerId.trim()}`;
+function normalizeJobAmIds(
+  value: string | string[] | null | undefined,
+): string[] {
+  if (value == null) {
+    return [];
+  }
+  const raw = Array.isArray(value) ? value : [value];
+  return Array.from(
+    new Set(
+      raw
+        .flatMap((part) => String(part).split(/[,\s]+/))
+        .map((id) => id.trim())
+        .filter((id) => /^rec[a-zA-Z0-9]+$/.test(id)),
+    ),
+  );
+}
+
+export function buildJobAmMarker(
+  accountManagerId: string | string[],
+): string {
+  const ids = normalizeJobAmIds(accountManagerId);
+  return `${JOB_AM_MARKER_PREFIX} ${ids.join(",")}`;
 }
 
 export function buildJobAmUnassignedMarker(): string {
@@ -448,21 +469,27 @@ export function parseJobAmAssignment(
   if (!comments?.trim()) {
     return null;
   }
-  const match = /\[RP_AM\]\s+(\S+)/.exec(comments);
+  const match = /\[RP_AM\]\s+([^\n]+)/.exec(comments);
   if (!match?.[1]) {
     return null;
   }
   const value = match[1].trim();
-  if (value.toLowerCase() === JOB_AM_UNASSIGNED_TOKEN || value === "-") {
+  const firstToken = value.split(/[,\s]+/)[0]?.trim().toLowerCase() ?? "";
+  if (firstToken === JOB_AM_UNASSIGNED_TOKEN || firstToken === "-") {
     return { kind: "unassigned" };
   }
-  if (/^rec[a-zA-Z0-9]+$/.test(value)) {
-    return { kind: "assigned", accountManagerId: value };
+  const accountManagerIds = normalizeJobAmIds(value);
+  if (accountManagerIds.length === 0) {
+    return null;
   }
-  return null;
+  return {
+    kind: "assigned",
+    accountManagerIds,
+    accountManagerId: accountManagerIds[0]!,
+  };
 }
 
-/** Assigned Airtable AM id only; null when unmarked or explicitly unassigned. */
+/** Primary assigned Airtable AM id; null when unmarked or explicitly unassigned. */
 export function parseJobAmMarker(
   comments: string | null | undefined,
 ): string | null {
@@ -473,21 +500,20 @@ export function parseJobAmMarker(
 /**
  * Upsert [RP_AM] line.
  * Pass null/empty to write an explicit unassigned marker (blocks client inherit).
- * Pass a record id to assign. Use stripJobAmMarker to remove the line entirely.
+ * Pass one or more record ids to assign. Use stripJobAmMarker to remove the line.
  */
 export function upsertJobAmMarker(
   existing: string | null | undefined,
-  accountManagerId: string | null | undefined,
+  accountManagerId: string | string[] | null | undefined,
 ): string {
   const lines = (existing ?? "")
     .split("\n")
     .map((line) => line.trimEnd())
     .filter((line) => !line.trim().startsWith(JOB_AM_MARKER_PREFIX));
 
-  const amId = accountManagerId?.trim();
-  const marker = amId
-    ? buildJobAmMarker(amId)
-    : buildJobAmUnassignedMarker();
+  const ids = normalizeJobAmIds(accountManagerId);
+  const marker =
+    ids.length > 0 ? buildJobAmMarker(ids) : buildJobAmUnassignedMarker();
 
   const jobIdIdx = lines.findIndex((line) =>
     line.trim().startsWith(JOB_ID_MARKER_PREFIX),

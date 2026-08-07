@@ -25,6 +25,7 @@ import {
   insertJob,
   patchJob,
 } from "@/features/jobs/repositories/jobs.repository";
+import { getUploadService, type UploadedFile } from "@/services/uploads";
 
 import {
   toAirtableCreateFields,
@@ -82,12 +83,19 @@ async function withEnrichment(
     const owners = job.clientId
       ? (clientOwnersById.get(job.clientId) ?? [])
       : [];
-    // Prefer per-job AM (link field or [RP_AM] marker). Explicit [RP_AM] none
-    // blocks Client Account Owner inheritance. Otherwise inherit primary owner.
-    const accountManagerId = job.accountManagerUnassigned
-      ? null
-      : (job.accountManagerId ?? owners[0] ?? null);
-    const amMeta = accountManagerId ? amMap.get(accountManagerId) : null;
+    // Prefer per-job AM(s) (link field or [RP_AM] marker). Explicit [RP_AM] none
+    // blocks Client Account Owner inheritance. Otherwise inherit client owners.
+    const accountManagerIds = job.accountManagerUnassigned
+      ? []
+      : job.accountManagerIds?.length
+        ? job.accountManagerIds
+        : job.accountManagerId
+          ? [job.accountManagerId]
+          : owners;
+    const accountManagerId = accountManagerIds[0] ?? null;
+    const amNames = accountManagerIds
+      .map((id) => amMap.get(id)?.name)
+      .filter((name): name is string => Boolean(name));
 
     return {
       ...job,
@@ -97,9 +105,11 @@ async function withEnrichment(
         lookup?.clientCode?.trim() ||
         null,
       accountManagerId,
+      accountManagerIds,
       accountManagerUnassigned: job.accountManagerUnassigned,
       // Admin/SA see names; code available via lookups for partner-facing UIs.
-      accountManagerName: amMeta?.name ?? null,
+      accountManagerName:
+        amNames.length > 0 ? amNames.join(", ") : null,
     };
   });
 
@@ -109,7 +119,7 @@ async function withEnrichment(
 /**
  * AM job visibility:
  * - Explicit per-job unassign ([RP_AM] none) → never visible.
- * - Explicit per-job AM (field / [RP_AM] marker) always wins.
+ * - Explicit per-job AM(s) (field / [RP_AM] marker) always wins.
  * - Client Account Owners always inherit unmarked jobs on their client
  *   (sibling-hide must not strip their portfolio).
  * - Non-owners: if they have ANY explicit job on a client, sibling unmarked
@@ -122,7 +132,14 @@ function filterJobsForAccountManager(
   clientOwnersById: Map<string, string[]>,
 ): Job[] {
   const explicitById = new Map(
-    originals.map((job) => [job.id, job.accountManagerId]),
+    originals.map((job) => [
+      job.id,
+      job.accountManagerIds?.length
+        ? job.accountManagerIds
+        : job.accountManagerId
+          ? [job.accountManagerId]
+          : [],
+    ]),
   );
   const unassignedIds = new Set(
     originals
@@ -131,10 +148,15 @@ function filterJobsForAccountManager(
   );
   const clientsWithExplicitAm = new Set(
     originals
-      .filter(
-        (job) =>
-          job.accountManagerId === accountManagerId && Boolean(job.clientId),
-      )
+      .filter((job) => {
+        const ids =
+          job.accountManagerIds?.length
+            ? job.accountManagerIds
+            : job.accountManagerId
+              ? [job.accountManagerId]
+              : [];
+        return ids.includes(accountManagerId) && Boolean(job.clientId);
+      })
       .map((job) => job.clientId as string),
   );
 
@@ -142,9 +164,9 @@ function filterJobsForAccountManager(
     if (unassignedIds.has(job.id)) {
       return false;
     }
-    const explicit = explicitById.get(job.id) ?? null;
-    if (explicit) {
-      return explicit === accountManagerId;
+    const explicit = explicitById.get(job.id) ?? [];
+    if (explicit.length > 0) {
+      return explicit.includes(accountManagerId);
     }
     const owners = job.clientId
       ? (clientOwnersById.get(job.clientId) ?? [])
@@ -155,7 +177,10 @@ function filterJobsForAccountManager(
     if (job.clientId && clientsWithExplicitAm.has(job.clientId)) {
       return false;
     }
-    return job.accountManagerId === accountManagerId;
+    return (
+      job.accountManagerId === accountManagerId ||
+      (job.accountManagerIds?.includes(accountManagerId) ?? false)
+    );
   });
 }
 
@@ -244,41 +269,80 @@ export const getJobById = cache(async function getJobById(
   return enrichedJobs[0] ?? null;
 });
 
-export async function createJob(input: CreateJobInput): Promise<Job> {
+export async function createJob(
+  input: CreateJobInput,
+  options?: { jdUpload?: UploadedFile | null },
+): Promise<Job> {
   const { jobCode } = await allocateNextJobCodeForClient(input.clientId);
   const created = await insertJob(
     toAirtableCreateFields(input, valueMaps, { jobCode }),
   );
   // Per-job AM only ([RP_AM] marker) — do not set Clients.Account Owner.
 
-  const { jobs: enrichedCreated } = await withEnrichment([created]);
+  if (options?.jdUpload) {
+    await attachJobDescription(created.id, options.jdUpload);
+  }
+
+  const refreshed = options?.jdUpload
+    ? ((await findJobById(created.id)) ?? created)
+    : created;
+  const { jobs: enrichedCreated } = await withEnrichment([refreshed]);
   const job = enrichedCreated[0];
 
   if (!job) {
     throw new Error("Failed to create job");
   }
 
-  const amId = input.accountManagerId?.trim() || job.accountManagerId;
-  if (amId) {
+  const amIds = Array.from(
+    new Set(
+      (input.accountManagerIds?.length
+        ? input.accountManagerIds
+        : input.accountManagerId
+          ? [input.accountManagerId]
+          : job.accountManagerIds?.length
+            ? job.accountManagerIds
+            : job.accountManagerId
+              ? [job.accountManagerId]
+              : []
+      )
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (amIds.length > 0) {
     const { notifyAccountManagerAssignedToJob } = await import(
       "@/features/notifications/services/notification-events"
     );
-    void notifyAccountManagerAssignedToJob({
-      accountManagerId: amId,
-      jobTitle: job.title,
-      jobId: job.id,
-      jobCode: job.jobCode,
-    }).catch((error) => {
-      console.error("[notifications] AM job assign failed", error);
-    });
+    for (const accountManagerId of amIds) {
+      void notifyAccountManagerAssignedToJob({
+        accountManagerId,
+        jobTitle: job.title,
+        jobId: job.id,
+        jobCode: job.jobCode,
+      }).catch((error) => {
+        console.error("[notifications] AM job assign failed", error);
+      });
+    }
   }
 
   return job;
 }
 
+export async function attachJobDescription(
+  jobId: string,
+  upload: UploadedFile,
+): Promise<void> {
+  const uploader = getUploadService();
+  await uploader.bindToEntity(upload, {
+    entityId: jobId,
+    fieldName: JOBS_TABLE_FIELDS.description,
+  });
+}
+
 export async function updateJob(
   jobId: string,
   input: UpdateJobInput,
+  options?: { jdUpload?: UploadedFile | null },
 ): Promise<Job> {
   const existing = await findJobById(jobId);
   const fields = toAirtableUpdateFields(input, valueMaps);
@@ -291,6 +355,7 @@ export async function updateJob(
     (input.description !== undefined ||
       input.notes !== undefined ||
       input.accountManagerId !== undefined ||
+      input.accountManagerIds !== undefined ||
       Boolean(existing?.jobCode))
   ) {
     const {
@@ -327,12 +392,17 @@ export async function updateJob(
       next = upsertJobIdMarker(next, existing.jobCode);
     }
 
-    if (input.accountManagerId !== undefined) {
+    if (input.accountManagerIds !== undefined) {
+      next = upsertJobAmMarker(
+        next,
+        input.accountManagerIds.length > 0 ? input.accountManagerIds : null,
+      );
+    } else if (input.accountManagerId !== undefined) {
       next = upsertJobAmMarker(next, input.accountManagerId.trim() || null);
     } else {
       const priorAm = parseJobAmAssignment(airtableComments);
       if (priorAm?.kind === "assigned") {
-        next = upsertJobAmMarker(next, priorAm.accountManagerId);
+        next = upsertJobAmMarker(next, priorAm.accountManagerIds);
       } else if (priorAm?.kind === "unassigned") {
         next = upsertJobAmMarker(next, null);
       }
@@ -362,12 +432,43 @@ export async function updateJob(
 
   const updated = await patchJob(jobId, fields);
 
+  if (options?.jdUpload) {
+    await attachJobDescription(jobId, options.jdUpload);
+  }
+
   // Never sync Clients.Account Owner from a job AM change (that assigned the whole client).
 
-  if (input.accountManagerId !== undefined) {
-    const previousAmId = existing?.accountManagerId ?? null;
-    const nextAmId = input.accountManagerId.trim() || null;
-    if (previousAmId !== nextAmId) {
+  if (
+    input.accountManagerIds !== undefined ||
+    input.accountManagerId !== undefined
+  ) {
+    const previousAmIds = Array.from(
+      new Set(
+        (existing?.accountManagerIds?.length
+          ? existing.accountManagerIds
+          : existing?.accountManagerId
+            ? [existing.accountManagerId]
+            : []
+        ).filter(Boolean),
+      ),
+    );
+    const nextAmIds = Array.from(
+      new Set(
+        (input.accountManagerIds !== undefined
+          ? input.accountManagerIds
+          : input.accountManagerId
+            ? [input.accountManagerId]
+            : []
+        )
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    );
+    const previousSet = new Set(previousAmIds);
+    const nextSet = new Set(nextAmIds);
+    const removed = previousAmIds.filter((id) => !nextSet.has(id));
+    const added = nextAmIds.filter((id) => !previousSet.has(id));
+    if (removed.length > 0 || added.length > 0) {
       const {
         notifyAccountManagerAssignedToJob,
         notifyAccountManagerRemovedFromJob,
@@ -376,9 +477,9 @@ export async function updateJob(
       );
       const jobTitle = updated.title || existing?.title || "Job";
       const jobCode = updated.jobCode || existing?.jobCode || null;
-      if (previousAmId) {
+      for (const accountManagerId of removed) {
         void notifyAccountManagerRemovedFromJob({
-          accountManagerId: previousAmId,
+          accountManagerId,
           jobTitle,
           jobId,
           jobCode,
@@ -386,9 +487,9 @@ export async function updateJob(
           console.error("[notifications] AM job unassign failed", error);
         });
       }
-      if (nextAmId) {
+      for (const accountManagerId of added) {
         void notifyAccountManagerAssignedToJob({
-          accountManagerId: nextAmId,
+          accountManagerId,
           jobTitle,
           jobId,
           jobCode,
@@ -399,7 +500,10 @@ export async function updateJob(
     }
   }
 
-  const { jobs: enrichedUpdated } = await withEnrichment([updated]);
+  const refreshed = options?.jdUpload
+    ? ((await findJobById(jobId)) ?? updated)
+    : updated;
+  const { jobs: enrichedUpdated } = await withEnrichment([refreshed]);
   const job = enrichedUpdated[0];
 
   if (!job) {

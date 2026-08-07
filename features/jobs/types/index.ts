@@ -37,9 +37,12 @@ export interface CreateJobInput {
   clientId: string;
   /** Optional — Admin/SA may leave unassigned and set later. */
   accountManagerId?: string;
+  /** Multiple AMs on one job (Admin/SA). Prefer over accountManagerId. */
+  accountManagerIds?: string[];
   hiringManager?: string;
   description?: string;
   location?: string;
+  workMode?: string;
   employmentType?: EmploymentType;
   experience?: string;
   salary?: string;

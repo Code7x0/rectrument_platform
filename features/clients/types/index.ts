@@ -12,7 +12,10 @@ export interface CreateClientInput {
   industry?: string;
   website?: string;
   primaryContact?: string;
+  /** @deprecated Prefer accountManagerIds. */
   accountManagerId?: string;
+  /** Full Account Owner link set (multi-AM). Empty array clears ownership. */
+  accountManagerIds?: string[];
   status?: import("@/features/shared/entities").ClientStatus;
   notes?: string;
   primaryAddress?: string;

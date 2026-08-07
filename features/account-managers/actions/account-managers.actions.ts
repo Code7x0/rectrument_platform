@@ -31,16 +31,38 @@ function revalidateAmPaths(clientId?: string) {
 
 export async function assignAccountManagerToClientAction(input: {
   clientId: string;
-  accountManagerId: string | null;
+  accountManagerId?: string | null;
+  accountManagerIds?: string[];
+  /** When true with accountManagerId, add to existing owners instead of replacing. */
+  merge?: boolean;
 }): Promise<ActionResult> {
   try {
     await requireRole(["admin", "super_admin"]);
     if (!input.clientId) {
       return { success: false, message: "Client is required" };
     }
+
+    let accountManagerIds: string[];
+    if (input.merge && input.accountManagerId?.trim()) {
+      const { getClientById } = await import("@/features/clients/services");
+      const existing = await getClientById(input.clientId);
+      accountManagerIds = Array.from(
+        new Set([
+          ...(existing?.accountManagerIds ?? []),
+          input.accountManagerId.trim(),
+        ]),
+      );
+    } else if (input.accountManagerIds !== undefined) {
+      accountManagerIds = input.accountManagerIds;
+    } else if (input.accountManagerId) {
+      accountManagerIds = [input.accountManagerId];
+    } else {
+      accountManagerIds = [];
+    }
+
     await assignAccountManagerToClient({
       clientId: input.clientId,
-      accountManagerId: input.accountManagerId,
+      accountManagerIds,
     });
     revalidateAmPaths(input.clientId);
     return { success: true };
@@ -53,12 +75,13 @@ export async function assignAccountManagerToClientAction(input: {
 }
 
 /**
- * Assign AM to a single job only. Admin + Super Admin.
+ * Assign AM(s) to a single job only. Admin + Super Admin.
  * Does not change Clients.Account Owner (that would expose every job on the client).
  */
 export async function assignAccountManagerToJobAction(input: {
   jobId: string;
-  accountManagerId: string | null;
+  accountManagerId?: string | null;
+  accountManagerIds?: string[];
 }): Promise<ActionResult> {
   try {
     await requireRole(["admin", "super_admin"]);
@@ -80,8 +103,22 @@ export async function assignAccountManagerToJobAction(input: {
       };
     }
 
+    const accountManagerIds = Array.from(
+      new Set(
+        (input.accountManagerIds !== undefined
+          ? input.accountManagerIds
+          : input.accountManagerId
+            ? [input.accountManagerId]
+            : []
+        )
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    );
+
     await updateJob(input.jobId, {
-      accountManagerId: input.accountManagerId?.trim() || "",
+      accountManagerId: accountManagerIds[0] ?? "",
+      accountManagerIds,
     });
 
     revalidateAmPaths(job.clientId ?? undefined);

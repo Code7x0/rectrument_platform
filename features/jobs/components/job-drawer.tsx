@@ -93,7 +93,7 @@ export function JobDrawer({
                 <Detail label="Client" value={job.clientName} />
                 {!hideAccountManager ? (
                   <Detail
-                    label="Assigned Account Manager"
+                    label="Assigned Account Managers"
                     value={job.accountManagerName}
                   />
                 ) : null}

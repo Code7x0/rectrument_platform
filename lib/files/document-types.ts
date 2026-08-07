@@ -143,3 +143,34 @@ export function validateResumeFileMeta(input: {
 
 export const RESUME_ACCEPT =
   ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/** Job Description / general document uploads (PDF, Word, PNG, JPG). */
+export const DOCUMENT_ACCEPT =
+  ".pdf,.doc,.docx,.png,.jpg,.jpeg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg";
+
+export function validateDocumentUploadMeta(input: {
+  filename: string;
+  contentType?: string | null;
+  size: number;
+  maxBytes?: number;
+}): string | null {
+  const max = input.maxBytes ?? 10 * 1024 * 1024;
+  if (input.size <= 0) {
+    return "File is required";
+  }
+  if (input.size > max) {
+    return "File must be 10 MB or smaller";
+  }
+
+  const hasExt = hasAllowedExtension(input.filename, DOCUMENT_EXTENSIONS);
+  if (!hasExt) {
+    return "Allowed types: PDF, PNG, JPG, DOC, DOCX";
+  }
+
+  const raw = (input.contentType ?? "").trim().toLowerCase().split(";")[0]?.trim();
+  if (raw && !isAllowedUploadMime(raw) && !raw.startsWith("application/")) {
+    return "Allowed types: PDF, PNG, JPG, DOC, DOCX";
+  }
+
+  return null;
+}

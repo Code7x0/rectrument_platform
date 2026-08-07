@@ -18,17 +18,19 @@ export const employmentTypeSchema = z.enum([
   "internship",
 ]);
 
+export const jobWorkModeSchema = z.enum(["WFO", "WFH", "Hybrid"]);
+
 export const jobFormSchema = z.object({
   title: z.string().trim().min(2, "Job title is required"),
   clientId: z.string().min(1, "Client is required"),
+  /** @deprecated Prefer accountManagerIds. */
   accountManagerId: z.string().optional().default(""),
+  accountManagerIds: z.array(z.string()).optional().default([]),
   hiringManager: z.string().trim().optional(),
-  /**
-   * Legacy Airtable jobs often only have a JD attachment / Comments notes.
-   * Do not block create/edit when text fields were never filled.
-   */
+  /** Comments (maps to Airtable Comments). */
   description: z.string().trim().optional().or(z.literal("")),
   location: z.string().trim().optional().or(z.literal("")),
+  workMode: jobWorkModeSchema.or(z.literal("")).optional().default(""),
   employmentType: employmentTypeSchema.optional().default("full_time"),
   experience: z.string().trim().optional().or(z.literal("")),
   salary: z.string().trim().optional().or(z.literal("")),
@@ -40,6 +42,13 @@ export const jobFormSchema = z.object({
 });
 
 export type JobFormValues = z.infer<typeof jobFormSchema>;
+
+export const JOB_WORK_MODE_OPTIONS = [
+  { value: "", label: "Select work mode" },
+  { value: "WFO", label: "WFO" },
+  { value: "WFH", label: "WFH" },
+  { value: "Hybrid", label: "Hybrid" },
+] as const;
 
 export const jobListFiltersSchema = z.object({
   search: z.string().optional(),

@@ -4,6 +4,7 @@ import { getRequiredEnv } from "@/lib/api/env";
 import {
   CANDIDATES_TABLE_FIELDS,
   DOCUMENTS_TABLE_FIELDS,
+  JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { resolveAirtableFieldId } from "@/services/uploads/providers/airtable-meta";
 import type {
@@ -42,6 +43,16 @@ async function resolveAttachmentFieldId(fieldName: string): Promise<string> {
     return resolveAirtableFieldId(
       "documentsTable",
       DOCUMENTS_TABLE_FIELDS.file,
+    );
+  }
+
+  if (
+    fieldName === JOBS_TABLE_FIELDS.description ||
+    fieldName === "Job Description"
+  ) {
+    return resolveAirtableFieldId(
+      "jobsTable",
+      JOBS_TABLE_FIELDS.description,
     );
   }
 

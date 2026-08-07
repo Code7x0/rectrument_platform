@@ -16,7 +16,10 @@ export const clientFormSchema = z.object({
   industry: z.string().trim().min(1, "Industry is required"),
   website: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
   primaryContact: z.string().trim().optional(),
+  /** @deprecated Prefer accountManagerIds — kept for single-AM callers. */
   accountManagerId: z.string().optional(),
+  /** All Account Owner links (multi-AM). */
+  accountManagerIds: z.array(z.string()).optional().default([]),
   status: clientStatusSchema.default("active"),
   primaryAddress: z.string().trim().optional(),
   modeOfWork: z.string().optional(),

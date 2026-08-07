@@ -216,6 +216,7 @@ export function AccountManagersPageClient({
                   const result = await assignAccountManagerToClientAction({
                     clientId,
                     accountManagerId: assignTarget.id,
+                    merge: true,
                   });
                   if (!result.success) {
                     toast.error(result.message);

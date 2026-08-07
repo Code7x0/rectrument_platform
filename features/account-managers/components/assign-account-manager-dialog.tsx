@@ -30,6 +30,7 @@ export type AssignAmTarget =
       clientId?: string | null;
       clientLabel?: string | null;
       accountManagerId?: string | null;
+      accountManagerIds?: string[];
     }
   | null;
 
@@ -42,8 +43,10 @@ interface AssignAccountManagerDialogProps {
   target?: AssignAmTarget;
   /** Pre-select a client when opened without a row target. */
   initialClientId?: string;
-  /** Pre-select an AM. */
+  /** Pre-select a single AM (legacy). */
   initialAccountManagerId?: string;
+  /** Pre-select multiple AMs. */
+  initialAccountManagerIds?: string[];
   onCompleted?: () => void;
 }
 
@@ -52,8 +55,8 @@ function amOptionLabel(am: LookupOption): string {
 }
 
 /**
- * Assign or unassign Account Manager — Admin / Super Admin.
- * Shows business AM IDs only — not personal names.
+ * Assign or unassign Account Manager(s) — Admin / Super Admin.
+ * Clients and jobs both support multiple AMs.
  */
 export function AssignAccountManagerDialog({
   open,
@@ -63,11 +66,12 @@ export function AssignAccountManagerDialog({
   target = null,
   initialClientId = "",
   initialAccountManagerId = "",
+  initialAccountManagerIds = [],
   onCompleted,
 }: AssignAccountManagerDialogProps) {
   const [clientId, setClientId] = useState(initialClientId);
-  const [accountManagerId, setAccountManagerId] = useState(
-    initialAccountManagerId,
+  const [accountManagerIds, setAccountManagerIds] = useState<string[]>(
+    initialAccountManagerIds,
   );
   const [pending, startTransition] = useTransition();
 
@@ -75,9 +79,13 @@ export function AssignAccountManagerDialog({
   const isClientLocked =
     target?.kind === "client" || (isJob && Boolean(target.clientId));
   const hadAssignment = Boolean(
-    (target?.kind === "job" && target.accountManagerId) ||
-      (target?.kind === "client" && initialAccountManagerId) ||
-      (!target && initialAccountManagerId),
+    (target?.kind === "job" &&
+      ((target.accountManagerIds?.length ?? 0) > 0 ||
+        target.accountManagerId)) ||
+      (target?.kind === "client" &&
+        (initialAccountManagerIds.length > 0 || initialAccountManagerId)) ||
+      (!target &&
+        (initialAccountManagerIds.length > 0 || initialAccountManagerId)),
   );
 
   useEffect(() => {
@@ -86,28 +94,63 @@ export function AssignAccountManagerDialog({
     }
     if (target?.kind === "client") {
       setClientId(target.clientId);
-      setAccountManagerId(initialAccountManagerId);
+      const ids =
+        initialAccountManagerIds.length > 0
+          ? initialAccountManagerIds
+          : initialAccountManagerId
+            ? [initialAccountManagerId]
+            : [];
+      setAccountManagerIds(ids);
       return;
     }
     if (target?.kind === "job") {
       setClientId(target.clientId ?? "");
-      setAccountManagerId(
-        target.accountManagerId ?? initialAccountManagerId,
-      );
+      const ids =
+        target.accountManagerIds?.length
+          ? target.accountManagerIds
+          : target.accountManagerId
+            ? [target.accountManagerId]
+            : initialAccountManagerIds.length > 0
+              ? initialAccountManagerIds
+              : initialAccountManagerId
+                ? [initialAccountManagerId]
+                : [];
+      setAccountManagerIds(ids);
       return;
     }
     setClientId(initialClientId);
-    setAccountManagerId(initialAccountManagerId);
-  }, [open, target, initialClientId, initialAccountManagerId]);
+    const ids =
+      initialAccountManagerIds.length > 0
+        ? initialAccountManagerIds
+        : initialAccountManagerId
+          ? [initialAccountManagerId]
+          : [];
+    setAccountManagerIds(ids);
+  }, [
+    open,
+    target,
+    initialClientId,
+    initialAccountManagerId,
+    initialAccountManagerIds,
+  ]);
 
   function resetAndClose() {
     onOpenChange(false);
   }
 
-  const isUnassign = !accountManagerId.trim();
+  function toggleAm(id: string, checked: boolean) {
+    setAccountManagerIds((current) =>
+      checked
+        ? Array.from(new Set([...current, id]))
+        : current.filter((row) => row !== id),
+    );
+  }
+
+  const isUnassign = accountManagerIds.length === 0;
   const canSubmit = isJob
-    ? Boolean(target?.kind === "job") && (Boolean(accountManagerId) || hadAssignment)
-    : Boolean(clientId) && (Boolean(accountManagerId) || hadAssignment);
+    ? Boolean(target?.kind === "job") &&
+      (accountManagerIds.length > 0 || hadAssignment)
+    : Boolean(clientId) && (accountManagerIds.length > 0 || hadAssignment);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -115,13 +158,13 @@ export function AssignAccountManagerDialog({
         <DialogHeader>
           <DialogTitle>
             {isJob
-              ? "Account Manager for job"
-              : "Account Manager for client"}
+              ? "Account Managers for job"
+              : "Account Managers for client"}
           </DialogTitle>
           <DialogDescription>
             {isJob
-              ? "Assign an Account Manager to this job only, or choose Unassigned to clear. Other jobs for the same client are not affected."
-              : "Assign an Account Manager as the client Account Owner, or choose Unassigned to clear ownership."}
+              ? "Tag one or more Account Managers on this job only. Other jobs for the same client are not affected. Clear all to unassign."
+              : "Tag one or more Account Managers as Account Owners. Large accounts can have multiple AMs."}
           </DialogDescription>
         </DialogHeader>
 
@@ -160,19 +203,28 @@ export function AssignAccountManagerDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="assign-am-user">Account Manager</Label>
-            <Select
-              id="assign-am-user"
-              value={accountManagerId}
-              onChange={(e) => setAccountManagerId(e.target.value)}
-            >
-              <option value="">Unassigned</option>
-              {accountManagers.map((am) => (
-                <option key={am.id} value={am.id}>
-                  {amOptionLabel(am)}
-                </option>
-              ))}
-            </Select>
+            <Label>Account Managers</Label>
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] p-3">
+              {accountManagers.map((am) => {
+                const checked = accountManagerIds.includes(am.id);
+                return (
+                  <label
+                    key={am.id}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-[#0F172A]"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-[#CBD5E1]"
+                      checked={checked}
+                      onChange={(event) =>
+                        toggleAm(am.id, event.target.checked)
+                      }
+                    />
+                    <span>{amOptionLabel(am)}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -186,34 +238,33 @@ export function AssignAccountManagerDialog({
             disabled={!canSubmit || pending}
             onClick={() => {
               startTransition(async () => {
-                const nextAm = accountManagerId.trim() || null;
                 if (isJob && target?.kind === "job") {
                   const result = await assignAccountManagerToJobAction({
                     jobId: target.jobId,
-                    accountManagerId: nextAm,
+                    accountManagerIds,
                   });
                   if (!result.success) {
                     toast.error(result.message);
                     return;
                   }
                   toast.success(
-                    nextAm
-                      ? "Account Manager assigned to job"
-                      : "Account Manager unassigned from job",
+                    accountManagerIds.length > 0
+                      ? "Account Managers assigned to job"
+                      : "Account Managers unassigned from job",
                   );
                 } else {
                   const result = await assignAccountManagerToClientAction({
                     clientId,
-                    accountManagerId: nextAm,
+                    accountManagerIds,
                   });
                   if (!result.success) {
                     toast.error(result.message);
                     return;
                   }
                   toast.success(
-                    nextAm
-                      ? "Account Manager assigned to client"
-                      : "Account Manager unassigned from client",
+                    accountManagerIds.length > 0
+                      ? "Account Managers updated for client"
+                      : "Account Managers unassigned from client",
                   );
                 }
                 onOpenChange(false);
@@ -226,7 +277,7 @@ export function AssignAccountManagerDialog({
               ? hadAssignment
                 ? "Unassign"
                 : "Save (unassigned)"
-              : "Assign"}
+              : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,19 +14,34 @@ import {
 import { parseSkillsInput } from "@/features/jobs/services/jobs.validation";
 import { jobFormSchema } from "@/features/jobs/schemas/job.schema";
 import type { JobFormValues } from "@/features/jobs/schemas/job.schema";
+import { getUploadService, type UploadedFile } from "@/services/uploads";
 
 export type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; message: string; errors?: string[] };
 
 function formValuesToInput(values: JobFormValues, createdById?: string) {
+  const accountManagerIds = Array.from(
+    new Set(
+      (values.accountManagerIds?.length
+        ? values.accountManagerIds
+        : values.accountManagerId
+          ? [values.accountManagerId]
+          : []
+      )
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  );
   return {
     title: values.title,
     clientId: values.clientId,
-    accountManagerId: values.accountManagerId ?? "",
+    accountManagerId: accountManagerIds[0] ?? "",
+    accountManagerIds,
     hiringManager: values.hiringManager || undefined,
     description: values.description || undefined,
     location: values.location || undefined,
+    workMode: values.workMode || undefined,
     employmentType: values.employmentType,
     experience: values.experience || undefined,
     salary: values.salary || undefined,
@@ -39,23 +54,86 @@ function formValuesToInput(values: JobFormValues, createdById?: string) {
   };
 }
 
+async function parseJdFromFormData(
+  formData: FormData,
+): Promise<UploadedFile | null> {
+  const file = formData.get("jd");
+  if (!file || !(file instanceof File) || file.size === 0) {
+    return null;
+  }
+
+  const {
+    normalizeUploadContentType,
+    validateDocumentUploadMeta,
+  } = await import("@/lib/files/document-types");
+
+  const metaError = validateDocumentUploadMeta({
+    filename: file.name || "job-description.pdf",
+    contentType: file.type,
+    size: file.size,
+  });
+  if (metaError) {
+    throw new Error(metaError);
+  }
+
+  const contentType = normalizeUploadContentType(
+    file.name || "job-description.pdf",
+    file.type,
+  );
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return getUploadService().upload({
+    filename: file.name || "job-description.pdf",
+    contentType,
+    data: buffer,
+    size: file.size,
+  });
+}
+
+function parseJobFormPayload(formData: FormData): JobFormValues {
+  const raw = String(formData.get("payload") ?? "");
+  let parsedJson: unknown = {};
+  try {
+    parsedJson = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid job form payload");
+  }
+  const parsed = jobFormSchema.safeParse(parsedJson);
+  if (!parsed.success) {
+    throw Object.assign(new Error("Validation failed"), {
+      issues: parsed.error.issues.map((issue) => issue.message),
+    });
+  }
+  return parsed.data;
+}
+
 export async function createJobAction(
-  raw: JobFormValues,
+  formData: FormData,
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_jobs");
     await requireRole(["admin", "super_admin", "account_manager"]);
-    const parsed = jobFormSchema.safeParse(raw);
 
-    if (!parsed.success) {
+    let values: JobFormValues;
+    try {
+      values = parseJobFormPayload(formData);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "issues" in error &&
+        Array.isArray((error as { issues?: string[] }).issues)
+      ) {
+        return {
+          success: false,
+          message: "Validation failed",
+          errors: (error as { issues: string[] }).issues,
+        };
+      }
       return {
         success: false,
-        message: "Validation failed",
-        errors: parsed.error.issues.map((issue) => issue.message),
+        message: error instanceof Error ? error.message : "Invalid job form",
       };
     }
 
-    const values = parsed.data;
     if (session.role === "account_manager") {
       const { assertAccountManagerOwnsClient, ScopeDeniedError } = await import(
         "@/lib/auth/scope"
@@ -74,11 +152,14 @@ export async function createJobAction(
         throw error;
       }
       values.accountManagerId = amId;
+      values.accountManagerIds = [amId];
     }
 
-    const job = await createJob(
-      formValuesToInput(values, session.userId),
-    );
+    const jdUpload = await parseJdFromFormData(formData);
+
+    const job = await createJob(formValuesToInput(values, session.userId), {
+      jdUpload,
+    });
 
     revalidatePath("/admin/jobs");
     revalidatePath("/account-manager/jobs");
@@ -88,33 +169,46 @@ export async function createJobAction(
   } catch (error) {
     return {
       success: false,
-      message:
-        actionErrorMessage(error, "Unable to create job"),
+      message: actionErrorMessage(error, "Unable to create job"),
     };
   }
 }
 
 export async function updateJobAction(
   jobId: string,
-  raw: JobFormValues,
+  formData: FormData,
 ): Promise<ActionResult> {
   try {
     const session = await requirePermission("manage_jobs");
     await requireRole(["admin", "super_admin", "account_manager"]);
-    const parsed = jobFormSchema.safeParse(raw);
 
-    if (!parsed.success) {
+    let values: JobFormValues;
+    try {
+      values = parseJobFormPayload(formData);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "issues" in error &&
+        Array.isArray((error as { issues?: string[] }).issues)
+      ) {
+        return {
+          success: false,
+          message: "Validation failed",
+          errors: (error as { issues: string[] }).issues,
+        };
+      }
       return {
         success: false,
-        message: "Validation failed",
-        errors: parsed.error.issues.map((issue) => issue.message),
+        message: error instanceof Error ? error.message : "Invalid job form",
       };
     }
 
-    const values = parsed.data;
     if (session.role === "account_manager") {
-      const { assertAccountManagerOwnsJob, assertAccountManagerOwnsClient, ScopeDeniedError } =
-        await import("@/lib/auth/scope");
+      const {
+        assertAccountManagerOwnsJob,
+        assertAccountManagerOwnsClient,
+        ScopeDeniedError,
+      } = await import("@/lib/auth/scope");
       const { resolveAccountManagerScopeId } = await import("@/lib/auth");
       const amId = resolveAccountManagerScopeId(session);
       try {
@@ -127,9 +221,15 @@ export async function updateJobAction(
         throw error;
       }
       values.accountManagerId = amId ?? values.accountManagerId;
+      if (amId) {
+        values.accountManagerIds = [amId];
+      }
     }
 
-    const job = await updateJob(jobId, formValuesToInput(values));
+    const jdUpload = await parseJdFromFormData(formData);
+    const job = await updateJob(jobId, formValuesToInput(values), {
+      jdUpload,
+    });
 
     revalidatePath("/admin/jobs");
     revalidatePath("/account-manager/jobs");
@@ -139,8 +239,7 @@ export async function updateJobAction(
   } catch (error) {
     return {
       success: false,
-      message:
-        actionErrorMessage(error, "Unable to update job"),
+      message: actionErrorMessage(error, "Unable to update job"),
     };
   }
 }
@@ -171,8 +270,7 @@ export async function archiveJobAction(jobId: string): Promise<ActionResult> {
   } catch (error) {
     return {
       success: false,
-      message:
-        actionErrorMessage(error, "Unable to archive job"),
+      message: actionErrorMessage(error, "Unable to archive job"),
     };
   }
 }
