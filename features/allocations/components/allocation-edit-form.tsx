@@ -61,22 +61,9 @@ export function AllocationEditForm({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="expectedProfiles">Expected Profiles</Label>
-          <Input
-            id="expectedProfiles"
-            type="number"
-            min={1}
-            {...register("expectedProfiles")}
-          />
-          {errors.expectedProfiles ? (
-            <p className="text-xs text-destructive">
-              {errors.expectedProfiles.message}
-            </p>
-          ) : null}
-        </div>
+      <input type="hidden" {...register("expectedProfiles")} />
 
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="assignedDate">Assigned Date</Label>
           <Input id="assignedDate" type="date" {...register("assignedDate")} />

@@ -87,6 +87,51 @@ function matchesAirtableStatusFilter(row: Submission, filter: string): boolean {
   return (row.airtableStatus ?? "").trim() === filter.trim();
 }
 
+function isAirtableRecordId(value: string | null | undefined): boolean {
+  return Boolean(value && /^rec[a-zA-Z0-9]{10,}$/.test(value.trim()));
+}
+
+/** Prefer human labels; never surface raw Airtable record ids. */
+function displayClientLabel(row: Submission): string {
+  const name = row.clientName?.trim() || "";
+  const code = row.clientCode?.trim() || "";
+  if (name && !isAirtableRecordId(name)) {
+    return name;
+  }
+  if (code && !isAirtableRecordId(code)) {
+    return code;
+  }
+  const fromJobCode = row.jobCode?.split("_")[0]?.trim() || "";
+  if (fromJobCode && !isAirtableRecordId(fromJobCode)) {
+    return fromJobCode;
+  }
+  return "—";
+}
+
+function submissionStatusRank(row: Submission): number {
+  const label =
+    resolveAirtableSubmissionStatusOption(row.airtableStatus)?.trim() ||
+    (row.airtableStatus ?? "").trim() ||
+    "";
+  const index = AIRTABLE_SUBMISSION_STATUS_OPTIONS.findIndex(
+    (option) => option === label || option.trim() === label,
+  );
+  // Unknown statuses after catalog order, before empty.
+  return index >= 0 ? index : AIRTABLE_SUBMISSION_STATUS_OPTIONS.length;
+}
+
+function sortSubmissionsForReview(rows: Submission[]): Submission[] {
+  return [...rows].sort((a, b) => {
+    const rankDiff = submissionStatusRank(a) - submissionStatusRank(b);
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+    const aTime = a.submissionDate ? Date.parse(a.submissionDate) : 0;
+    const bTime = b.submissionDate ? Date.parse(b.submissionDate) : 0;
+    return bTime - aTime;
+  });
+}
+
 export function ReviewQueuePageClient({
   initialSubmissions,
   canTransition,
@@ -138,9 +183,8 @@ export function ReviewQueuePageClient({
       if (!row.clientId) {
         continue;
       }
-      const label =
-        row.clientName?.trim() || row.clientCode?.trim() || null;
-      if (!label || map.has(row.clientId)) {
+      const label = displayClientLabel(row);
+      if (label === "—" || map.has(row.clientId)) {
         continue;
       }
       map.set(row.clientId, label);
@@ -182,7 +226,7 @@ export function ReviewQueuePageClient({
     if (jobIdFilter.trim()) {
       next = next.filter((row) => row.jobId === jobIdFilter.trim());
     }
-    return next;
+    return sortSubmissionsForReview(next);
   }, [rows, statusFilter, jobTitleFilter, clientFilter, partnerFilter, jobIdFilter]);
 
   const selectedScreen = useMemo(() => {
@@ -285,6 +329,17 @@ export function ReviewQueuePageClient({
         ),
       },
       {
+        id: "status",
+        header: "Current Status",
+        cell: (row) => (
+          <SubmissionStatusBadge
+            status={row.status}
+            airtableStatus={row.airtableStatus}
+            label={row.airtableStatus}
+          />
+        ),
+      },
+      {
         id: "jobCode",
         header: "Job ID",
         className: "text-[#64748B]",
@@ -300,7 +355,7 @@ export function ReviewQueuePageClient({
         id: "client",
         header: "Client",
         className: "text-[#64748B]",
-        cell: (row) => row.clientName || row.clientCode || "—",
+        cell: (row) => displayClientLabel(row),
       },
       {
         id: "partnerCode",
@@ -326,17 +381,6 @@ export function ReviewQueuePageClient({
           row.submissionDate ? formatDate(row.submissionDate) : "—",
       },
       {
-        id: "status",
-        header: "Current Status",
-        cell: (row) => (
-          <SubmissionStatusBadge
-            status={row.status}
-            airtableStatus={row.airtableStatus}
-            label={row.airtableStatus}
-          />
-        ),
-      },
-      {
         id: "stage",
         header: "Interview Stage",
         className: "text-[#64748B]",
@@ -353,6 +397,9 @@ export function ReviewQueuePageClient({
         id: "actions",
         header: "Actions",
         align: "right",
+        sticky: "right",
+        className: "whitespace-nowrap",
+        headerClassName: "whitespace-nowrap",
         cell: (row) => (
           <div className="flex items-center justify-end gap-1">
             <Button

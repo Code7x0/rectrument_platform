@@ -20,6 +20,7 @@ import { findCandidates } from "@/features/candidates/repositories/candidates.re
 import type { Candidate } from "@/features/candidates/types";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 import { getJobById, listJobs } from "@/features/jobs/services";
+import { listClients } from "@/features/clients/services";
 import {
   findSubmissionById,
   findSubmissionsSafe,
@@ -83,13 +84,14 @@ async function withEnrichment(
 
   const candidatesMode = getSubmissionsMode() === "candidates";
 
-  // One request-scoped jobs/candidates scan instead of N× Airtable finds.
-  const [candidates, jobs, partners] = await Promise.all([
+  // One request-scoped jobs/candidates/clients scan instead of N× Airtable finds.
+  const [candidates, jobs, partners, clientRows] = await Promise.all([
     candidatesMode
       ? Promise.resolve([] as Candidate[])
       : loadAllCandidatesCached(),
     listJobs({ includeArchived: true }),
     listPartnerOptions(includePartnerIdentity ? "identity" : "operational"),
+    listClients({ includeArchived: true }),
   ]);
 
   const candidateMap = new Map(candidates.map((c) => [c.id, c]));
@@ -97,11 +99,27 @@ async function withEnrichment(
   const partnerMap = new Map(
     partners.map((p) => [p.id, { label: p.label, code: p.code ?? null }]),
   );
+  const clientMap = new Map(clientRows.map((c) => [c.id, c]));
 
   return submissions.map((row) => {
     const candidate = candidateMap.get(row.candidateId);
     const job = jobMap.get(row.jobId);
     const partner = partnerMap.get(row.partnerId);
+    const clientId = job?.clientId ?? row.clientId ?? null;
+    const client = clientId ? clientMap.get(clientId) : undefined;
+    const clientCode =
+      client?.clientCode?.trim() ||
+      job?.clientCode?.trim() ||
+      row.clientCode?.trim() ||
+      job?.jobCode?.split("_")[0]?.trim() ||
+      null;
+    const rawName =
+      client?.name?.trim() ||
+      job?.clientName?.trim() ||
+      row.clientName?.trim() ||
+      null;
+    const clientName =
+      rawName && !/^rec[a-zA-Z0-9]{10,}$/.test(rawName) ? rawName : clientCode;
     return {
       ...row,
       candidateName: candidate?.fullName ?? row.candidateName ?? null,
@@ -110,9 +128,9 @@ async function withEnrichment(
       linkedIn: candidate?.linkedIn ?? row.linkedIn ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,
-      clientId: job?.clientId ?? null,
-      clientName: job?.clientName ?? null,
-      clientCode: job?.clientCode ?? null,
+      clientId,
+      clientName,
+      clientCode,
       jobPriority: job?.priority ?? null,
       partnerName: partner?.label ?? null,
       partnerCode: partner?.code ?? null,

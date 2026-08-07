@@ -2,9 +2,11 @@
 
 import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableColumn } from "@/components/shared/data-table";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { JobActions } from "@/features/jobs/components/job-actions";
 import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
 import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
@@ -32,6 +34,14 @@ interface JobTableProps {
   onAllocate?: (job: Job) => void;
   onAssignAm?: (job: Job) => void;
   onViewPartners?: (job: Job) => void;
+}
+
+function jobDescriptionDoc(job: Job) {
+  return (
+    job.documents.find((doc) => doc.label === "Job Description") ??
+    job.documents[0] ??
+    null
+  );
 }
 
 export function JobTable({
@@ -65,7 +75,33 @@ export function JobTable({
       {
         id: "title",
         header: "Job Title",
-        cell: (job) => <span className="text-[#0F172A]">{job.title}</span>,
+        cell: (job) => {
+          const jd = jobDescriptionDoc(job);
+          if (jd?.url) {
+            return (
+              <FilePreviewLink
+                url={jd.url}
+                filename={jd.filename}
+                title={`${job.title} — Job Description`}
+                className="text-left font-medium text-[#2563EB] underline-offset-2 hover:underline"
+              >
+                {job.title}
+              </FilePreviewLink>
+            );
+          }
+          return (
+            <button
+              type="button"
+              className="text-left font-medium text-[#2563EB] underline-offset-2 hover:underline"
+              onClick={(event) => {
+                event.stopPropagation();
+                onView(job);
+              }}
+            >
+              {job.title}
+            </button>
+          );
+        },
       },
       {
         id: "client",
@@ -131,12 +167,6 @@ export function JobTable({
           job.priority ? JOB_PRIORITY_LABELS[job.priority] : "—",
       },
       {
-        id: "openPositions",
-        header: "Open Positions",
-        className: "text-[#64748B]",
-        cell: (job) => job.openPositions,
-      },
-      {
         id: "status",
         header: "Status",
         cell: (job) => <JobStatusBadge status={job.status} />,
@@ -162,17 +192,6 @@ export function JobTable({
         },
       },
       {
-        id: "jd",
-        header: "JD",
-        className: "text-[#64748B]",
-        cell: (job) =>
-          job.documents.some((doc) => doc.label === "Job Description")
-            ? "Available"
-            : job.description
-              ? "Text"
-              : "—",
-      },
-      {
         id: "createdAt",
         header: "Job Open Date",
         className: "text-[#64748B]",
@@ -185,20 +204,42 @@ export function JobTable({
         id: "actions",
         header: "Actions",
         align: "right",
-        cell: (job) => (
-          <JobActions
-            job={job}
-            canManage={canManage}
-            canAllocate={canAllocate}
-            canViewPartners={canViewPartners}
-            onView={onView}
-            onEdit={onEdit}
-            onArchive={onArchive}
-            onAllocate={onAllocate}
-            onAssignAm={onAssignAm}
-            onViewPartners={onViewPartners}
-          />
-        ),
+        sticky: "right",
+        className: "whitespace-nowrap",
+        headerClassName: "whitespace-nowrap",
+        cell: (job) => {
+          const jd = jobDescriptionDoc(job);
+          return (
+            <div className="flex items-center justify-end gap-1">
+              {jd?.url ? (
+                <FilePreviewLink
+                  asButton
+                  variant="ghost"
+                  size="icon"
+                  url={jd.url}
+                  filename={jd.filename}
+                  title={`${job.title} — Job Description`}
+                  className="h-9 w-9"
+                >
+                  <FileText className="h-4 w-4" aria-hidden />
+                  <span className="sr-only">View Job Description</span>
+                </FilePreviewLink>
+              ) : null}
+              <JobActions
+                job={job}
+                canManage={canManage}
+                canAllocate={canAllocate}
+                canViewPartners={canViewPartners}
+                onView={onView}
+                onEdit={onEdit}
+                onArchive={onArchive}
+                onAllocate={onAllocate}
+                onAssignAm={onAssignAm}
+                onViewPartners={onViewPartners}
+              />
+            </div>
+          );
+        },
       },
     ],
     [

@@ -64,12 +64,22 @@ export function FilePreviewLink({
           variant={variant}
           size={size}
           className={className}
-          onClick={() => setOpen(true)}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen(true);
+          }}
         >
           {children}
         </Button>
       ) : (
-        <button type="button" className={className} onClick={() => setOpen(true)}>
+        <button
+          type="button"
+          className={className}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen(true);
+          }}
+        >
           {children}
         </button>
       )}

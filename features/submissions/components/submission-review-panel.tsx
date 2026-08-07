@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,53 @@ interface SubmissionReviewPanelProps {
   onUpdated?: (next: Submission) => void;
 }
 
+async function copyText(text: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(`${label} copied`);
+    return true;
+  } catch {
+    toast.error(`Unable to copy ${label.toLowerCase()}`);
+    return false;
+  }
+}
+
+function CopyButton({
+  text,
+  label,
+}: {
+  text: string;
+  label: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  if (!text.trim()) {
+    return null;
+  }
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="h-7 gap-1 px-2 text-xs"
+      onClick={() => {
+        void copyText(text, label).then((ok) => {
+          if (ok) {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+          }
+        });
+      }}
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5" aria-hidden />
+      ) : (
+        <Copy className="h-3.5 w-3.5" aria-hidden />
+      )}
+      {copied ? "Copied" : "Copy"}
+    </Button>
+  );
+}
+
 function NoteBlock({
   label,
   value,
@@ -47,9 +95,12 @@ function NoteBlock({
   }
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-        {label}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+          {label}
+        </p>
+        <CopyButton text={value} label={label} />
+      </div>
       <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">{value}</p>
     </div>
   );
@@ -83,6 +134,13 @@ function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
 
   const raw = text?.trim() ?? "";
   const showStructured = Boolean(parsed.experience || skillLines.length > 0);
+  const structuredCopy = [
+    parsed.experience ? `Total experience: ${parsed.experience}` : null,
+    skillLines.length > 0 ? `Skills:\n${skillLines.map((line) => `• ${line}`).join("\n")}` : null,
+    parsed.remarks ? `Additional notes:\n${parsed.remarks}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   if (!raw) {
     return (
@@ -94,23 +152,34 @@ function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
 
   if (!showStructured) {
     return (
-      <p
-        id="screening-matrix-notes"
-        className="whitespace-pre-wrap text-sm text-[#0F172A]"
-      >
-        {raw}
-      </p>
+      <div className="space-y-2">
+        <div className="flex justify-end">
+          <CopyButton text={raw} label="Notes" />
+        </div>
+        <p
+          id="screening-matrix-notes"
+          className="whitespace-pre-wrap text-sm text-[#0F172A]"
+        >
+          {raw}
+        </p>
+      </div>
     );
   }
 
   return (
     <div id="screening-matrix-notes" className="space-y-3">
+      <div className="flex justify-end">
+        <CopyButton text={structuredCopy || raw} label="Screening notes" />
+      </div>
       <NoteBlock label="Total experience" value={parsed.experience} />
       {skillLines.length > 0 ? (
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-            Skills
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+              Skills
+            </p>
+            <CopyButton text={skillLines.join("\n")} label="Skills" />
+          </div>
           <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[#0F172A]">
             {skillLines.map((line) => (
               <li key={line}>{line}</li>

@@ -60,12 +60,6 @@ export function AllocationTable({
         cell: (row) => row.partnerName ?? row.partnerCode ?? "—",
       },
       {
-        id: "expected",
-        header: "Expected",
-        className: "text-[#64748B]",
-        cell: (row) => row.expectedProfiles,
-      },
-      {
         id: "submitted",
         header: "Submitted",
         className: "text-[#64748B]",
@@ -87,6 +81,9 @@ export function AllocationTable({
         id: "actions",
         header: "Actions",
         align: "right",
+        sticky: "right",
+        className: "whitespace-nowrap",
+        headerClassName: "whitespace-nowrap",
         cell: (row) => (
           <AllocationActions
             allocation={row}

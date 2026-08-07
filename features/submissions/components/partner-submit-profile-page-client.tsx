@@ -249,9 +249,6 @@ export function PartnerSubmitProfilePageClient({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {selected.submittedProfiles} submitted
-              {selected.expectedProfiles > 0
-                ? ` · ${selected.remainingProfiles} of ${selected.expectedProfiles} remaining`
-                : null}
             </p>
           </div>
         ) : null}

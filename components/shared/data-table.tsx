@@ -13,6 +13,8 @@ export interface DataTableColumn<T> {
   className?: string;
   headerClassName?: string;
   align?: "left" | "right" | "center";
+  /** Pin column while the table scrolls horizontally. */
+  sticky?: "left" | "right";
 }
 
 export interface DataTableProps<T> {
@@ -35,6 +37,27 @@ function alignClass(align?: "left" | "right" | "center") {
     return "text-center";
   }
   return "text-left";
+}
+
+function stickyClass(sticky?: "left" | "right", isHeader = false) {
+  if (!sticky) {
+    return undefined;
+  }
+  return cn(
+    "sticky z-20",
+    sticky === "left" ? "left-0" : "right-0",
+    isHeader
+      ? "bg-muted/95 backdrop-blur"
+      : "bg-card group-hover:bg-muted/50 shadow-[inset_1px_0_0_0_hsl(var(--border))]",
+    sticky === "right" &&
+      (isHeader
+        ? "shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]"
+        : "shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.25)]"),
+    sticky === "left" &&
+      (isHeader
+        ? "shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]"
+        : "shadow-[8px_0_12px_-12px_rgba(15,23,42,0.25)]"),
+  );
 }
 
 /**
@@ -75,7 +98,7 @@ export function DataTable<T>({
     >
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="sticky top-0 border-b border-border bg-muted/70 text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
+          <thead className="sticky top-0 z-30 border-b border-border bg-muted/70 text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
             <tr>
               {columns.map((column) => (
                 <th
@@ -83,6 +106,7 @@ export function DataTable<T>({
                   className={cn(
                     "px-4 py-3",
                     alignClass(column.align),
+                    stickyClass(column.sticky, true),
                     column.headerClassName,
                   )}
                 >
@@ -96,7 +120,7 @@ export function DataTable<T>({
               <tr
                 key={getRowId(row)}
                 className={cn(
-                  "border-t border-border transition-colors hover:bg-muted/50",
+                  "group border-t border-border transition-colors hover:bg-muted/50",
                   onRowClick && "cursor-pointer",
                 )}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -107,6 +131,7 @@ export function DataTable<T>({
                     className={cn(
                       "px-4 py-3 text-foreground",
                       alignClass(column.align),
+                      stickyClass(column.sticky, false),
                       column.className,
                     )}
                   >

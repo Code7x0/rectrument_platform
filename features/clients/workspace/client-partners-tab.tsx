@@ -105,7 +105,7 @@ export function ClientPartnersTab({
               Assigned{" "}
               {row.assignedDate ? formatDate(row.assignedDate) : "—"}
               {typeof row.profilesSubmitted === "number"
-                ? ` · ${row.profilesSubmitted}/${row.expectedProfiles} profiles`
+                ? ` · ${row.profilesSubmitted} submitted`
                 : null}
             </p>
           </article>

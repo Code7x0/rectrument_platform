@@ -66,10 +66,6 @@ export function AllocationDrawer({
               }
             />
             <Detail
-              label="Expected Profiles"
-              value={allocation.expectedProfiles}
-            />
-            <Detail
               label="Profiles Submitted"
               value={allocation.profilesSubmitted}
             />

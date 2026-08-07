@@ -119,7 +119,9 @@ export function JobDrawer({
               label="Priority"
               value={job.priority ? JOB_PRIORITY_LABELS[job.priority] : null}
             />
-            <Detail label="Open Positions" value={job.openPositions} />
+            {!partnerView ? (
+              <Detail label="Open Positions" value={job.openPositions} />
+            ) : null}
             {partnerView && submittedProfiles != null ? (
               <Detail label="Submitted Profiles" value={submittedProfiles} />
             ) : null}

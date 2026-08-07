@@ -9,6 +9,7 @@ import {
 import { listAccountManagerJobIds } from "@/lib/auth/scope";
 import { ReviewQueuePageClient } from "@/features/tasks/components";
 import { listSubmissions } from "@/features/submissions/services";
+import { listClients } from "@/features/clients/services";
 
 /**
  * AM Candidates — same source of truth as dashboard Submissions metric:
@@ -46,12 +47,35 @@ export default async function AccountManagerReviewQueuePage({
 
   const jobIds = await listAccountManagerJobIds(accountManagerId);
   const jobIdSet = new Set(jobIds);
-  const submissions =
+  const [rawSubmissions, ownedClients] = await Promise.all([
     jobIds.length === 0
-      ? []
-      : (await listSubmissions({ includePartnerIdentity: false })).filter(
-          (row) => jobIdSet.has(row.jobId),
-        );
+      ? Promise.resolve([])
+      : listSubmissions({ includePartnerIdentity: false }),
+    listClients({ includeArchived: true, accountManagerId }),
+  ]);
+
+  const codeByClientId = new Map(
+    ownedClients.map((client) => [
+      client.id,
+      client.clientCode?.trim() || null,
+    ]),
+  );
+
+  const submissions = rawSubmissions
+    .filter((row) => jobIdSet.has(row.jobId))
+    .map((row) => {
+      const code =
+        (row.clientId ? codeByClientId.get(row.clientId) : null) ||
+        row.clientCode?.trim() ||
+        row.jobCode?.split("_")[0]?.trim() ||
+        null;
+      // AM surfaces use Client ID only — never commercial names or raw rec ids.
+      return {
+        ...row,
+        clientCode: code,
+        clientName: code,
+      };
+    });
 
   return (
     <ReviewQueuePageClient
