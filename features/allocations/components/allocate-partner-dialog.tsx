@@ -37,7 +37,23 @@ export function AllocatePartnerDialog({
         return;
       }
 
-      toast.success("Talent partner allocated");
+      const createdCount = result.data.created.length;
+      const skippedCount = result.data.skipped.length;
+      const failedCount = result.data.failed.length;
+
+      if (createdCount === 1 && skippedCount === 0 && failedCount === 0) {
+        toast.success("Talent partner allocated");
+      } else if (createdCount > 0) {
+        const parts = [`${createdCount} partner${createdCount === 1 ? "" : "s"} allocated`];
+        if (skippedCount > 0) {
+          parts.push(`${skippedCount} already assigned`);
+        }
+        if (failedCount > 0) {
+          parts.push(`${failedCount} failed`);
+        }
+        toast.success(parts.join(" · "));
+      }
+
       signalLiveDataChange();
       onOpenChange(false);
       onCompleted();
@@ -54,8 +70,8 @@ export function AllocatePartnerDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Allocate Talent Partner"
-      description="Assign a recruiting partner to this job. Allocations always start from a Job."
+      title="Allocate Talent Partners"
+      description="Assign one or more recruiting partners to this job in a single step. Allocations always start from a Job."
     >
       {job ? (
         <AllocatePartnerForm

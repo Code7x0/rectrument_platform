@@ -32,6 +32,7 @@ import {
   toAirtableUpdateFields,
 } from "./jobs.mapper";
 import { buildJobsFilterFormula } from "./jobs.validation";
+import { filterJobsForAccountManager } from "./jobs-am-visibility";
 
 const valueMaps = {
   status: DOMAIN_JOB_STATUS_TO_AIRTABLE,
@@ -114,74 +115,6 @@ async function withEnrichment(
   });
 
   return { jobs: enriched, clientOwnersById };
-}
-
-/**
- * AM job visibility:
- * - Explicit per-job unassign ([RP_AM] none) → never visible.
- * - Explicit per-job AM(s) (field / [RP_AM] marker) always wins.
- * - Client Account Owners always inherit unmarked jobs on their client
- *   (sibling-hide must not strip their portfolio).
- * - Non-owners: if they have ANY explicit job on a client, sibling unmarked
- *   jobs are NOT inherited (prevents “assign one job → whole client” bleed).
- */
-function filterJobsForAccountManager(
-  originals: Job[],
-  enriched: Job[],
-  accountManagerId: string,
-  clientOwnersById: Map<string, string[]>,
-): Job[] {
-  const explicitById = new Map(
-    originals.map((job) => [
-      job.id,
-      job.accountManagerIds?.length
-        ? job.accountManagerIds
-        : job.accountManagerId
-          ? [job.accountManagerId]
-          : [],
-    ]),
-  );
-  const unassignedIds = new Set(
-    originals
-      .filter((job) => job.accountManagerUnassigned)
-      .map((job) => job.id),
-  );
-  const clientsWithExplicitAm = new Set(
-    originals
-      .filter((job) => {
-        const ids =
-          job.accountManagerIds?.length
-            ? job.accountManagerIds
-            : job.accountManagerId
-              ? [job.accountManagerId]
-              : [];
-        return ids.includes(accountManagerId) && Boolean(job.clientId);
-      })
-      .map((job) => job.clientId as string),
-  );
-
-  return enriched.filter((job) => {
-    if (unassignedIds.has(job.id)) {
-      return false;
-    }
-    const explicit = explicitById.get(job.id) ?? [];
-    if (explicit.length > 0) {
-      return explicit.includes(accountManagerId);
-    }
-    const owners = job.clientId
-      ? (clientOwnersById.get(job.clientId) ?? [])
-      : [];
-    if (owners.includes(accountManagerId)) {
-      return true;
-    }
-    if (job.clientId && clientsWithExplicitAm.has(job.clientId)) {
-      return false;
-    }
-    return (
-      job.accountManagerId === accountManagerId ||
-      (job.accountManagerIds?.includes(accountManagerId) ?? false)
-    );
-  });
 }
 
 function applySearchFilter(jobs: Job[], search?: string): Job[] {

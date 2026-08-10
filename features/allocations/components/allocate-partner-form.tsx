@@ -38,6 +38,8 @@ export function AllocatePartnerForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<AllocatePartnerFormValues>({
     resolver: zodResolver(
@@ -45,13 +47,24 @@ export function AllocatePartnerForm({
     ) as Resolver<AllocatePartnerFormValues>,
     defaultValues: {
       jobId,
-      partnerId: "",
+      partnerIds: [],
       expectedProfiles: 1,
       assignedDate: todayIsoDate(),
       notes: "",
       status: "assigned",
     },
   });
+
+  const selectedPartnerIds = watch("partnerIds") ?? [];
+
+  function togglePartner(partnerId: string, checked: boolean) {
+    const next = checked
+      ? [...new Set([...selectedPartnerIds, partnerId])]
+      : selectedPartnerIds.filter((id) => id !== partnerId);
+    setValue("partnerIds", next, { shouldValidate: true, shouldDirty: true });
+  }
+
+  const selectedCount = selectedPartnerIds.length;
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
@@ -65,20 +78,44 @@ export function AllocatePartnerForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="partnerId">Talent Partner</Label>
-        <Select id="partnerId" {...register("partnerId")}>
-          <option value="">Select talent partner</option>
-          {partners.map((partner) => (
-            <option key={partner.id} value={partner.id}>
-              {partner.label}
-            </option>
-          ))}
-        </Select>
-        {errors.partnerId ? (
+        <Label>Talent Partners</Label>
+        <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] p-3">
+          {partners.length === 0 ? (
+            <p className="text-xs text-[#64748B]">No talent partners available</p>
+          ) : (
+            partners.map((partner) => {
+              const checked = selectedPartnerIds.includes(partner.id);
+              return (
+                <label
+                  key={partner.id}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-[#0F172A]"
+                >
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-[#CBD5E1]"
+                    checked={checked}
+                    disabled={submitting}
+                    onChange={(event) =>
+                      togglePartner(partner.id, event.target.checked)
+                    }
+                  />
+                  <span>{partner.label}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+        {errors.partnerIds ? (
           <p className="text-xs text-destructive">
-            {errors.partnerId.message}
+            {errors.partnerIds.message}
           </p>
-        ) : null}
+        ) : (
+          <p className="text-xs text-[#64748B]">
+            {selectedCount === 0
+              ? "Select one or more talent partners to assign in one go."
+              : `${selectedCount} partner${selectedCount === 1 ? "" : "s"} selected`}
+          </p>
+        )}
       </div>
 
       <input type="hidden" {...register("expectedProfiles")} />
@@ -128,8 +165,12 @@ export function AllocatePartnerForm({
             Cancel
           </Button>
         ) : null}
-        <Button type="submit" disabled={submitting}>
-          {submitting ? "Assigning…" : "Assign"}
+        <Button type="submit" disabled={submitting || selectedCount === 0}>
+          {submitting
+            ? "Assigning…"
+            : selectedCount > 1
+              ? `Assign ${selectedCount} Partners`
+              : "Assign"}
         </Button>
       </div>
     </form>

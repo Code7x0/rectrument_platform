@@ -11,10 +11,13 @@ export const allocationStatusSchema = z.enum([
 /**
  * Allocate Partner form — always bound to an existing Job.
  * jobId is supplied by the Jobs row action, not the user.
+ * partnerIds supports assigning multiple talent partners in one submit.
  */
 export const allocatePartnerFormSchema = z.object({
   jobId: z.string().min(1, "Job is required"),
-  partnerId: z.string().min(1, "Partner is required"),
+  partnerIds: z
+    .array(z.string().min(1))
+    .min(1, "Select at least one talent partner"),
   expectedProfiles: z.coerce
     .number()
     .int()

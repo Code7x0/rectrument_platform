@@ -42,12 +42,18 @@ function revalidateAllocationPaths() {
 }
 
 /**
- * Create allocation from a Job.
+ * Create allocation(s) from a Job — one or many talent partners in one submit.
  * Super Admin, Admin, and Account Managers may allocate talent partners.
  */
 export async function allocatePartnerAction(
   raw: AllocatePartnerFormValues,
-): Promise<ActionResult> {
+): Promise<
+  ActionResult<{
+    created: unknown[];
+    skipped: string[];
+    failed: string[];
+  }>
+> {
   try {
     const session = await requirePermission("manage_allocations");
     await requireRole(["super_admin", "admin", "account_manager"]);
@@ -67,27 +73,78 @@ export async function allocatePartnerAction(
       await assertAccountManagerOwnsJob(session, data.jobId);
     }
 
+    const partnerIds = [...new Set(data.partnerIds.map((id) => id.trim()).filter(Boolean))];
+    if (partnerIds.length === 0) {
+      return {
+        success: false,
+        message: "Select at least one talent partner",
+      };
+    }
+
     // Account Managers stamp their scope id. Admin/SA keep the job/client
     // Account Owner (do not overwrite with staff user id).
-    const allocation = await allocatePartner({
-      jobId: data.jobId,
-      partnerId: data.partnerId,
-      expectedProfiles: data.expectedProfiles,
-      assignedDate: data.assignedDate,
-      notes: data.notes || undefined,
-      status: data.status === "archived" ? "assigned" : data.status,
-      assignedById: session.userId,
-      ...(session.role === "account_manager"
+    const amStamp =
+      session.role === "account_manager"
         ? {
             accountManagerId:
               resolveAccountManagerScopeId(session) ?? session.userId,
           }
-        : {}),
-    });
+        : {};
+
+    const created: unknown[] = [];
+    const skipped: string[] = [];
+    const failed: string[] = [];
+
+    for (const partnerId of partnerIds) {
+      try {
+        const allocation = await allocatePartner({
+          jobId: data.jobId,
+          partnerId,
+          expectedProfiles: data.expectedProfiles,
+          assignedDate: data.assignedDate,
+          notes: data.notes || undefined,
+          status: data.status === "archived" ? "assigned" : data.status,
+          assignedById: session.userId,
+          ...amStamp,
+        });
+        created.push(allocation);
+      } catch (error) {
+        const message = actionErrorMessage(
+          error,
+          "Unable to allocate talent partner",
+        );
+        if (/already allocated/i.test(message)) {
+          skipped.push(partnerId);
+        } else {
+          failed.push(message);
+        }
+      }
+    }
+
+    if (created.length === 0 && skipped.length === 0) {
+      return {
+        success: false,
+        message: failed[0] ?? "Unable to allocate talent partner",
+        errors: failed.length > 0 ? failed : undefined,
+      };
+    }
+
+    if (created.length === 0 && skipped.length > 0) {
+      return {
+        success: false,
+        message:
+          partnerIds.length === 1
+            ? "This talent partner is already allocated to the job"
+            : "All selected talent partners are already allocated to this job",
+      };
+    }
 
     revalidateAllocationPaths();
 
-    return { success: true, data: allocation };
+    return {
+      success: true,
+      data: { created, skipped, failed },
+    };
   } catch (error) {
     if (error instanceof ScopeDeniedError) {
       return { success: false, message: error.message };
