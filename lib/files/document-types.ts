@@ -45,6 +45,13 @@ const MIME_ALIASES: Record<string, string> = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "multipart/x-zip":
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  // Android / WPS / LibreOffice alternate Word MIME labels
+  "application/wps-office.docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/wps-office.doc": "application/msword",
+  "application/vnd.oasis.opendocument.text": "application/msword",
+  "text/rtf": "application/msword",
+  "application/rtf": "application/msword",
   "application/octet-stream": "application/octet-stream",
   // Some Linux file pickers report empty or generic binary types
   "binary/octet-stream": "application/octet-stream",
@@ -53,6 +60,8 @@ const MIME_ALIASES: Record<string, string> = {
   "image/png": "image/png",
   "image/jpeg": "image/jpeg",
   "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+  "image/x-png": "image/png",
 };
 
 function extensionOf(filename: string): string | null {
@@ -163,14 +172,25 @@ export function validateDocumentUploadMeta(input: {
   }
 
   const hasExt = hasAllowedExtension(input.filename, DOCUMENT_EXTENSIONS);
-  if (!hasExt) {
-    return "Allowed types: PDF, PNG, JPG, DOC, DOCX";
-  }
-
   const raw = (input.contentType ?? "").trim().toLowerCase().split(";")[0]?.trim();
-  if (raw && !isAllowedUploadMime(raw) && !raw.startsWith("application/")) {
-    return "Allowed types: PDF, PNG, JPG, DOC, DOCX";
+  const hasMime = isAllowedUploadMime(input.contentType);
+
+  if (hasExt) {
+    if (
+      raw &&
+      !hasMime &&
+      (raw.startsWith("video/") ||
+        raw.startsWith("audio/") ||
+        raw.startsWith("text/html"))
+    ) {
+      return "Allowed types: PDF, PNG, JPG, DOC, DOCX";
+    }
+    return null;
   }
 
-  return null;
+  if (hasMime) {
+    return null;
+  }
+
+  return "Allowed types: PDF, PNG, JPG, DOC, DOCX";
 }

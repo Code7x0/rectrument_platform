@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,10 @@ import {
   type PartnerRegistrationValues,
 } from "@/features/users/schemas/users.schema";
 import { APP_NAME } from "@/lib/constants";
+import {
+  DOCUMENT_ACCEPT,
+  validateDocumentUploadMeta,
+} from "@/lib/files/document-types";
 
 export function PartnerRegistrationForm() {
   const router = useRouter();
@@ -26,6 +30,12 @@ export function PartnerRegistrationForm() {
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [agreementFile, setAgreementFile] = useState<File | null>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  const resumeRef = useRef<HTMLInputElement>(null);
+  const panRef = useRef<HTMLInputElement>(null);
+  const aadhaarRef = useRef<HTMLInputElement>(null);
+  const agreementRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<PartnerRegistrationValues>({
     resolver: zodResolver(partnerRegistrationSchema),
@@ -44,28 +54,66 @@ export function PartnerRegistrationForm() {
     },
   });
 
+  function readFile(
+    ref: RefObject<HTMLInputElement | null>,
+    fallback: File | null,
+  ): File | null {
+    return ref.current?.files?.[0] ?? fallback;
+  }
+
+  function validateSelectedFile(file: File | null, label: string): string | null {
+    if (!file || file.size <= 0) {
+      return `${label} is required`;
+    }
+    const metaError = validateDocumentUploadMeta({
+      filename: file.name || label,
+      contentType: file.type,
+      size: file.size,
+    });
+    return metaError ? `${label}: ${metaError}` : null;
+  }
+
   function onSubmit(values: PartnerRegistrationValues) {
-    if (!panFile || !aadhaarFile || !agreementFile) {
-      toast.error("Upload PAN, Aadhaar, and signed Agreement");
+    // Prefer live input files over React state (mobile browsers can desync).
+    const resume = readFile(resumeRef, resumeFile);
+    const pan = readFile(panRef, panFile);
+    const aadhaar = readFile(aadhaarRef, aadhaarFile);
+    const agreement = readFile(agreementRef, agreementFile);
+
+    setResumeFile(resume);
+    setPanFile(pan);
+    setAadhaarFile(aadhaar);
+    setAgreementFile(agreement);
+
+    const missing =
+      validateSelectedFile(resume, "Resume") ||
+      validateSelectedFile(pan, "PAN") ||
+      validateSelectedFile(aadhaar, "Aadhaar") ||
+      validateSelectedFile(agreement, "Signed Partner Agreement");
+
+    if (missing) {
+      setFileError(missing);
+      toast.error(missing);
       return;
     }
+
+    setFileError(null);
 
     startTransition(async () => {
       const formData = new FormData();
       Object.entries(values).forEach(([key, value]) => {
         formData.set(key, String(value));
       });
-      formData.set("pan", panFile);
-      formData.set("aadhaar", aadhaarFile);
-      formData.set("agreement", agreementFile);
-      if (resumeFile) {
-        formData.set("resume", resumeFile);
-      }
+      formData.set("resume", resume!);
+      formData.set("pan", pan!);
+      formData.set("aadhaar", aadhaar!);
+      formData.set("agreement", agreement!);
 
       const result = await registerTalentPartnerAction(formData);
       if (!result.success) {
         toast.error(result.message);
         result.errors?.forEach((err) => toast.error(err));
+        setFileError(result.message);
         return;
       }
 
@@ -93,6 +141,15 @@ export function PartnerRegistrationForm() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-6 rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm"
       >
+        {fileError ? (
+          <p
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {fileError}
+          </p>
+        ) : null}
+
         <section className="grid gap-4 sm:grid-cols-2">
           <Field label="First name" error={form.formState.errors.firstName?.message}>
             <Input {...form.register("firstName")} autoComplete="given-name" />
@@ -161,35 +218,35 @@ export function PartnerRegistrationForm() {
         <section className="grid gap-4 sm:grid-cols-2">
           <FileField
             label="Resume"
+            inputRef={resumeRef}
+            file={resumeFile}
             onChange={setResumeFile}
-            required={false}
+            required
           />
-          <FileField label="PAN" onChange={setPanFile} required />
-          <FileField label="Aadhaar" onChange={setAadhaarFile} required />
+          <FileField
+            label="PAN"
+            inputRef={panRef}
+            file={panFile}
+            onChange={setPanFile}
+            required
+          />
+          <FileField
+            label="Aadhaar"
+            inputRef={aadhaarRef}
+            file={aadhaarFile}
+            onChange={setAadhaarFile}
+            required
+          />
           <FileField
             label="Signed Partner Agreement"
+            inputRef={agreementRef}
+            file={agreementFile}
             onChange={setAgreementFile}
             required
           />
         </section>
-
-        <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3 text-sm text-[#475569]">
-          Download the{" "}
-          <Link
-            href="/partner-agreement"
-            className="font-medium text-[#0F766E] underline-offset-2 hover:underline"
-            target="_blank"
-          >
-            TalentSocio Partner Agreement
-          </Link>
-          , sign it, then upload the signed PDF here. Need a blank copy? Email{" "}
-          <a
-            href="mailto:delivery@talentsocio.com"
-            className="font-medium text-[#0F766E] underline-offset-2 hover:underline"
-          >
-            delivery@talentsocio.com
-          </a>
-          .
+        <p className="text-xs text-[#64748B]">
+          Allowed file types: PDF, DOC, DOCX, PNG, JPG (up to 10 MB each).
         </p>
 
         <label className="flex items-start gap-3 text-sm text-[#334155]">
@@ -247,10 +304,14 @@ function Field({
 
 function FileField({
   label,
+  inputRef,
+  file,
   onChange,
   required,
 }: {
   label: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+  file: File | null;
   onChange: (file: File | null) => void;
   required?: boolean;
 }) {
@@ -261,10 +322,14 @@ function FileField({
         {required ? " *" : ""}
       </Label>
       <Input
+        ref={inputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        accept={DOCUMENT_ACCEPT}
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
       />
+      {file ? (
+        <p className="truncate text-xs text-[#64748B]">{file.name}</p>
+      ) : null}
     </div>
   );
 }

@@ -114,17 +114,20 @@ export async function registerTalentPartnerAction(
     const pan = await fileFromForm(formData, "pan", true);
     const aadhaar = await fileFromForm(formData, "aadhaar", true);
     const agreement = await fileFromForm(formData, "agreement", true);
-    const resume = await fileFromForm(formData, "resume", false);
+    const resume = await fileFromForm(formData, "resume", true);
 
-    if (!pan || !aadhaar || !agreement) {
-      return { success: false, message: "PAN, Aadhaar, and Agreement are required" };
+    if (!pan || !aadhaar || !agreement || !resume) {
+      return {
+        success: false,
+        message: "Resume, PAN, Aadhaar, and Agreement are required",
+      };
     }
 
     const result = await submitPartnerRegistration(parsed.data, {
       pan,
       aadhaar,
       agreement,
-      resume: resume ?? undefined,
+      resume,
     });
 
     return { success: true, data: { userId: result.user.id } };

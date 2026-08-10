@@ -54,28 +54,29 @@ export function validateDocumentFileMeta(input: {
   }
 
   const hasExt = hasAllowedExtension(input.filename, ALLOWED_DOCUMENT_EXTENSIONS);
+  const raw = (input.contentType ?? "").trim().toLowerCase().split(";")[0]?.trim();
   const hasMime = isAllowedUploadMime(input.contentType);
 
-  // Extension is enough; MIME alone is enough for images without extension edge cases.
-  if (!hasExt && !hasMime) {
-    return "Allowed types: PDF, PNG, JPEG, DOC, DOCX";
-  }
-
-  // Reject when extension says Word/PDF/image but MIME is clearly unrelated media.
+  // Extension is authoritative for Word/PDF/images. Empty or generic MIME is OK.
   if (hasExt) {
-    const raw = (input.contentType ?? "").trim().toLowerCase().split(";")[0]?.trim();
     if (
       raw &&
-      !isAllowedUploadMime(raw) &&
+      !hasMime &&
       (raw.startsWith("video/") ||
         raw.startsWith("audio/") ||
         raw.startsWith("text/html"))
     ) {
       return "Allowed types: PDF, PNG, JPEG, DOC, DOCX";
     }
+    return null;
   }
 
-  return null;
+  // No extension — accept known document MIME families (mobile Word pickers).
+  if (hasMime) {
+    return null;
+  }
+
+  return "Allowed types: PDF, PNG, JPEG, DOC, DOCX";
 }
 
 export { normalizeUploadContentType };

@@ -77,7 +77,7 @@ async function safeActivity(
 export async function submitPartnerRegistration(
   input: PartnerRegistrationInput,
   files: {
-    resume?: { filename: string; contentType: string; data: Buffer; size: number };
+    resume: { filename: string; contentType: string; data: Buffer; size: number };
     pan: { filename: string; contentType: string; data: Buffer; size: number };
     aadhaar: {
       filename: string;

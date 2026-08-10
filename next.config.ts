@@ -2,10 +2,11 @@ import type { NextConfig } from "next";
 
 /**
  * Resume / partner-doc uploads go through Server Actions as FormData.
- * Next defaults the Server Action body limit to 1MB — typical .docx resumes
- * exceeded that while small PDFs worked, and failures looked like "nothing happened".
+ * Partner signup can send 4 files (resume + PAN + Aadhaar + agreement);
+ * phone photos alone often exceed the old 10MB combined limit and
+ * arrived with missing files — looking like a validation glitch.
  */
-const UPLOAD_BODY_LIMIT = "10mb";
+const UPLOAD_BODY_LIMIT = "32mb";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["pdfjs-dist"],
@@ -13,7 +14,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: UPLOAD_BODY_LIMIT,
     },
-    // Keep middleware body allowance aligned with resume/doc max (8–10MB).
+    // Keep middleware body allowance aligned with multi-file signup uploads.
     middlewareClientMaxBodySize: UPLOAD_BODY_LIMIT,
   },
 };
