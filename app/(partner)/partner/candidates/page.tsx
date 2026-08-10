@@ -10,7 +10,11 @@ import type { Payout } from "@/features/payouts/types";
 export default async function PartnerCandidatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ jobId?: string }>;
+  searchParams: Promise<{
+    jobId?: string;
+    status?: string;
+    statusGroup?: string;
+  }>;
 }) {
   noStore();
 
@@ -34,6 +38,8 @@ export default async function PartnerCandidatesPage({
 
   const params = await searchParams;
   const jobId = params.jobId?.trim() || null;
+  const status = params.status?.trim() || null;
+  const statusGroup = params.statusGroup?.trim() || null;
 
   const [allSubmissions, payoutMap] = await Promise.all([
     listPartnerSubmissions(session.partnerId),
@@ -66,6 +72,8 @@ export default async function PartnerCandidatesPage({
       submissions={submissions}
       payoutsBySubmission={payoutsBySubmission}
       filterJobId={jobId}
+      initialStatus={status}
+      initialStatusGroup={statusGroup}
       filterJobLabel={
         filterJobCode || filterJobTitle
           ? [filterJobCode, filterJobTitle].filter(Boolean).join(" · ")

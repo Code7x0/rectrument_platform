@@ -28,7 +28,7 @@ export function AccountManagerDashboard({
         />
 
         <DashboardSection title="Needs attention">
-          <DashboardGrid columns={3}>
+          <DashboardGrid columns={4}>
             {data.metrics.map((metric) => (
               <DashboardMetricCard key={metric.id} {...metric} />
             ))}
@@ -73,7 +73,7 @@ export function AccountManagerDashboard({
               items={data.awaitingAction}
               emptyTitle="Inbox clear"
               emptyDescription="No candidates need your review right now."
-              emptyActionHref="/account-manager/candidates"
+              emptyActionHref="/account-manager/candidates?statusGroup=pending_review"
               emptyActionLabel="Open review queue"
             />
           </DashboardSection>

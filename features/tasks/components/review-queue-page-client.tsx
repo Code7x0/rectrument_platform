@@ -32,6 +32,13 @@ import {
   resolveAirtableSubmissionStatusOption,
 } from "@/lib/airtable/fields";
 import {
+  isSubmissionStatusGroupId,
+  matchesExactSubmissionStatuses,
+  matchesSubmissionStatusGroup,
+  parseStatusFilterParam,
+  type SubmissionStatusGroupId,
+} from "@/features/submissions/lib/submission-status-buckets";
+import {
   formatSkillScreensForDisplay,
   parseScreeningMatrixNotes,
 } from "@/features/submissions/lib/build-screening-matrix-notes";
@@ -51,6 +58,10 @@ interface ReviewQueuePageClientProps {
   initialSubmissionId?: string | null;
   /** Deep-link from job submitted-count links. */
   initialJobId?: string | null;
+  /** Deep-link from dashboard cards — exact Airtable status (or pipe-separated). */
+  initialStatus?: string | null;
+  /** Deep-link from dashboard cards — named status group (pending_review, hold, …). */
+  initialStatusGroup?: string | null;
 }
 
 function Detail({
@@ -70,14 +81,59 @@ function Detail({
   );
 }
 
+const STATUS_GROUP_FILTER_OPTIONS: Array<{
+  id: SubmissionStatusGroupId;
+  label: string;
+}> = [
+  { id: "pending_review", label: "Pending Review (not reviewed)" },
+  { id: "hold", label: "Hold" },
+  { id: "internal_screening", label: "Internal Screening in Progress" },
+  { id: "being_submitted", label: "Being Submitted to Client" },
+  { id: "interviewing", label: "Interviewing" },
+  { id: "offers", label: "Offers (Selected / Offered)" },
+  { id: "joined", label: "Joined" },
+];
+
 const STATUS_FILTER_OPTIONS = [
   "all",
+  ...STATUS_GROUP_FILTER_OPTIONS.map((g) => `group:${g.id}`),
   ...AIRTABLE_SUBMISSION_STATUS_OPTIONS,
 ] as const;
+
+function statusFilterLabel(value: string): string {
+  if (value === "all") {
+    return "All statuses";
+  }
+  if (value.startsWith("group:")) {
+    const id = value.slice("group:".length);
+    return (
+      STATUS_GROUP_FILTER_OPTIONS.find((g) => g.id === id)?.label ?? value
+    );
+  }
+  if (value.includes("|")) {
+    return value
+      .split("|")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" / ");
+  }
+  return value.trim();
+}
 
 function matchesAirtableStatusFilter(row: Submission, filter: string): boolean {
   if (filter === "all") {
     return true;
+  }
+  if (filter.startsWith("group:")) {
+    const groupId = filter.slice("group:".length);
+    if (isSubmissionStatusGroupId(groupId)) {
+      return matchesSubmissionStatusGroup(row, groupId);
+    }
+    return false;
+  }
+  const wanted = parseStatusFilterParam(filter);
+  if (wanted.length > 1) {
+    return matchesExactSubmissionStatuses(row, wanted);
   }
   const current = resolveAirtableSubmissionStatusOption(row.airtableStatus);
   const want = resolveAirtableSubmissionStatusOption(filter);
@@ -144,6 +200,8 @@ export function ReviewQueuePageClient({
   description,
   initialSubmissionId = null,
   initialJobId = null,
+  initialStatus = null,
+  initialStatusGroup = null,
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
@@ -153,7 +211,15 @@ export function ReviewQueuePageClient({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    if (initialStatusGroup && isSubmissionStatusGroupId(initialStatusGroup)) {
+      return `group:${initialStatusGroup}`;
+    }
+    if (initialStatus?.trim()) {
+      return initialStatus.trim();
+    }
+    return "all";
+  });
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [partnerFilter, setPartnerFilter] = useState("all");
@@ -176,6 +242,18 @@ export function ReviewQueuePageClient({
   useEffect(() => {
     setJobIdFilter(initialJobId ?? "");
   }, [initialJobId]);
+
+  useEffect(() => {
+    if (initialStatusGroup && isSubmissionStatusGroupId(initialStatusGroup)) {
+      setStatusFilter(`group:${initialStatusGroup}`);
+      return;
+    }
+    if (initialStatus?.trim()) {
+      setStatusFilter(initialStatus.trim());
+      return;
+    }
+    setStatusFilter("all");
+  }, [initialStatus, initialStatusGroup]);
 
   const clientOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -228,6 +306,17 @@ export function ReviewQueuePageClient({
     }
     return sortSubmissionsForReview(next);
   }, [rows, statusFilter, jobTitleFilter, clientFilter, partnerFilter, jobIdFilter]);
+
+  const statusSelectOptions = useMemo(() => {
+    const base = [...STATUS_FILTER_OPTIONS];
+    if (
+      statusFilter !== "all" &&
+      !(base as string[]).includes(statusFilter)
+    ) {
+      base.splice(1, 0, statusFilter as (typeof STATUS_FILTER_OPTIONS)[number]);
+    }
+    return base;
+  }, [statusFilter]);
 
   const selectedScreen = useMemo(() => {
     if (!selected) {
@@ -453,9 +542,9 @@ export function ReviewQueuePageClient({
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
           >
-            {STATUS_FILTER_OPTIONS.map((status) => (
+            {statusSelectOptions.map((status) => (
               <option key={status} value={status}>
-                {status === "all" ? "All statuses" : status.trim()}
+                {statusFilterLabel(status)}
               </option>
             ))}
           </Select>

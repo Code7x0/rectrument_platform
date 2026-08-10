@@ -19,9 +19,12 @@ import { getUsersSummary } from "@/features/users/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { JOB_STATUS_LABELS } from "@/features/jobs/types";
 import {
-  REVIEWABLE_SUBMISSION_STATUSES,
   submissionStatusDisplayLabel,
 } from "@/features/shared/entities";
+import {
+  candidatesListHref,
+  matchesSubmissionStatusGroup,
+} from "@/features/submissions/lib/submission-status-buckets";
 import { PAYOUT_STATUS_LABELS } from "@/features/payouts/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { mapActivitiesToFeed } from "@/features/dashboard/services/activity-feed";
@@ -31,6 +34,10 @@ import type {
   PartnerDashboardData,
   SuperAdminDashboardData,
 } from "@/features/dashboard/types";
+
+const AM_CANDIDATES = "/account-manager/candidates";
+const PARTNER_CANDIDATES = "/partner/candidates";
+const ADMIN_CANDIDATES = "/admin/candidates";
 
 function startOfMonthIso(): string {
   const now = new Date();
@@ -336,9 +343,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     jobTitle: row.jobTitle ?? jobTitleById.get(row.jobId) ?? null,
   }));
 
-  // Same source of truth as Candidates page — derive review queue in memory.
-  const reviewQueue = submissions.filter((row) =>
-    REVIEWABLE_SUBMISSION_STATUSES.includes(row.status),
+  // Same definition as AM: not-yet-reviewed only (excludes Hold / screening / later stages).
+  const pendingReviews = submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, "pending_review"),
   );
 
   const jobs = allJobs.filter((job) => job.status === "open");
@@ -352,7 +359,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   );
 
   const placementsThisMonth = submissions.filter(
-    (s) => s.status === "joined" && isThisMonth(s.submissionDate),
+    (s) =>
+      matchesSubmissionStatusGroup(s, "joined") &&
+      isThisMonth(s.submissionDate),
   ).length;
 
   const recentJobs = allJobs.slice(0, 6).map((job) => ({
@@ -431,9 +440,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       {
         id: "reviews",
         label: "Pending Candidate Reviews",
-        value: reviewQueue.length,
-        href: "/admin/candidates",
-        tone: reviewQueue.length > 0 ? "attention" : "default",
+        value: pendingReviews.length,
+        href: candidatesListHref(ADMIN_CANDIDATES, {
+          statusGroup: "pending_review",
+        }),
+        hint: "Not yet reviewed",
+        tone: pendingReviews.length > 0 ? "attention" : "default",
       },
       {
         id: "payouts",
@@ -446,7 +458,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         id: "placements",
         label: "Placements This Month",
         value: placementsThisMonth,
-        href: "/admin/candidates",
+        href: candidatesListHref(ADMIN_CANDIDATES, { statusGroup: "joined" }),
         tone: "positive",
       },
       {
@@ -548,26 +560,35 @@ export async function getAccountManagerDashboardData(
     myAllocations.map((row) => row.partnerId).filter(Boolean),
   );
   const mySubmissions = allSubmissions;
-  const myReviews = mySubmissions.filter(
-    (s) => s.status === "submitted" || s.status === "internal_review",
+  // Exact Airtable labels — Hold must never inflate Pending Review / Screening.
+  const myReviews = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "pending_review"),
   );
-
-  const internalScreening = mySubmissions.filter(
-    (s) => s.status === "internal_review",
+  const onHold = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "hold"),
   );
-  const beingSubmitted = mySubmissions.filter(
-    (s) => s.status === "client_review",
+  const internalScreening = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "internal_screening"),
   );
-  const interviews = mySubmissions.filter((s) => s.status === "interview");
-  const offers = mySubmissions.filter((s) => s.status === "offer");
-  const joined = mySubmissions.filter((s) => s.status === "joined");
+  const beingSubmitted = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "being_submitted"),
+  );
+  const interviews = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "interviewing"),
+  );
+  const offers = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "offers"),
+  );
+  const joined = mySubmissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "joined"),
+  );
 
   const awaitingAction = myReviews.slice(0, 8).map((row) => ({
     id: row.id,
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
     badge: submissionStatusDisplayLabel(row),
-    href: "/account-manager/candidates",
+    href: candidatesListHref(AM_CANDIDATES, { submissionId: row.id }),
     meta: row.submissionDate ? formatDate(row.submissionDate) : undefined,
   }));
 
@@ -576,7 +597,7 @@ export async function getAccountManagerDashboardData(
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
     badge: submissionStatusDisplayLabel(row),
-    href: "/account-manager/candidates",
+    href: candidatesListHref(AM_CANDIDATES, { submissionId: row.id }),
   }));
 
   const recentPartnerActivity = myAllocations.slice(0, 6).map((row) => ({
@@ -611,20 +632,33 @@ export async function getAccountManagerDashboardData(
         id: "submissions",
         label: "Profiles Submitted",
         value: mySubmissions.length,
-        href: "/account-manager/candidates",
+        href: AM_CANDIDATES,
       },
       {
         id: "reviews",
         label: "Pending My Review",
         value: myReviews.length,
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "pending_review",
+        }),
+        hint: "Not yet reviewed",
         tone: myReviews.length > 0 ? "attention" : "default",
+      },
+      {
+        id: "hold",
+        label: "On Hold",
+        value: onHold.length,
+        href: candidatesListHref(AM_CANDIDATES, { statusGroup: "hold" }),
+        hint: "Hold — any reason",
+        tone: onHold.length > 0 ? "attention" : "default",
       },
       {
         id: "interviewing",
         label: "In Process With Client",
         value: interviews.length,
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "interviewing",
+        }),
         hint: "Interviewing",
       },
       {
@@ -640,13 +674,17 @@ export async function getAccountManagerDashboardData(
         id: "internal-screening",
         label: "Internal Screening in Progress",
         value: internalScreening.length,
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "internal_screening",
+        }),
       },
       {
         id: "being-submitted",
         label: "Being Submitted to Client",
         value: beingSubmitted.length,
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "being_submitted",
+        }),
       },
     ],
     pipeline: [
@@ -654,14 +692,14 @@ export async function getAccountManagerDashboardData(
         id: "offers",
         label: "Offers",
         value: offers.length,
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, { statusGroup: "offers" }),
         tone: "positive",
       },
       {
         id: "joined",
         label: "Joining / Joined",
         value: joined.length,
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, { statusGroup: "joined" }),
         tone: "positive",
       },
     ],
@@ -670,7 +708,9 @@ export async function getAccountManagerDashboardData(
         id: "review-queue",
         label: "Open Review Queue",
         description: "Work candidates needing action",
-        href: "/account-manager/candidates",
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "pending_review",
+        }),
       },
       {
         id: "allocate",
@@ -719,11 +759,19 @@ export async function getPartnerDashboardData(
   const earnings = summarizePartnerEarnings(payouts);
 
   const pendingReview = submissions.filter(
-    (s) => s.status === "submitted" || s.status === "internal_review",
+    (s) =>
+      matchesSubmissionStatusGroup(s, "pending_review") ||
+      matchesSubmissionStatusGroup(s, "internal_screening"),
   );
-  const interviews = submissions.filter((s) => s.status === "interview");
-  const offers = submissions.filter((s) => s.status === "offer");
-  const joined = submissions.filter((s) => s.status === "joined");
+  const interviews = submissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "interviewing"),
+  );
+  const offers = submissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "offers"),
+  );
+  const joined = submissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "joined"),
+  );
 
   return {
     partnerName,
@@ -741,33 +789,45 @@ export async function getPartnerDashboardData(
         id: "submitted",
         label: "Profiles Submitted",
         value: submissions.length,
-        href: "/partner/candidates",
+        href: PARTNER_CANDIDATES,
       },
       {
         id: "review",
         label: "Pending My Review",
         value: pendingReview.length,
-        href: "/partner/candidates",
+        href: candidatesListHref(PARTNER_CANDIDATES, {
+          status: [
+            "Pending Review",
+            "Internal Screening in Progress",
+          ],
+        }),
+        hint: "Awaiting staff review",
       },
       {
         id: "interviews",
         label: "In Process With Client",
         value: interviews.length,
-        href: "/partner/candidates",
+        href: candidatesListHref(PARTNER_CANDIDATES, {
+          statusGroup: "interviewing",
+        }),
         hint: "Interviewing",
       },
       {
         id: "offers",
         label: "Offers",
         value: offers.length,
-        href: "/partner/candidates",
+        href: candidatesListHref(PARTNER_CANDIDATES, {
+          statusGroup: "offers",
+        }),
         tone: "positive",
       },
       {
         id: "joined",
         label: "Joining",
         value: joined.length,
-        href: "/partner/candidates",
+        href: candidatesListHref(PARTNER_CANDIDATES, {
+          statusGroup: "joined",
+        }),
         tone: "positive",
       },
     ],

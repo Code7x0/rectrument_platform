@@ -12,7 +12,12 @@ import { listSubmissions } from "@/features/submissions/services";
 export default async function AdminCandidatesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submissionId?: string; jobId?: string }>;
+  searchParams: Promise<{
+    submissionId?: string;
+    jobId?: string;
+    status?: string;
+    statusGroup?: string;
+  }>;
 }) {
   noStore();
 
@@ -29,6 +34,8 @@ export default async function AdminCandidatesPage({
   const params = await searchParams;
   const submissionId = params.submissionId?.trim() || null;
   const jobId = params.jobId?.trim() || null;
+  const status = params.status?.trim() || null;
+  const statusGroup = params.statusGroup?.trim() || null;
 
   const submissions = await listSubmissions({ includePartnerIdentity: true });
   const homeLabel =
@@ -41,6 +48,8 @@ export default async function AdminCandidatesPage({
       initialSubmissions={submissions}
       initialSubmissionId={submissionId}
       initialJobId={jobId}
+      initialStatus={status}
+      initialStatusGroup={statusGroup}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
       title="Candidates"
