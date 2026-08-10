@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition, type RefObject } from "react";
+import { useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { registerTalentPartnerAction } from "@/features/users/actions";
+import {
+  prepareSignupFiles,
+  SIGNUP_MAX_TOTAL_BYTES,
+} from "@/features/users/lib/prepare-signup-files";
 import {
   partnerRegistrationSchema,
   type PartnerRegistrationValues,
@@ -100,25 +104,58 @@ export function PartnerRegistrationForm() {
     setFileError(null);
 
     startTransition(async () => {
-      const formData = new FormData();
-      Object.entries(values).forEach(([key, value]) => {
-        formData.set(key, String(value));
-      });
-      formData.set("resume", resume!);
-      formData.set("pan", pan!);
-      formData.set("aadhaar", aadhaar!);
-      formData.set("agreement", agreement!);
+      try {
+        const prepared = await prepareSignupFiles({
+          resume: resume!,
+          pan: pan!,
+          aadhaar: aadhaar!,
+          agreement: agreement!,
+        });
 
-      const result = await registerTalentPartnerAction(formData);
-      if (!result.success) {
-        toast.error(result.message);
-        result.errors?.forEach((err) => toast.error(err));
-        setFileError(result.message);
-        return;
+        if (prepared.totalBytes > SIGNUP_MAX_TOTAL_BYTES) {
+          const message =
+            "Combined files are too large to upload. Please use smaller images or PDFs (under ~1 MB each) and try again.";
+          setFileError(message);
+          toast.error(message);
+          return;
+        }
+
+        const formData = new FormData();
+        Object.entries(values).forEach(([key, value]) => {
+          formData.set(key, String(value));
+        });
+        formData.set("resume", prepared.resume);
+        formData.set("pan", prepared.pan);
+        formData.set("aadhaar", prepared.aadhaar);
+        formData.set("agreement", prepared.agreement);
+
+        const result = await registerTalentPartnerAction(formData);
+        if (!result || typeof result !== "object" || !("success" in result)) {
+          const message =
+            "Upload failed (files may be too large). Try smaller PDFs or images and submit again.";
+          setFileError(message);
+          toast.error(message);
+          return;
+        }
+        if (!result.success) {
+          toast.error(result.message);
+          result.errors?.forEach((err) => toast.error(err));
+          setFileError(result.message);
+          return;
+        }
+
+        toast.success("Application submitted — pending approval");
+        router.push("/register/success");
+      } catch (error) {
+        const message =
+          error instanceof Error && /body|413|too large|fetch/i.test(error.message)
+            ? "Upload failed because the files are too large. Please use smaller PDFs or images and try again."
+            : error instanceof Error && error.message.trim()
+              ? error.message
+              : "Unable to submit registration. Please try again.";
+        setFileError(message);
+        toast.error(message);
       }
-
-      toast.success("Application submitted — pending approval");
-      router.push("/register/success");
     });
   }
 
@@ -246,7 +283,8 @@ export function PartnerRegistrationForm() {
           />
         </section>
         <p className="text-xs text-[#64748B]">
-          Allowed file types: PDF, DOC, DOCX, PNG, JPG (up to 10 MB each).
+          Allowed: PDF, DOC, DOCX, PNG, JPG. Photos are compressed automatically.
+          Keep each file under ~2 MB when possible.
         </p>
 
         <label className="flex items-start gap-3 text-sm text-[#334155]">
@@ -291,7 +329,7 @@ function Field({
 }: {
   label: string;
   error?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="space-y-1.5">

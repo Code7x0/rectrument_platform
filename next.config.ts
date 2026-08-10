@@ -2,11 +2,11 @@ import type { NextConfig } from "next";
 
 /**
  * Resume / partner-doc uploads go through Server Actions as FormData.
- * Partner signup can send 4 files (resume + PAN + Aadhaar + agreement);
- * phone photos alone often exceed the old 10MB combined limit and
- * arrived with missing files — looking like a validation glitch.
+ * Next 15.5+ also needs proxyClientMaxBodySize or binary FormData is
+ * truncated/dropped in production (looks like a client crash on submit).
+ * Vercel serverless still caps ~4.5MB — client compresses images to stay under.
  */
-const UPLOAD_BODY_LIMIT = "32mb";
+const UPLOAD_BODY_LIMIT = "4.5mb";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["pdfjs-dist"],
@@ -14,8 +14,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: UPLOAD_BODY_LIMIT,
     },
-    // Keep middleware body allowance aligned with multi-file signup uploads.
+    // Keep middleware body allowance aligned with signup uploads.
     middlewareClientMaxBodySize: UPLOAD_BODY_LIMIT,
+    // Next 15.5 internal proxy (typed loosely until Next ships the key).
+    ...({
+      proxyClientMaxBodySize: UPLOAD_BODY_LIMIT,
+    } as Record<string, string>),
   },
 };
 
