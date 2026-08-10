@@ -73,25 +73,11 @@ async function safeActivity(
 /**
  * Public Talent Partner registration.
  * Creates Partner + inactive User. Does NOT create/activate Clerk.
+ * Documents are attached separately (one file per request) to stay under
+ * Vercel’s serverless body limit.
  */
 export async function submitPartnerRegistration(
   input: PartnerRegistrationInput,
-  files: {
-    resume: { filename: string; contentType: string; data: Buffer; size: number };
-    pan: { filename: string; contentType: string; data: Buffer; size: number };
-    aadhaar: {
-      filename: string;
-      contentType: string;
-      data: Buffer;
-      size: number;
-    };
-    agreement: {
-      filename: string;
-      contentType: string;
-      data: Buffer;
-      size: number;
-    };
-  },
 ): Promise<{ user: User; partnerId: string }> {
   if (!input.agreementAccepted) {
     throw new Error("Agreement must be accepted");
@@ -147,49 +133,87 @@ export async function submitPartnerRegistration(
     bankDetails: input.bankDetails || null,
   });
 
-  const uploadSlots: Array<{
-    type: PartnerDocumentType;
-    file: {
-      filename: string;
-      contentType: string;
-      data: Buffer;
-      size: number;
-    };
-  }> = [
-    { type: "pan", file: files.pan },
-    { type: "aadhaar", file: files.aadhaar },
-    { type: "agreement", file: files.agreement },
-  ];
+  return { user, partnerId: partner.id };
+}
 
-  for (const slot of uploadSlots) {
-    const upload = await stageDocumentFile(slot.file);
-    await uploadPartnerDocument({
-      partnerId: partner.id,
-      documentType: slot.type,
-      upload,
-    });
+type RegistrationUploadFile = {
+  filename: string;
+  contentType: string;
+  data: Buffer;
+  size: number;
+};
+
+/**
+ * Attach one registration document. Caller must prove email ownership of the
+ * pending partner record created during signup.
+ */
+export async function attachPartnerRegistrationDocument(input: {
+  partnerId: string;
+  email: string;
+  documentType: PartnerDocumentType | "resume";
+  file: RegistrationUploadFile;
+}): Promise<void> {
+  const partner = await findPartnerById(input.partnerId);
+  if (!partner) {
+    throw new Error("Registration not found");
+  }
+  const email = input.email.trim().toLowerCase();
+  if (!email || partner.email?.trim().toLowerCase() !== email) {
+    throw new Error("Registration not found");
+  }
+  if (partner.status !== "pending") {
+    throw new Error("Registration is no longer open for uploads");
   }
 
-  if (files.resume) {
-    try {
-      const { getUploadService } = await import("@/services/uploads");
-      const upload = await stageDocumentFile(files.resume);
-      const safeName = files.resume.filename.replace(/[^\w.\-]+/g, "_");
-      await getUploadService().bindToEntity(
-        { ...upload, filename: `resume_${safeName}` },
-        {
-          entityId: partner.id,
-          fieldName: "Partners.Resume",
-        },
-      );
-    } catch (error) {
-      console.error("[registration] Resume upload failed (non-blocking)", error);
-      await updatePartner(partner.id, {
-        notes:
-          `${partner.notes ?? ""}\nResume upload pending: ${files.resume.filename}`.trim(),
-      }).catch(() => undefined);
-    }
+  if (input.documentType === "resume") {
+    const { getUploadService } = await import("@/services/uploads");
+    const upload = await stageDocumentFile(input.file);
+    const safeName = input.file.filename.replace(/[^\w.\-]+/g, "_");
+    await getUploadService().bindToEntity(
+      { ...upload, filename: `resume_${safeName}` },
+      {
+        entityId: partner.id,
+        fieldName: "Partners.Resume",
+      },
+    );
+    return;
   }
+
+  const upload = await stageDocumentFile(input.file);
+  await uploadPartnerDocument({
+    partnerId: partner.id,
+    documentType: input.documentType,
+    upload,
+  });
+}
+
+/** Activity + admin emails after documents are attached. */
+export async function finalizePartnerRegistration(input: {
+  partnerId: string;
+  email: string;
+  experience: string;
+  skills: string;
+  identityVisibility: IdentityVisibility;
+}): Promise<void> {
+  const partner = await findPartnerById(input.partnerId);
+  if (!partner) {
+    throw new Error("Registration not found");
+  }
+  const email = input.email.trim().toLowerCase();
+  if (!email || partner.email?.trim().toLowerCase() !== email) {
+    throw new Error("Registration not found");
+  }
+
+  const user = await findUserByEmail(email);
+  if (!user || user.partnerId !== partner.id) {
+    throw new Error("Registration not found");
+  }
+
+  const fullName =
+    partner.contactName?.trim() ||
+    partner.companyName?.trim() ||
+    user.fullName ||
+    email;
 
   await safeActivity({
     entityType: "user",
@@ -208,8 +232,6 @@ export async function submitPartnerRegistration(
     applicantName: fullName,
   });
 
-  // Fan-out email to Super Admins + Admins from Users table (primary),
-  // merged with optional env lists — never silently no-op when staff exist.
   const { getSuperAdminEmails, getAdminEmails } = await import(
     "@/lib/airtable/identity-mode"
   );
@@ -269,8 +291,6 @@ export async function submitPartnerRegistration(
       .map((result) => result?.provider)
       .filter(Boolean),
   });
-
-  return { user, partnerId: partner.id };
 }
 
 export async function listPendingPartnerApplications(): Promise<

@@ -9,8 +9,10 @@ import { requirePermission, requireRole } from "@/lib/auth";
 import {
   acceptInvitation,
   approvePartnerApplication,
+  attachPartnerRegistrationDocument,
   changeUserRole,
   deactivateUser,
+  finalizePartnerRegistration,
   inviteStaffUser,
   rejectPartnerApplication,
   resetUserAccess,
@@ -25,6 +27,7 @@ import {
   updateIdentityVisibilitySchema,
 } from "@/features/users/schemas/users.schema";
 import { validateDocumentFileMeta } from "@/features/partner-documents/schemas/document.schema";
+import type { PartnerDocumentType } from "@/features/partner-documents/types";
 import type { User } from "@/types";
 
 export type ActionResult<T = unknown> =
@@ -79,11 +82,12 @@ async function fileFromForm(
 }
 
 /**
- * Public Talent Partner registration (no auth).
+ * Public Talent Partner registration (no auth) — profile only.
+ * Documents are uploaded one-at-a-time afterward.
  */
 export async function registerTalentPartnerAction(
   formData: FormData,
-): Promise<ActionResult<{ userId: string }>> {
+): Promise<ActionResult<{ userId: string; partnerId: string }>> {
   try {
     const raw = {
       firstName: String(formData.get("firstName") ?? ""),
@@ -96,7 +100,9 @@ export async function registerTalentPartnerAction(
       experience: String(formData.get("experience") ?? ""),
       bankDetails: String(formData.get("bankDetails") ?? ""),
       identityVisibility: String(formData.get("identityVisibility") ?? "private"),
-      agreementAccepted: formData.get("agreementAccepted") === "true" || formData.get("agreementAccepted") === "on",
+      agreementAccepted:
+        formData.get("agreementAccepted") === "true" ||
+        formData.get("agreementAccepted") === "on",
     };
 
     const parsed = partnerRegistrationSchema.safeParse({
@@ -111,31 +117,95 @@ export async function registerTalentPartnerAction(
       };
     }
 
-    const pan = await fileFromForm(formData, "pan", true);
-    const aadhaar = await fileFromForm(formData, "aadhaar", true);
-    const agreement = await fileFromForm(formData, "agreement", true);
-    const resume = await fileFromForm(formData, "resume", true);
-
-    if (!pan || !aadhaar || !agreement || !resume) {
-      return {
-        success: false,
-        message: "Resume, PAN, Aadhaar, and Agreement are required",
-      };
-    }
-
-    const result = await submitPartnerRegistration(parsed.data, {
-      pan,
-      aadhaar,
-      agreement,
-      resume,
-    });
-
-    return { success: true, data: { userId: result.user.id } };
+    const result = await submitPartnerRegistration(parsed.data);
+    return {
+      success: true,
+      data: { userId: result.user.id, partnerId: result.partnerId },
+    };
   } catch (error) {
     return {
       success: false,
-      message:
-        actionErrorMessage(error, "Unable to submit registration"),
+      message: actionErrorMessage(error, "Unable to submit registration"),
+    };
+  }
+}
+
+const REGISTRATION_DOC_TYPES = [
+  "resume",
+  "pan",
+  "aadhaar",
+  "agreement",
+] as const;
+
+/**
+ * Upload a single registration document (keeps each request under Vercel body limit).
+ */
+export async function uploadPartnerRegistrationDocumentAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const partnerId = String(formData.get("partnerId") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const documentType = String(formData.get("documentType") ?? "").trim();
+    if (!partnerId || !email) {
+      return { success: false, message: "Registration session is missing" };
+    }
+    if (
+      !(REGISTRATION_DOC_TYPES as readonly string[]).includes(documentType)
+    ) {
+      return { success: false, message: "Invalid document type" };
+    }
+
+    const file = await fileFromForm(formData, "file", true);
+    if (!file) {
+      return { success: false, message: "File is required" };
+    }
+
+    await attachPartnerRegistrationDocument({
+      partnerId,
+      email,
+      documentType: documentType as PartnerDocumentType | "resume",
+      file,
+    });
+
+    return { success: true, data: null };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to upload document"),
+    };
+  }
+}
+
+export async function finalizePartnerRegistrationAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const partnerId = String(formData.get("partnerId") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const experience = String(formData.get("experience") ?? "");
+    const skills = String(formData.get("skills") ?? "");
+    const identityVisibility = String(
+      formData.get("identityVisibility") ?? "private",
+    );
+    if (!partnerId || !email) {
+      return { success: false, message: "Registration session is missing" };
+    }
+
+    await finalizePartnerRegistration({
+      partnerId,
+      email,
+      experience,
+      skills,
+      identityVisibility:
+        identityVisibility === "public" ? "public" : "private",
+    });
+
+    return { success: true, data: null };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to finalize registration"),
     };
   }
 }

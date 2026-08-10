@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
+import {
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,10 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { registerTalentPartnerAction } from "@/features/users/actions";
 import {
-  prepareSignupFiles,
-  SIGNUP_MAX_TOTAL_BYTES,
+  finalizePartnerRegistrationAction,
+  registerTalentPartnerAction,
+  uploadPartnerRegistrationDocumentAction,
+} from "@/features/users/actions";
+import {
+  prepareSignupFile,
+  SIGNUP_MAX_FILE_BYTES,
 } from "@/features/users/lib/prepare-signup-files";
 import {
   partnerRegistrationSchema,
@@ -26,20 +36,38 @@ import {
   DOCUMENT_ACCEPT,
   validateDocumentUploadMeta,
 } from "@/lib/files/document-types";
+import { cn } from "@/lib/utils";
+
+type DocKey = "resume" | "pan" | "aadhaar" | "agreement";
+
+const DOC_FIELDS: Array<{ key: DocKey; label: string }> = [
+  { key: "resume", label: "Resume" },
+  { key: "pan", label: "PAN" },
+  { key: "aadhaar", label: "Aadhaar" },
+  { key: "agreement", label: "Signed Partner Agreement" },
+];
 
 export function PartnerRegistrationForm() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [panFile, setPanFile] = useState<File | null>(null);
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
-  const [agreementFile, setAgreementFile] = useState<File | null>(null);
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<Record<DocKey, File | null>>({
+    resume: null,
+    pan: null,
+    aadhaar: null,
+    agreement: null,
+  });
   const [fileError, setFileError] = useState<string | null>(null);
 
   const resumeRef = useRef<HTMLInputElement>(null);
   const panRef = useRef<HTMLInputElement>(null);
   const aadhaarRef = useRef<HTMLInputElement>(null);
   const agreementRef = useRef<HTMLInputElement>(null);
+  const refs: Record<DocKey, RefObject<HTMLInputElement | null>> = {
+    resume: resumeRef,
+    pan: panRef,
+    aadhaar: aadhaarRef,
+    agreement: agreementRef,
+  };
 
   const form = useForm<PartnerRegistrationValues>({
     resolver: zodResolver(partnerRegistrationSchema),
@@ -58,11 +86,8 @@ export function PartnerRegistrationForm() {
     },
   });
 
-  function readFile(
-    ref: RefObject<HTMLInputElement | null>,
-    fallback: File | null,
-  ): File | null {
-    return ref.current?.files?.[0] ?? fallback;
+  function readFile(key: DocKey): File | null {
+    return refs[key].current?.files?.[0] ?? files[key];
   }
 
   function validateSelectedFile(file: File | null, label: string): string | null {
@@ -74,85 +99,105 @@ export function PartnerRegistrationForm() {
       contentType: file.type,
       size: file.size,
     });
-    return metaError ? `${label}: ${metaError}` : null;
+    if (metaError) {
+      return `${label}: ${metaError}`;
+    }
+    if (file.size > SIGNUP_MAX_FILE_BYTES) {
+      return `${label} must be under 4 MB. Please use a smaller file.`;
+    }
+    return null;
   }
 
   function onSubmit(values: PartnerRegistrationValues) {
-    // Prefer live input files over React state (mobile browsers can desync).
-    const resume = readFile(resumeRef, resumeFile);
-    const pan = readFile(panRef, panFile);
-    const aadhaar = readFile(aadhaarRef, aadhaarFile);
-    const agreement = readFile(agreementRef, agreementFile);
+    const selected: Record<DocKey, File | null> = {
+      resume: readFile("resume"),
+      pan: readFile("pan"),
+      aadhaar: readFile("aadhaar"),
+      agreement: readFile("agreement"),
+    };
+    setFiles(selected);
 
-    setResumeFile(resume);
-    setPanFile(pan);
-    setAadhaarFile(aadhaar);
-    setAgreementFile(agreement);
-
-    const missing =
-      validateSelectedFile(resume, "Resume") ||
-      validateSelectedFile(pan, "PAN") ||
-      validateSelectedFile(aadhaar, "Aadhaar") ||
-      validateSelectedFile(agreement, "Signed Partner Agreement");
-
-    if (missing) {
-      setFileError(missing);
-      toast.error(missing);
-      return;
+    for (const field of DOC_FIELDS) {
+      const err = validateSelectedFile(selected[field.key], field.label);
+      if (err) {
+        setFileError(err);
+        toast.error(err);
+        return;
+      }
     }
 
     setFileError(null);
 
     startTransition(async () => {
       try {
-        const prepared = await prepareSignupFiles({
-          resume: resume!,
-          pan: pan!,
-          aadhaar: aadhaar!,
-          agreement: agreement!,
-        });
-
-        if (prepared.totalBytes > SIGNUP_MAX_TOTAL_BYTES) {
-          const message =
-            "Combined files are too large to upload. Please use smaller images or PDFs (under ~1 MB each) and try again.";
-          setFileError(message);
-          toast.error(message);
-          return;
-        }
-
-        const formData = new FormData();
+        const profileData = new FormData();
         Object.entries(values).forEach(([key, value]) => {
-          formData.set(key, String(value));
+          profileData.set(key, String(value));
         });
-        formData.set("resume", prepared.resume);
-        formData.set("pan", prepared.pan);
-        formData.set("aadhaar", prepared.aadhaar);
-        formData.set("agreement", prepared.agreement);
 
-        const result = await registerTalentPartnerAction(formData);
-        if (!result || typeof result !== "object" || !("success" in result)) {
+        const created = await registerTalentPartnerAction(profileData);
+        if (!created?.success) {
           const message =
-            "Upload failed (files may be too large). Try smaller PDFs or images and submit again.";
+            created && "message" in created
+              ? created.message
+              : "Unable to submit registration";
           setFileError(message);
           toast.error(message);
+          created && "errors" in created
+            ? created.errors?.forEach((err) => toast.error(err))
+            : null;
           return;
         }
-        if (!result.success) {
-          toast.error(result.message);
-          result.errors?.forEach((err) => toast.error(err));
-          setFileError(result.message);
-          return;
+
+        const { partnerId } = created.data;
+
+        for (const field of DOC_FIELDS) {
+          const original = selected[field.key]!;
+          const prepared = await prepareSignupFile(original);
+          if (prepared.size > SIGNUP_MAX_FILE_BYTES) {
+            const message = `${field.label} is still too large after compression. Please upload a file under 4 MB.`;
+            setFileError(message);
+            toast.error(message);
+            return;
+          }
+
+          const docData = new FormData();
+          docData.set("partnerId", partnerId);
+          docData.set("email", values.email);
+          docData.set("documentType", field.key);
+          docData.set("file", prepared);
+
+          const uploaded = await uploadPartnerRegistrationDocumentAction(docData);
+          if (!uploaded?.success) {
+            const message =
+              uploaded && "message" in uploaded
+                ? uploaded.message
+                : `Unable to upload ${field.label}`;
+            setFileError(message);
+            toast.error(message);
+            return;
+          }
+        }
+
+        const finalizeData = new FormData();
+        finalizeData.set("partnerId", partnerId);
+        finalizeData.set("email", values.email);
+        finalizeData.set("experience", values.experience);
+        finalizeData.set("skills", values.skills);
+        finalizeData.set("identityVisibility", values.identityVisibility);
+        const finalized = await finalizePartnerRegistrationAction(finalizeData);
+        if (!finalized?.success) {
+          // Profile + docs saved; don't block success UX on notification failure.
+          console.error("[registration] finalize failed", finalized);
         }
 
         toast.success("Application submitted — pending approval");
         router.push("/register/success");
       } catch (error) {
         const message =
-          error instanceof Error && /body|413|too large|fetch/i.test(error.message)
-            ? "Upload failed because the files are too large. Please use smaller PDFs or images and try again."
-            : error instanceof Error && error.message.trim()
-              ? error.message
-              : "Unable to submit registration. Please try again.";
+          error instanceof Error && error.message.trim()
+            ? error.message
+            : "Unable to submit registration. Please try again.";
         setFileError(message);
         toast.error(message);
       }
@@ -246,45 +291,27 @@ export function PartnerRegistrationForm() {
             <option value="private">
               Keep my name private (managers see Partner ID only)
             </option>
-            <option value="public">
-              Show my name to Account Managers
-            </option>
+            <option value="public">Show my name to Account Managers</option>
           </Select>
         </Field>
 
         <section className="grid gap-4 sm:grid-cols-2">
-          <FileField
-            label="Resume"
-            inputRef={resumeRef}
-            file={resumeFile}
-            onChange={setResumeFile}
-            required
-          />
-          <FileField
-            label="PAN"
-            inputRef={panRef}
-            file={panFile}
-            onChange={setPanFile}
-            required
-          />
-          <FileField
-            label="Aadhaar"
-            inputRef={aadhaarRef}
-            file={aadhaarFile}
-            onChange={setAadhaarFile}
-            required
-          />
-          <FileField
-            label="Signed Partner Agreement"
-            inputRef={agreementRef}
-            file={agreementFile}
-            onChange={setAgreementFile}
-            required
-          />
+          {DOC_FIELDS.map((field) => (
+            <FileField
+              key={field.key}
+              label={field.label}
+              inputRef={refs[field.key]}
+              file={files[field.key]}
+              onChange={(next) =>
+                setFiles((current) => ({ ...current, [field.key]: next }))
+              }
+              required
+            />
+          ))}
         </section>
         <p className="text-xs text-[#64748B]">
-          Allowed: PDF, DOC, DOCX, PNG, JPG. Photos are compressed automatically.
-          Keep each file under ~2 MB when possible.
+          Allowed: PDF, DOC, DOCX, PNG, JPG — up to 4 MB per file. Each file
+          uploads separately to Airtable.
         </p>
 
         <label className="flex items-start gap-3 text-sm text-[#334155]">
@@ -353,21 +380,35 @@ function FileField({
   onChange: (file: File | null) => void;
   required?: boolean;
 }) {
+  const inputId = `file-${label.replace(/\s+/g, "-").toLowerCase()}`;
+
   return (
     <div className="space-y-1.5">
-      <Label>
+      <Label htmlFor={inputId}>
         {label}
         {required ? " *" : ""}
       </Label>
-      <Input
-        ref={inputRef}
-        type="file"
-        accept={DOCUMENT_ACCEPT}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-      />
-      {file ? (
-        <p className="truncate text-xs text-[#64748B]">{file.name}</p>
-      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          htmlFor={inputId}
+          className={cn(
+            "inline-flex h-9 cursor-pointer items-center rounded-lg border border-input bg-card px-3 text-sm font-medium text-foreground shadow-xs transition-ui hover:bg-muted/60",
+          )}
+        >
+          {file ? "Change file" : "Choose file"}
+        </label>
+        <input
+          id={inputId}
+          ref={inputRef}
+          type="file"
+          accept={DOCUMENT_ACCEPT}
+          className="sr-only"
+          onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        />
+        <span className="min-w-0 flex-1 truncate text-sm text-[#64748B]">
+          {file ? file.name : "No file chosen"}
+        </span>
+      </div>
     </div>
   );
 }

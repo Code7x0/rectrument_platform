@@ -1,8 +1,10 @@
 export {
   acceptInvitation,
   approvePartnerApplication,
+  attachPartnerRegistrationDocument,
   changeUserRole,
   deactivateUser,
+  finalizePartnerRegistration,
   getInvitationPreview,
   getUsersSummary,
   inviteStaffUser,
