@@ -46,17 +46,14 @@ function stickyClass(sticky?: "left" | "right", isHeader = false) {
   return cn(
     "sticky z-20",
     sticky === "left" ? "left-0" : "right-0",
+    // Opaque backgrounds only — translucent hover lets scrolled cells bleed
+    // through sticky Actions (salary text / “strange shadow”).
     isHeader
-      ? "bg-muted/95 backdrop-blur"
-      : "bg-card group-hover:bg-muted/50 shadow-[inset_1px_0_0_0_hsl(var(--border))]",
-    sticky === "right" &&
-      (isHeader
-        ? "shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]"
-        : "shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.25)]"),
-    sticky === "left" &&
-      (isHeader
-        ? "shadow-[8px_0_12px_-12px_rgba(15,23,42,0.35)]"
-        : "shadow-[8px_0_12px_-12px_rgba(15,23,42,0.25)]"),
+      ? "bg-muted"
+      : "bg-card group-hover:bg-[color-mix(in_srgb,var(--muted)_50%,var(--card))]",
+    // Hard edge separator instead of soft drop-shadow blur.
+    sticky === "right" && "border-l border-border",
+    sticky === "left" && "border-r border-border",
   );
 }
 
