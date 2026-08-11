@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,8 @@ function amOptionLabel(am: LookupOption): string {
   return am.code?.trim() || am.id;
 }
 
+const EMPTY_AM_IDS: string[] = [];
+
 /**
  * Assign or unassign Account Manager(s) — Admin / Super Admin.
  * Clients and jobs both support multiple AMs.
@@ -66,7 +68,7 @@ export function AssignAccountManagerDialog({
   target = null,
   initialClientId = "",
   initialAccountManagerId = "",
-  initialAccountManagerIds = [],
+  initialAccountManagerIds = EMPTY_AM_IDS,
   onCompleted,
 }: AssignAccountManagerDialogProps) {
   const [clientId, setClientId] = useState(initialClientId);
@@ -74,6 +76,7 @@ export function AssignAccountManagerDialog({
     initialAccountManagerIds,
   );
   const [pending, startTransition] = useTransition();
+  const wasOpenRef = useRef(false);
 
   const isJob = target?.kind === "job";
   const isClientLocked =
@@ -88,10 +91,16 @@ export function AssignAccountManagerDialog({
         (initialAccountManagerIds.length > 0 || initialAccountManagerId)),
   );
 
+  // Hydrate only when the dialog opens. Do not re-sync on every render —
+  // default `[]` / parent `?? []` props are new array refs and would wipe
+  // checkbox toggles before Save.
   useEffect(() => {
-    if (!open) {
+    const justOpened = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!justOpened) {
       return;
     }
+
     if (target?.kind === "client") {
       setClientId(target.clientId);
       const ids =
@@ -205,25 +214,32 @@ export function AssignAccountManagerDialog({
           <div className="space-y-2">
             <Label>Account Managers</Label>
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] p-3">
-              {accountManagers.map((am) => {
-                const checked = accountManagerIds.includes(am.id);
-                return (
-                  <label
-                    key={am.id}
-                    className="flex cursor-pointer items-center gap-2 text-sm text-[#0F172A]"
-                  >
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-[#CBD5E1]"
-                      checked={checked}
-                      onChange={(event) =>
-                        toggleAm(am.id, event.target.checked)
-                      }
-                    />
-                    <span>{amOptionLabel(am)}</span>
-                  </label>
-                );
-              })}
+              {accountManagers.length === 0 ? (
+                <p className="text-xs text-[#64748B]">
+                  No active Account Managers available
+                </p>
+              ) : (
+                accountManagers.map((am) => {
+                  const checked = accountManagerIds.includes(am.id);
+                  return (
+                    <label
+                      key={am.id}
+                      className="flex cursor-pointer items-center gap-2 text-sm text-[#0F172A]"
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-[#CBD5E1]"
+                        checked={checked}
+                        disabled={pending}
+                        onChange={(event) =>
+                          toggleAm(am.id, event.target.checked)
+                        }
+                      />
+                      <span>{amOptionLabel(am)}</span>
+                    </label>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -273,11 +289,13 @@ export function AssignAccountManagerDialog({
               });
             }}
           >
-            {isUnassign
-              ? hadAssignment
-                ? "Unassign"
-                : "Save (unassigned)"
-              : "Save"}
+            {pending
+              ? "Saving…"
+              : isUnassign
+                ? hadAssignment
+                  ? "Unassign"
+                  : "Save (unassigned)"
+                : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

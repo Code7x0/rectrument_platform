@@ -275,8 +275,9 @@ export function ClientsPageClient({
           initialAccountManagerIds={
             assignAmTarget?.kind === "client"
               ? (initialClients.find((c) => c.id === assignAmTarget.clientId)
-                  ?.accountManagerIds ?? [])
-              : []
+                  ?.accountManagerIds ??
+                undefined)
+              : undefined
           }
           onCompleted={refresh}
         />
