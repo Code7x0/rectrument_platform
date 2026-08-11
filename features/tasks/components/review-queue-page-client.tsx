@@ -62,6 +62,11 @@ interface ReviewQueuePageClientProps {
   initialStatus?: string | null;
   /** Deep-link from dashboard cards — named status group (pending_review, hold, …). */
   initialStatusGroup?: string | null;
+  /**
+   * Seed Client filter with owned accounts (AM), not only clients that already
+   * have submissions in the current list.
+   */
+  clientFilterOptions?: Array<{ id: string; label: string }>;
 }
 
 function Detail({
@@ -202,6 +207,7 @@ export function ReviewQueuePageClient({
   initialJobId = null,
   initialStatus = null,
   initialStatusGroup = null,
+  clientFilterOptions = [],
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
@@ -257,6 +263,15 @@ export function ReviewQueuePageClient({
 
   const clientOptions = useMemo(() => {
     const map = new Map<string, string>();
+    // Owned accounts first — GRW (etc.) must appear even with zero submissions.
+    for (const option of clientFilterOptions) {
+      const id = option.id?.trim();
+      const label = option.label?.trim();
+      if (!id || !label || label === "—") {
+        continue;
+      }
+      map.set(id, label);
+    }
     for (const row of rows) {
       if (!row.clientId) {
         continue;
@@ -268,7 +283,7 @@ export function ReviewQueuePageClient({
       map.set(row.clientId, label);
     }
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [rows]);
+  }, [rows, clientFilterOptions]);
 
   const partnerOptions = useMemo(() => {
     const map = new Map<string, string>();

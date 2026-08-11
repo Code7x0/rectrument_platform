@@ -46,13 +46,20 @@ export function JobDialog({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function handleSubmit(values: JobFormValues, jdFile: File | null) {
+  async function handleSubmit(
+    values: JobFormValues,
+    jdFile: File | null,
+    sampleResumeFile: File | null,
+  ) {
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.set("payload", JSON.stringify(values));
       if (jdFile) {
         formData.set("jd", jdFile);
+      }
+      if (sampleResumeFile) {
+        formData.set("sampleResume", sampleResumeFile);
       }
 
       const result =

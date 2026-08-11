@@ -56,6 +56,16 @@ async function resolveAttachmentFieldId(fieldName: string): Promise<string> {
     );
   }
 
+  if (
+    fieldName === JOBS_TABLE_FIELDS.sampleProfiling ||
+    fieldName === "Sample Profiling"
+  ) {
+    return resolveAirtableFieldId(
+      "jobsTable",
+      JOBS_TABLE_FIELDS.sampleProfiling,
+    );
+  }
+
   return fieldName;
 }
 

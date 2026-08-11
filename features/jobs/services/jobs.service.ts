@@ -204,7 +204,10 @@ export const getJobById = cache(async function getJobById(
 
 export async function createJob(
   input: CreateJobInput,
-  options?: { jdUpload?: UploadedFile | null },
+  options?: {
+    jdUpload?: UploadedFile | null;
+    sampleResumeUpload?: UploadedFile | null;
+  },
 ): Promise<Job> {
   const { jobCode } = await allocateNextJobCodeForClient(input.clientId);
   const created = await insertJob(
@@ -215,10 +218,14 @@ export async function createJob(
   if (options?.jdUpload) {
     await attachJobDescription(created.id, options.jdUpload);
   }
+  if (options?.sampleResumeUpload) {
+    await attachSampleResume(created.id, options.sampleResumeUpload);
+  }
 
-  const refreshed = options?.jdUpload
-    ? ((await findJobById(created.id)) ?? created)
-    : created;
+  const refreshed =
+    options?.jdUpload || options?.sampleResumeUpload
+      ? ((await findJobById(created.id)) ?? created)
+      : created;
   const { jobs: enrichedCreated } = await withEnrichment([refreshed]);
   const job = enrichedCreated[0];
 
@@ -272,10 +279,25 @@ export async function attachJobDescription(
   });
 }
 
+/** Attach to Jobs.Sample Profiling (sample resume for the role). */
+export async function attachSampleResume(
+  jobId: string,
+  upload: UploadedFile,
+): Promise<void> {
+  const uploader = getUploadService();
+  await uploader.bindToEntity(upload, {
+    entityId: jobId,
+    fieldName: JOBS_TABLE_FIELDS.sampleProfiling,
+  });
+}
+
 export async function updateJob(
   jobId: string,
   input: UpdateJobInput,
-  options?: { jdUpload?: UploadedFile | null },
+  options?: {
+    jdUpload?: UploadedFile | null;
+    sampleResumeUpload?: UploadedFile | null;
+  },
 ): Promise<Job> {
   const existing = await findJobById(jobId);
   const fields = toAirtableUpdateFields(input, valueMaps);
@@ -368,6 +390,9 @@ export async function updateJob(
   if (options?.jdUpload) {
     await attachJobDescription(jobId, options.jdUpload);
   }
+  if (options?.sampleResumeUpload) {
+    await attachSampleResume(jobId, options.sampleResumeUpload);
+  }
 
   // Never sync Clients.Account Owner from a job AM change (that assigned the whole client).
 
@@ -433,9 +458,10 @@ export async function updateJob(
     }
   }
 
-  const refreshed = options?.jdUpload
-    ? ((await findJobById(jobId)) ?? updated)
-    : updated;
+  const refreshed =
+    options?.jdUpload || options?.sampleResumeUpload
+      ? ((await findJobById(jobId)) ?? updated)
+      : updated;
   const { jobs: enrichedUpdated } = await withEnrichment([refreshed]);
   const job = enrichedUpdated[0];
 

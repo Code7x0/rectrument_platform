@@ -28,7 +28,11 @@ interface JobFormProps {
   lockAccountManager?: boolean;
   defaultClientId?: string;
   lockClient?: boolean;
-  onSubmit: (values: JobFormValues, jdFile: File | null) => Promise<void> | void;
+  onSubmit: (
+    values: JobFormValues,
+    jdFile: File | null,
+    sampleResumeFile: File | null,
+  ) => Promise<void> | void;
   onCancel?: () => void;
   onDelete?: () => void;
   submitLabel?: string;
@@ -116,6 +120,10 @@ export function JobForm({
 }: JobFormProps) {
   const [jdFile, setJdFile] = useState<File | null>(null);
   const [jdError, setJdError] = useState<string | null>(null);
+  const [sampleResumeFile, setSampleResumeFile] = useState<File | null>(null);
+  const [sampleResumeError, setSampleResumeError] = useState<string | null>(
+    null,
+  );
   const defaultAccountManagerId = lockAccountManager
     ? (initialJob?.accountManagerId || accountManagers[0]?.id || "")
     : undefined;
@@ -133,7 +141,12 @@ export function JobForm({
     }),
   });
 
-  const hasExistingJd = Boolean(initialJob?.documents?.length);
+  const existingJdCount =
+    initialJob?.documents?.filter((doc) => doc.label === "Job Description")
+      .length ?? 0;
+  const existingSampleResumeCount =
+    initialJob?.documents?.filter((doc) => doc.label === "Sample Profiling")
+      .length ?? 0;
   const selectedAmIds = watch("accountManagerIds") ?? [];
 
   function toggleAccountManager(id: string, checked: boolean) {
@@ -149,7 +162,8 @@ export function JobForm({
       className="space-y-4"
       onSubmit={handleSubmit(async (values) => {
         setJdError(null);
-        await onSubmit(values, jdFile);
+        setSampleResumeError(null);
+        await onSubmit(values, jdFile, sampleResumeFile);
       })}
     >
       {lockAccountManager ? (
@@ -238,10 +252,10 @@ export function JobForm({
               setJdError(null);
             }}
           />
-          {hasExistingJd ? (
+          {existingJdCount > 0 ? (
             <p className="text-xs text-[#64748B]">
-              {initialJob?.documents?.length} file(s) already attached. Upload a
-              new file to add another JD attachment.
+              {existingJdCount} file(s) already attached. Upload a new file to
+              add another JD attachment.
             </p>
           ) : (
             <p className="text-xs text-[#64748B]">
@@ -249,6 +263,34 @@ export function JobForm({
             </p>
           )}
           {jdError ? <p className="text-xs text-[#EF4444]">{jdError}</p> : null}
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="sampleResume">Sample Resume</Label>
+          <Input
+            id="sampleResume"
+            type="file"
+            accept={DOCUMENT_ACCEPT}
+            disabled={submitting}
+            onChange={(event) => {
+              const next = event.target.files?.[0] ?? null;
+              setSampleResumeFile(next);
+              setSampleResumeError(null);
+            }}
+          />
+          {existingSampleResumeCount > 0 ? (
+            <p className="text-xs text-[#64748B]">
+              {existingSampleResumeCount} sample file(s) already on this job.
+              Upload to add another to Sample Profiling.
+            </p>
+          ) : (
+            <p className="text-xs text-[#64748B]">
+              PDF, Word, PNG, or JPG — saved to Sample Profiling on the job.
+            </p>
+          )}
+          {sampleResumeError ? (
+            <p className="text-xs text-[#EF4444]">{sampleResumeError}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2 sm:col-span-2">

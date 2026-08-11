@@ -54,10 +54,12 @@ function formValuesToInput(values: JobFormValues, createdById?: string) {
   };
 }
 
-async function parseJdFromFormData(
+async function parseJobAttachmentFromFormData(
   formData: FormData,
+  fieldKey: string,
+  fallbackFilename: string,
 ): Promise<UploadedFile | null> {
-  const file = formData.get("jd");
+  const file = formData.get(fieldKey);
   if (!file || !(file instanceof File) || file.size === 0) {
     return null;
   }
@@ -68,7 +70,7 @@ async function parseJdFromFormData(
   } = await import("@/lib/files/document-types");
 
   const metaError = validateDocumentUploadMeta({
-    filename: file.name || "job-description.pdf",
+    filename: file.name || fallbackFilename,
     contentType: file.type,
     size: file.size,
   });
@@ -77,12 +79,12 @@ async function parseJdFromFormData(
   }
 
   const contentType = normalizeUploadContentType(
-    file.name || "job-description.pdf",
+    file.name || fallbackFilename,
     file.type,
   );
   const buffer = Buffer.from(await file.arrayBuffer());
   return getUploadService().upload({
-    filename: file.name || "job-description.pdf",
+    filename: file.name || fallbackFilename,
     contentType,
     data: buffer,
     size: file.size,
@@ -155,10 +157,20 @@ export async function createJobAction(
       values.accountManagerIds = [amId];
     }
 
-    const jdUpload = await parseJdFromFormData(formData);
+    const jdUpload = await parseJobAttachmentFromFormData(
+      formData,
+      "jd",
+      "job-description.pdf",
+    );
+    const sampleResumeUpload = await parseJobAttachmentFromFormData(
+      formData,
+      "sampleResume",
+      "sample-resume.pdf",
+    );
 
     const job = await createJob(formValuesToInput(values, session.userId), {
       jdUpload,
+      sampleResumeUpload,
     });
 
     revalidatePath("/admin/jobs");
@@ -226,9 +238,19 @@ export async function updateJobAction(
       }
     }
 
-    const jdUpload = await parseJdFromFormData(formData);
+    const jdUpload = await parseJobAttachmentFromFormData(
+      formData,
+      "jd",
+      "job-description.pdf",
+    );
+    const sampleResumeUpload = await parseJobAttachmentFromFormData(
+      formData,
+      "sampleResume",
+      "sample-resume.pdf",
+    );
     const job = await updateJob(jobId, formValuesToInput(values), {
       jdUpload,
+      sampleResumeUpload,
     });
 
     revalidatePath("/admin/jobs");
