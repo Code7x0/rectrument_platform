@@ -50,6 +50,7 @@ export function JobDialog({
     values: JobFormValues,
     jdFile: File | null,
     sampleResumeFile: File | null,
+    commentAttachmentFile: File | null,
   ) {
     setSubmitting(true);
     try {
@@ -60,6 +61,9 @@ export function JobDialog({
       }
       if (sampleResumeFile) {
         formData.set("sampleResume", sampleResumeFile);
+      }
+      if (commentAttachmentFile) {
+        formData.set("commentAttachment", commentAttachmentFile);
       }
 
       const result =

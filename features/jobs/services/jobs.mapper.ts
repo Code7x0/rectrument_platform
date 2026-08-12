@@ -234,8 +234,9 @@ export function toAirtableCreateFields(
     if (amIds.length > 0) {
       fields[JOBS_TABLE_FIELDS.accountManager] = amIds;
     }
-    fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions ?? 1;
   }
+
+  fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions ?? 1;
 
   if (input.hiringManager) {
     fields[JOBS_TABLE_FIELDS.hiringManager] = input.hiringManager;
@@ -278,10 +279,10 @@ export function toAirtableCreateFields(
   if (input.salary) {
     fields[JOBS_TABLE_FIELDS.salary] = input.salary;
   }
-  if (!clientMode && input.priority) {
+  if (input.priority) {
     fields[JOBS_TABLE_FIELDS.priority] = maps.priority[input.priority];
   }
-  if (!clientMode && input.skills && input.skills.length > 0) {
+  if (input.skills && input.skills.length > 0) {
     fields[JOBS_TABLE_FIELDS.skills] = input.skills.join(", ");
   }
   if (input.department) {
@@ -347,15 +348,15 @@ export function toAirtableUpdateFields(
   if (input.salary !== undefined) {
     fields[JOBS_TABLE_FIELDS.salary] = input.salary || "";
   }
-  if (!clientMode && input.priority !== undefined) {
+  if (input.priority !== undefined) {
     fields[JOBS_TABLE_FIELDS.priority] = input.priority
       ? maps.priority[input.priority]
       : "";
   }
-  if (!clientMode && input.openPositions !== undefined) {
+  if (input.openPositions !== undefined) {
     fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions;
   }
-  if (!clientMode && input.skills !== undefined) {
+  if (input.skills !== undefined) {
     fields[JOBS_TABLE_FIELDS.skills] =
       input.skills.length > 0 ? input.skills.join(", ") : "";
   }

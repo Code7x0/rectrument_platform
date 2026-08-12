@@ -28,3 +28,28 @@ export function signalLiveDataChange(): void {
     // BroadcastChannel unsupported — ignore
   }
 }
+
+/** Pause background RSC refresh while a form or dialog is open. */
+let liveRefreshPauseCount = 0;
+
+export function pauseLiveDataRefresh(): void {
+  liveRefreshPauseCount += 1;
+}
+
+export function resumeLiveDataRefresh(): void {
+  liveRefreshPauseCount = Math.max(0, liveRefreshPauseCount - 1);
+}
+
+export function isLiveDataRefreshPaused(): boolean {
+  return liveRefreshPauseCount > 0;
+}
+
+/** True when a modal dialog is open (Radix). */
+export function hasOpenDialog(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return Boolean(
+    document.querySelector('[role="dialog"][data-state="open"]'),
+  );
+}

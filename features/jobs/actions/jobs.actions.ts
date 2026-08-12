@@ -167,10 +167,16 @@ export async function createJobAction(
       "sampleResume",
       "sample-resume.pdf",
     );
+    const commentAttachmentUpload = await parseJobAttachmentFromFormData(
+      formData,
+      "commentAttachment",
+      "client-update.png",
+    );
 
     const job = await createJob(formValuesToInput(values, session.userId), {
       jdUpload,
       sampleResumeUpload,
+      commentAttachmentUpload,
     });
 
     revalidatePath("/admin/jobs");
@@ -248,9 +254,15 @@ export async function updateJobAction(
       "sampleResume",
       "sample-resume.pdf",
     );
+    const commentAttachmentUpload = await parseJobAttachmentFromFormData(
+      formData,
+      "commentAttachment",
+      "client-update.png",
+    );
     const job = await updateJob(jobId, formValuesToInput(values), {
       jdUpload,
       sampleResumeUpload,
+      commentAttachmentUpload,
     });
 
     revalidatePath("/admin/jobs");

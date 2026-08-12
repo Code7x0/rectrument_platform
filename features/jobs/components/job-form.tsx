@@ -32,6 +32,7 @@ interface JobFormProps {
     values: JobFormValues,
     jdFile: File | null,
     sampleResumeFile: File | null,
+    commentAttachmentFile: File | null,
   ) => Promise<void> | void;
   onCancel?: () => void;
   onDelete?: () => void;
@@ -124,6 +125,8 @@ export function JobForm({
   const [sampleResumeError, setSampleResumeError] = useState<string | null>(
     null,
   );
+  const [commentAttachmentFile, setCommentAttachmentFile] =
+    useState<File | null>(null);
   const defaultAccountManagerId = lockAccountManager
     ? (initialJob?.accountManagerId || accountManagers[0]?.id || "")
     : undefined;
@@ -163,7 +166,7 @@ export function JobForm({
       onSubmit={handleSubmit(async (values) => {
         setJdError(null);
         setSampleResumeError(null);
-        await onSubmit(values, jdFile, sampleResumeFile);
+        await onSubmit(values, jdFile, sampleResumeFile, commentAttachmentFile);
       })}
     >
       {lockAccountManager ? (
@@ -304,6 +307,25 @@ export function JobForm({
           {errors.description ? (
             <p className="text-xs text-[#EF4444]">{errors.description.message}</p>
           ) : null}
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="commentAttachment">
+            Client screenshots / updates (optional)
+          </Label>
+          <Input
+            id="commentAttachment"
+            type="file"
+            accept={DOCUMENT_ACCEPT}
+            disabled={submitting}
+            onChange={(event) => {
+              setCommentAttachmentFile(event.target.files?.[0] ?? null);
+            }}
+          />
+          <p className="text-xs text-[#64748B]">
+            Attach screenshots or images from the client about this role. Saved
+            with the job documents (PDF, PNG, or JPG).
+          </p>
         </div>
 
         <div className="space-y-2">

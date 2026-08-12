@@ -207,6 +207,8 @@ export async function createJob(
   options?: {
     jdUpload?: UploadedFile | null;
     sampleResumeUpload?: UploadedFile | null;
+    /** Screenshots / client updates — appended to Job Description attachments. */
+    commentAttachmentUpload?: UploadedFile | null;
   },
 ): Promise<Job> {
   const { jobCode } = await allocateNextJobCodeForClient(input.clientId);
@@ -218,12 +220,17 @@ export async function createJob(
   if (options?.jdUpload) {
     await attachJobDescription(created.id, options.jdUpload);
   }
+  if (options?.commentAttachmentUpload) {
+    await attachJobDescription(created.id, options.commentAttachmentUpload);
+  }
   if (options?.sampleResumeUpload) {
     await attachSampleResume(created.id, options.sampleResumeUpload);
   }
 
   const refreshed =
-    options?.jdUpload || options?.sampleResumeUpload
+    options?.jdUpload ||
+    options?.commentAttachmentUpload ||
+    options?.sampleResumeUpload
       ? ((await findJobById(created.id)) ?? created)
       : created;
   const { jobs: enrichedCreated } = await withEnrichment([refreshed]);
@@ -297,6 +304,7 @@ export async function updateJob(
   options?: {
     jdUpload?: UploadedFile | null;
     sampleResumeUpload?: UploadedFile | null;
+    commentAttachmentUpload?: UploadedFile | null;
   },
 ): Promise<Job> {
   const existing = await findJobById(jobId);
@@ -390,6 +398,9 @@ export async function updateJob(
   if (options?.jdUpload) {
     await attachJobDescription(jobId, options.jdUpload);
   }
+  if (options?.commentAttachmentUpload) {
+    await attachJobDescription(jobId, options.commentAttachmentUpload);
+  }
   if (options?.sampleResumeUpload) {
     await attachSampleResume(jobId, options.sampleResumeUpload);
   }
@@ -459,7 +470,9 @@ export async function updateJob(
   }
 
   const refreshed =
-    options?.jdUpload || options?.sampleResumeUpload
+    options?.jdUpload ||
+    options?.commentAttachmentUpload ||
+    options?.sampleResumeUpload
       ? ((await findJobById(jobId)) ?? updated)
       : updated;
   const { jobs: enrichedUpdated } = await withEnrichment([refreshed]);

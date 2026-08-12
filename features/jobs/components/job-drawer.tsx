@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { FilePreviewLink } from "@/components/shared/file-preview-link";
-import { filePreviewHref } from "@/lib/files/file-preview";
 import { Badge } from "@/components/ui/badge";
 import { EntityActivityInline } from "@/features/activity/components/entity-activity-inline";
 import { JobStatusBadge } from "@/features/jobs/components/job-status-badge";
@@ -168,20 +167,18 @@ export function JobDrawer({
                 Documents
               </p>
               <ul className="mt-2 space-y-2">
-                {job.documents.map((doc, index) => (
+                {job.documents.map((doc) => (
                   <li key={`${doc.label}-${doc.url}`}>
-                    {partnerView ? (
-                      <a
-                        href={filePreviewHref(doc.url, doc.filename)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
-                      >
-                        {job.documents.length > 1
-                          ? `Job Description ${index + 1}`
-                          : "Job Description"}
-                      </a>
-                    ) : (
+                {partnerView ? (
+                  <FilePreviewLink
+                    url={doc.url}
+                    filename={doc.filename}
+                    title={`${doc.label}: ${doc.filename}`}
+                    className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
+                  >
+                    {doc.label}: {doc.filename}
+                  </FilePreviewLink>
+                ) : (
                       <FilePreviewLink
                         url={doc.url}
                         filename={doc.filename}

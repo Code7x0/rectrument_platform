@@ -35,8 +35,12 @@ export function EditCandidateDialog({
 }: EditCandidateDialogProps) {
   const router = useRouter();
   const submittingLock = useRef(false);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
   const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(false);
   const [formValues, setFormValues] = useState<CandidateFormValues | null>(null);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [resumeFilename, setResumeFilename] = useState<string | null>(null);
@@ -52,69 +56,88 @@ export function EditCandidateDialog({
       setJobs([]);
       setSelectedTaskIds([]);
       setCurrentJobId(null);
+      setLoadingProfile(false);
+      setLoadingJobs(false);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
-    void Promise.all([
-      getOwnSubmissionForEditAction(submissionId),
-      listPartnerSubmitJobsAction(),
-    ]).then(([editResult, jobsResult]) => {
-      if (cancelled) {
-        return;
-      }
-      setLoading(false);
-      if (!editResult.success) {
-        toast.error(editResult.message);
-        onOpenChange(false);
-        return;
-      }
-      if (!jobsResult.success) {
-        toast.error(jobsResult.message);
-        onOpenChange(false);
-        return;
-      }
+    setLoadingProfile(true);
+    setLoadingJobs(true);
 
-      const submission = editResult.data.submission;
-      const jobOptions = jobsResult.data;
-      setFormValues(editResult.data.form);
-      setResumeUrl(editResult.data.resumeUrl);
-      setResumeFilename(editResult.data.resumeFilename);
-      setJobs(jobOptions);
-      setCurrentJobId(submission.jobId);
+    void getOwnSubmissionForEditAction(submissionId)
+      .then((editResult) => {
+        if (cancelled) {
+          return;
+        }
+        setLoadingProfile(false);
+        if (!editResult.success) {
+          toast.error(editResult.message);
+          onOpenChangeRef.current(false);
+          return;
+        }
 
-      const matched = jobOptions.filter(
-        (task) =>
-          task.jobId === submission.jobId ||
-          task.allocationId === submission.allocationId,
-      );
-      if (matched.length > 0) {
-        setSelectedTaskIds(matched.map((task) => task.id));
-      } else if (submission.jobId) {
-        // Job may be inactive — still show a synthetic option so save can keep it.
-        const synthetic: PartnerJobOption = {
-          id: `current-${submission.jobId}`,
-          allocationId: submission.allocationId,
-          jobId: submission.jobId,
-          jobTitle: submission.jobTitle ?? "Current job",
-          jobCode: submission.jobCode,
-          clientName: submission.clientName,
-          location: null,
-          remainingProfiles: 0,
-          submittedProfiles: 0,
-        };
-        setJobs([synthetic, ...jobOptions]);
-        setSelectedTaskIds([synthetic.id]);
-      } else {
-        setSelectedTaskIds([]);
-      }
-    });
+        const submission = editResult.data.submission;
+        setFormValues(editResult.data.form);
+        setResumeUrl(editResult.data.resumeUrl);
+        setResumeFilename(editResult.data.resumeFilename);
+        setCurrentJobId(submission.jobId);
+
+        return listPartnerSubmitJobsAction().then((jobsResult) => {
+          if (cancelled) {
+            return;
+          }
+          setLoadingJobs(false);
+          if (!jobsResult.success) {
+            toast.error(jobsResult.message);
+            return;
+          }
+
+          const jobOptions = jobsResult.data;
+          setJobs(jobOptions);
+
+          const matched = jobOptions.filter(
+            (task) =>
+              task.jobId === submission.jobId ||
+              task.allocationId === submission.allocationId,
+          );
+          if (matched.length > 0) {
+            setSelectedTaskIds(matched.map((task) => task.id));
+          } else if (submission.jobId) {
+            const synthetic: PartnerJobOption = {
+              id: `current-${submission.jobId}`,
+              allocationId: submission.allocationId,
+              jobId: submission.jobId,
+              jobTitle: submission.jobTitle ?? "Current job",
+              jobCode: submission.jobCode,
+              clientName: submission.clientName,
+              location: null,
+              remainingProfiles: 0,
+              submittedProfiles: 0,
+            };
+            setJobs([synthetic, ...jobOptions]);
+            setSelectedTaskIds([synthetic.id]);
+          } else {
+            setSelectedTaskIds([]);
+          }
+        });
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setLoadingProfile(false);
+        setLoadingJobs(false);
+        toast.error(
+          error instanceof Error ? error.message : "Unable to load candidate",
+        );
+        onOpenChangeRef.current(false);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [open, submissionId, onOpenChange]);
+  }, [open, submissionId]);
 
   async function handleSubmit(
     values: CandidateFormValues,
@@ -184,7 +207,7 @@ export function EditCandidateDialog({
       className="h-[min(92vh,52rem)] sm:max-w-2xl"
       bodyLayout="split"
     >
-      {loading || !formValues ? (
+      {loadingProfile || !formValues ? (
         <div className="px-6 py-10 text-sm text-[#64748B]">Loading profile…</div>
       ) : (
         <CandidateForm
@@ -198,18 +221,22 @@ export function EditCandidateDialog({
           submitLabel="Save changes"
           submittingLabel="Saving…"
           topSlot={
-            <PartnerJobMultiSelect
-              jobs={jobs}
-              selectedTaskIds={selectedTaskIds}
-              onChange={setSelectedTaskIds}
-              disabled={submitting}
-              label="Jobs"
-              hint={
-                currentJobId
-                  ? "Change or add allocated jobs. Deselecting a job removes that unreviewed submission for this person."
-                  : "Select one or more of your allocated jobs."
-              }
-            />
+            loadingJobs && jobs.length === 0 ? (
+              <p className="text-xs text-[#64748B]">Loading your jobs…</p>
+            ) : (
+              <PartnerJobMultiSelect
+                jobs={jobs}
+                selectedTaskIds={selectedTaskIds}
+                onChange={setSelectedTaskIds}
+                disabled={submitting || loadingJobs}
+                label="Jobs"
+                hint={
+                  currentJobId
+                    ? "Change or add allocated jobs. Deselecting a job removes that unreviewed submission for this person."
+                    : "Select one or more of your allocated jobs."
+                }
+              />
+            )
           }
           onCancel={() => {
             if (!submitting) {

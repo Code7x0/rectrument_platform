@@ -6,16 +6,18 @@ import { useRouter } from "next/navigation";
 import {
   LIVE_DATA_CHANGED_EVENT,
   LIVE_DATA_CHANNEL,
+  hasOpenDialog,
+  isLiveDataRefreshPaused,
 } from "@/lib/live-sync";
 
 /** Cheap pulse poll — only full RSC refresh when the fingerprint changes. */
-const PULSE_INTERVAL_MS = 4_000;
+const PULSE_INTERVAL_MS = 8_000;
 /**
  * Safety-net full refresh even if pulse is quiet (Airtable direct edits).
  * Status changes outside the pulse sample still need a periodic reload.
  */
-const FULL_REFRESH_INTERVAL_MS = 15_000;
-const MIN_FULL_REFRESH_GAP_MS = 2_500;
+const FULL_REFRESH_INTERVAL_MS = 60_000;
+const MIN_FULL_REFRESH_GAP_MS = 5_000;
 
 /**
  * Soft real-time sync for Airtable-backed RSC pages.
@@ -35,6 +37,9 @@ export function useLiveDataSync(): void {
 
     function fullRefresh(force = false) {
       if (document.visibilityState !== "visible") {
+        return;
+      }
+      if (isLiveDataRefreshPaused() || hasOpenDialog()) {
         return;
       }
       const now = Date.now();

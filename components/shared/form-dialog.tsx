@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { pauseLiveDataRefresh, resumeLiveDataRefresh } from "@/lib/live-sync";
 import { cn } from "@/lib/utils";
 
 interface FormDialogProps {
@@ -37,6 +38,16 @@ export function FormDialog({
   className,
   bodyLayout = "scroll",
 }: FormDialogProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    pauseLiveDataRefresh();
+    return () => {
+      resumeLiveDataRefresh();
+    };
+  }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
