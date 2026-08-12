@@ -1,50 +1,28 @@
 "use client";
 
-import { useDeferredValue, useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Briefcase, Search } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { CandidateForm } from "@/features/candidates/components/candidate-form";
 import { appendCandidateFormFields } from "@/features/candidates/lib/candidate-form-data";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 import type { Candidate } from "@/features/candidates/types";
 import { submitCandidateAction } from "@/features/submissions/actions/submissions.actions";
+import {
+  PartnerJobMultiSelect,
+  partnerJobOptionLabel,
+} from "@/features/submissions/components/partner-job-multi-select";
 import type { PartnerWorkTask } from "@/features/tasks/types";
 import { signalLiveDataChange } from "@/lib/live-sync";
-import { cn } from "@/lib/utils";
 
 interface PartnerSubmitProfilePageClientProps {
   tasks: PartnerWorkTask[];
-}
-
-function taskSearchBlob(task: PartnerWorkTask): string {
-  return [
-    task.jobTitle,
-    task.jobCode,
-    task.clientName,
-    task.location,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
-function taskLabel(task: PartnerWorkTask): string {
-  const code = task.jobCode?.trim();
-  const client = task.clientName?.trim();
-  const parts = [
-    code ? `${code} — ${task.jobTitle}` : task.jobTitle,
-    client,
-  ].filter(Boolean);
-  return parts.join(" · ");
 }
 
 export function PartnerSubmitProfilePageClient({
@@ -52,35 +30,16 @@ export function PartnerSubmitProfilePageClient({
 }: PartnerSubmitProfilePageClientProps) {
   const router = useRouter();
   const submittingLock = useRef(false);
-  const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query.trim().toLowerCase());
-  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [pendingValues, setPendingValues] =
     useState<CandidateFormValues | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [duplicates, setDuplicates] = useState<Candidate[]>([]);
 
-  const filtered = useMemo(() => {
-    if (!deferredQuery) {
-      return tasks;
-    }
-    return tasks.filter((task) =>
-      taskSearchBlob(task).includes(deferredQuery),
-    );
-  }, [tasks, deferredQuery]);
-
-  const selected =
-    filtered.find((task) => task.id === selectedId) ??
-    tasks.find((task) => task.id === selectedId) ??
-    null;
-
-  const jobOptions = useMemo(() => {
-    if (!selected || filtered.some((task) => task.id === selected.id)) {
-      return filtered;
-    }
-    return [selected, ...filtered];
-  }, [filtered, selected]);
+  const selectedTasks = tasks.filter((task) =>
+    selectedTaskIds.includes(task.id),
+  );
 
   function resetDuplicateState() {
     setDuplicates([]);
@@ -93,14 +52,24 @@ export function PartnerSubmitProfilePageClient({
     resumeFile: File | null,
     options?: { existingCandidateId?: string; reuseConfirmed?: boolean },
   ) {
-    if (!selected || submittingLock.current) {
+    if (selectedTasks.length === 0 || submittingLock.current) {
+      if (selectedTasks.length === 0) {
+        toast.error("Select at least one job");
+      }
       return;
     }
     submittingLock.current = true;
 
     const formData = new FormData();
-    formData.set("jobId", selected.jobId);
-    formData.set("allocationId", selected.allocationId);
+    formData.set(
+      "jobSelections",
+      JSON.stringify(
+        selectedTasks.map((task) => ({
+          jobId: task.jobId,
+          allocationId: task.allocationId,
+        })),
+      ),
+    );
     appendCandidateFormFields(formData, values);
 
     if (options?.existingCandidateId) {
@@ -127,13 +96,23 @@ export function PartnerSubmitProfilePageClient({
         return;
       }
 
+      const jobCount =
+        result.data &&
+        typeof result.data === "object" &&
+        "jobCount" in result.data &&
+        typeof result.data.jobCount === "number"
+          ? result.data.jobCount
+          : selectedTasks.length;
+
       toast.success(
         result.data &&
           typeof result.data === "object" &&
           "reusedCandidate" in result.data &&
           result.data.reusedCandidate
           ? "Existing candidate submitted"
-          : "Candidate submitted",
+          : jobCount > 1
+            ? `Candidate submitted to ${jobCount} jobs`
+            : "Candidate submitted",
       );
       resetDuplicateState();
       signalLiveDataChange();
@@ -187,70 +166,42 @@ export function PartnerSubmitProfilePageClient({
       <section className="space-y-4">
         <div>
           <h2 className="text-base font-semibold text-foreground">
-            1. Choose the job
+            1. Choose job(s)
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Search by job title, job code, or client, then select the JD to tag
-            this profile.
+            Select one or more of your allocated jobs if this profile fits
+            multiple roles.
           </p>
         </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search job title, code, or client…"
-            className="pl-9"
-            aria-label="Search jobs"
-          />
-        </div>
+        <PartnerJobMultiSelect
+          jobs={tasks}
+          selectedTaskIds={selectedTaskIds}
+          onChange={(next) => {
+            setSelectedTaskIds(next);
+            resetDuplicateState();
+          }}
+          disabled={submitting}
+          label="Job descriptions"
+          hint="Only your active allocated jobs are listed."
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="submit-job">Job description</Label>
-          <Select
-            id="submit-job"
-            value={selectedId}
-            onChange={(event) => {
-              setSelectedId(event.target.value);
-              resetDuplicateState();
-            }}
-            disabled={submitting}
-          >
-            <option value="">Select a job…</option>
-            {jobOptions.map((task) => (
-              <option key={task.id} value={task.id}>
-                {taskLabel(task)}
-                {task.remainingProfiles > 0
-                  ? ` (${task.remainingProfiles} remaining)`
-                  : ""}
-              </option>
+        {selectedTasks.length > 0 ? (
+          <ul className="space-y-2 rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-sm">
+            {selectedTasks.map((task) => (
+              <li key={task.id}>
+                <p className="font-medium text-foreground">
+                  {partnerJobOptionLabel(task)}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {task.submittedProfiles} submitted
+                  {task.remainingProfiles > 0
+                    ? ` · ${task.remainingProfiles} remaining`
+                    : ""}
+                </p>
+              </li>
             ))}
-          </Select>
-          {filtered.length === 0 && !selected ? (
-            <p className="text-sm text-muted-foreground">
-              No jobs match “{query.trim()}”. Clear the search or pick another
-              term.
-            </p>
-          ) : null}
-        </div>
-
-        {selected ? (
-          <div
-            className={cn(
-              "rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-sm",
-            )}
-          >
-            <p className="font-medium text-foreground">{selected.jobTitle}</p>
-            <p className="mt-0.5 text-muted-foreground">
-              {[selected.jobCode, selected.clientName, selected.location]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {selected.submittedProfiles} submitted
-            </p>
-          </div>
+          </ul>
         ) : null}
       </section>
 
@@ -260,25 +211,31 @@ export function PartnerSubmitProfilePageClient({
             2. Candidate details
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {selected
-              ? `Submitting against ${selected.jobTitle}.`
-              : "Select a job above to unlock the profile form."}
+            {selectedTasks.length > 0
+              ? selectedTasks.length === 1
+                ? `Submitting against ${selectedTasks[0]!.jobTitle}.`
+                : `Submitting against ${selectedTasks.length} jobs.`
+              : "Select at least one job above to unlock the profile form."}
           </p>
         </div>
 
-        {selected ? (
+        {selectedTasks.length > 0 ? (
           <div className="rounded-2xl border border-border/80 bg-background p-4 sm:p-6">
             <CandidateForm
-              key={`${selected.jobId}-${selected.allocationId}`}
+              key={selectedTaskIds.join("|")}
               submitting={submitting}
               resumeRequired
-              submitLabel="Submit Profile"
+              submitLabel={
+                selectedTasks.length > 1
+                  ? `Submit to ${selectedTasks.length} jobs`
+                  : "Submit Profile"
+              }
               onSubmit={(values, file) => postSubmission(values, file)}
             />
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-border/80 px-6 py-10 text-center text-sm text-muted-foreground">
-            Choose a job first to continue.
+            Choose at least one job first to continue.
           </div>
         )}
       </section>

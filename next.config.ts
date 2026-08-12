@@ -1,11 +1,11 @@
 import type { NextConfig } from "next";
 
 /**
- * Partner signup uploads one file per Server Action request (to Airtable).
- * Next 15.5 needs proxyClientMaxBodySize or binary FormData can be dropped.
- * Vercel serverless request body cap is ~4.5MB per request.
+ * Partner/candidate resume uploads go through Server Actions (FormData).
+ * Client validation allows 8MB; keep the action body limit above that so
+ * multipart overhead does not reject valid resumes (Vercel still caps ~4.5MB).
  */
-const UPLOAD_BODY_LIMIT = "4.5mb";
+const UPLOAD_BODY_LIMIT = process.env.UPLOAD_BODY_LIMIT ?? "10mb";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["pdfjs-dist"],

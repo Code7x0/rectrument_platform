@@ -11,6 +11,7 @@ import {
 } from "@/features/allocations/services";
 import {
   attachResumeToCandidate,
+  clearResumeFromCandidate,
   createCandidate,
   findDuplicateCandidates,
   getCandidateById,
@@ -148,6 +149,11 @@ export interface SubmitCandidatePayload {
   /** Staged resume (required for new candidates) */
   resumeUpload?: UploadedFile | null;
   resumeRequired?: boolean;
+  /**
+   * When true, create a new Candidates row even if the partner already
+   * submitted this person for a different job (multi-job submit / edit).
+   */
+  allowSamePersonOtherJob?: boolean;
 }
 
 export type SubmitCandidateResult =
@@ -489,7 +495,24 @@ export async function submitCandidateForAllocation(
     const ownedDuplicates = duplicates.filter((row) => ownedIds.has(row.id));
 
     if (ownedDuplicates.length > 0) {
-      return { ok: false, reason: "duplicate", duplicates: ownedDuplicates };
+      const ownedDupIds = new Set(ownedDuplicates.map((row) => row.id));
+      const alreadyForThisJob = prior.some(
+        (row) =>
+          row.jobId === payload.jobId && ownedDupIds.has(row.candidateId),
+      );
+      if (alreadyForThisJob) {
+        throw new Error("This candidate was already submitted for this job");
+      }
+      // Candidates mode: one row = one job. Same person on another job needs a
+      // new row — do not prompt "reuse" (reuse patches Role and overwrites the job).
+      if (
+        candidatesMode ||
+        payload.allowSamePersonOtherJob
+      ) {
+        // continue to create
+      } else {
+        return { ok: false, reason: "duplicate", duplicates: ownedDuplicates };
+      }
     }
 
     if (payload.resumeRequired !== false && !payload.resumeUpload) {
@@ -970,6 +993,10 @@ export async function updatePartnerSubmissionProfile(input: {
   partnerId: string;
   form: CandidateFormValues;
   resumeUpload?: UploadedFile | null;
+  /** Clear existing resume when no replacement file is provided. */
+  removeResume?: boolean;
+  /** Allocated jobs to keep/add while still unreviewed. */
+  jobSelections?: Array<{ jobId: string; allocationId: string }>;
 }): Promise<Submission> {
   const current = await findSubmissionById(input.submissionId);
   if (!current) {
@@ -1015,7 +1042,35 @@ export async function updatePartnerSubmissionProfile(input: {
   );
 
   if (input.resumeUpload) {
-    await attachResumeToCandidate(fresh.candidateId, input.resumeUpload);
+    try {
+      await attachResumeToCandidate(fresh.candidateId, input.resumeUpload);
+    } catch (error) {
+      throw new Error(
+        error instanceof Error
+          ? `Profile saved, but resume upload failed: ${error.message}`
+          : "Profile saved, but resume upload failed",
+      );
+    }
+  } else if (input.removeResume) {
+    try {
+      await clearResumeFromCandidate(fresh.candidateId);
+    } catch (error) {
+      throw new Error(
+        error instanceof Error
+          ? `Profile saved, but resume removal failed: ${error.message}`
+          : "Profile saved, but resume removal failed",
+      );
+    }
+  }
+
+  if (input.jobSelections !== undefined) {
+    await syncPartnerSubmissionJobs({
+      submission: fresh,
+      partnerId: input.partnerId,
+      form: input.form,
+      jobSelections: input.jobSelections,
+      screeningNotes,
+    });
   }
 
   const updated = await getSubmissionById(input.submissionId);
@@ -1023,6 +1078,161 @@ export async function updatePartnerSubmissionProfile(input: {
     throw new Error("Candidate was updated but could not be reloaded");
   }
   return updated;
+}
+
+async function assertPartnerOwnsActiveAllocation(input: {
+  partnerId: string;
+  jobId: string;
+  allocationId: string;
+}): Promise<void> {
+  const allocation = await getAllocationById(input.allocationId);
+  if (!allocation) {
+    throw new Error("Allocation not found");
+  }
+  if (allocation.partnerId !== input.partnerId) {
+    throw new Error("You can only use your own job allocations");
+  }
+  if (!ACTIVE_ALLOCATION_STATUSES.includes(allocation.status)) {
+    throw new Error("This allocation is no longer active");
+  }
+  if (allocation.jobId !== input.jobId) {
+    throw new Error("Job does not match this allocation");
+  }
+}
+
+/**
+ * Change Role on this unreviewed row and/or create additional Candidates rows
+ * for other selected jobs (client mode = one row per job submission).
+ */
+async function syncPartnerSubmissionJobs(input: {
+  submission: Submission;
+  partnerId: string;
+  form: CandidateFormValues;
+  jobSelections: Array<{ jobId: string; allocationId: string }>;
+  screeningNotes: string;
+}): Promise<void> {
+  const unique = new Map<string, { jobId: string; allocationId: string }>();
+  for (const row of input.jobSelections) {
+    const jobId = row.jobId?.trim();
+    const allocationId = row.allocationId?.trim();
+    if (!jobId || !allocationId) {
+      continue;
+    }
+    unique.set(jobId, { jobId, allocationId });
+  }
+  const selections = [...unique.values()];
+  if (selections.length === 0) {
+    throw new Error("Select at least one job");
+  }
+
+  for (const selection of selections) {
+    const isCurrentRow =
+      selection.jobId === input.submission.jobId &&
+      selection.allocationId === input.submission.allocationId;
+    if (isCurrentRow) {
+      continue;
+    }
+    await assertPartnerOwnsActiveAllocation({
+      partnerId: input.partnerId,
+      jobId: selection.jobId,
+      allocationId: selection.allocationId,
+    });
+  }
+
+  const selectedJobIds = new Set(selections.map((row) => row.jobId));
+  const keepCurrent = selections.find(
+    (row) => row.jobId === input.submission.jobId,
+  );
+  const primary = keepCurrent ?? selections[0]!;
+
+  if (primary.jobId !== input.submission.jobId) {
+    const fields: AirtableFields = {
+      [SUBMISSIONS_TABLE_FIELDS.role]: [primary.jobId],
+    };
+    if (getSubmissionsMode() !== "candidates") {
+      fields[SUBMISSIONS_TABLE_FIELDS.job] = [primary.jobId];
+      fields[SUBMISSIONS_TABLE_FIELDS.allocation] = [primary.allocationId];
+    }
+    await patchSubmission(input.submission.id, fields);
+  }
+
+  const prior = await listSubmissions({ partnerId: input.partnerId });
+  const duplicates = await findDuplicateCandidates({
+    email: input.form.email,
+    phone: input.form.phone,
+  });
+  const samePersonIds = new Set(
+    duplicates
+      .filter((row) => prior.some((sub) => sub.candidateId === row.id))
+      .map((row) => row.id),
+  );
+  // Include this row (candidates mode: candidateId === submission.id).
+  samePersonIds.add(input.submission.candidateId);
+
+  const alreadyOnJob = new Set(
+    prior
+      .filter((row) => samePersonIds.has(row.candidateId))
+      .map((row) => row.jobId),
+  );
+  alreadyOnJob.add(primary.jobId);
+
+  for (const selection of selections) {
+    if (selection.jobId === primary.jobId) {
+      continue;
+    }
+    if (alreadyOnJob.has(selection.jobId)) {
+      continue;
+    }
+    const created = await submitCandidateForAllocation({
+      jobId: selection.jobId,
+      allocationId: selection.allocationId,
+      partnerId: input.partnerId,
+      form: input.form,
+      resumeRequired: false,
+      allowSamePersonOtherJob: true,
+    });
+    if (!created.ok) {
+      throw new Error(
+        "Could not add this candidate to one of the selected jobs",
+      );
+    }
+    alreadyOnJob.add(selection.jobId);
+  }
+
+  // Drop unreviewed sibling rows for jobs the partner deselected.
+  for (const row of prior) {
+    if (row.id === input.submission.id) {
+      continue;
+    }
+    if (!samePersonIds.has(row.candidateId)) {
+      continue;
+    }
+    if (selectedJobIds.has(row.jobId)) {
+      continue;
+    }
+    if (!isUnreviewedByStaff(row)) {
+      continue;
+    }
+    await deleteSubmission(row.id);
+  }
+}
+
+/** Partner soft-control: remove an unreviewed mistaken upload. */
+export async function deleteOwnUnreviewedSubmission(input: {
+  submissionId: string;
+  partnerId: string;
+}): Promise<void> {
+  const current = await findSubmissionById(input.submissionId);
+  if (!current) {
+    throw new Error("Candidate not found");
+  }
+  if (current.partnerId !== input.partnerId) {
+    throw new Error("You can only remove candidates you submitted");
+  }
+  if (!isUnreviewedByStaff(current)) {
+    throw new Error("This profile is locked after internal review");
+  }
+  await deleteSubmission(input.submissionId);
 }
 
 /**

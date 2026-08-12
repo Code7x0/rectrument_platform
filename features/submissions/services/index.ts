@@ -1,5 +1,6 @@
 export {
   applySubmissionStatusChange,
+  deleteOwnUnreviewedSubmission,
   deleteSubmission,
   getSubmissionById,
   listPartnerSubmissions,

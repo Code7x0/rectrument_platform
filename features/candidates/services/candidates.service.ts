@@ -92,6 +92,26 @@ export async function attachResumeToCandidate(
   return refreshed;
 }
 
+/** Clear the Resume attachment field on a Candidates row. */
+export async function clearResumeFromCandidate(
+  candidateId: string,
+): Promise<Candidate> {
+  const uploader = getUploadService();
+  if (!uploader.clearEntityAttachment) {
+    throw new Error("Resume removal is not supported by the upload provider");
+  }
+  await uploader.clearEntityAttachment({
+    entityId: candidateId,
+    fieldName: CANDIDATES_TABLE_FIELDS.resume,
+  });
+
+  const refreshed = await findCandidateById(candidateId);
+  if (!refreshed) {
+    throw new Error("Candidate not found after resume removal");
+  }
+  return refreshed;
+}
+
 export function parseSkillsInput(value?: string): string[] {
   if (!value?.trim()) {
     return [];

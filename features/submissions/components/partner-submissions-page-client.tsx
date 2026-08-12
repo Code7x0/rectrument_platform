@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
@@ -24,6 +25,7 @@ import { Select } from "@/components/ui/select";
 import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
 import type { Payout } from "@/features/payouts/types";
 import { requestSecondLevelReviewAction } from "@/features/submissions/actions/review-fields.actions";
+import { deleteOwnUnreviewedSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { EditCandidateDialog } from "@/features/submissions/components/edit-candidate-dialog";
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
 import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
@@ -140,6 +142,8 @@ export function PartnerSubmissionsPageClient({
   const [jobTitleFilter, setJobTitleFilter] = useState("");
   const [requestingReview, setRequestingReview] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setRows(initialSubmissions);
@@ -207,6 +211,30 @@ export function PartnerSubmissionsPageClient({
       router.refresh();
     } finally {
       setRequestingReview(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deletingId || deleting) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      const result = await deleteOwnUnreviewedSubmissionAction(deletingId);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success("Candidate removed");
+      setRows((current) => current.filter((item) => item.id !== deletingId));
+      setSelected((current) =>
+        current?.id === deletingId ? null : current,
+      );
+      setDeletingId(null);
+      signalLiveDataChange();
+      router.refresh();
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -355,13 +383,23 @@ export function PartnerSubmissionsPageClient({
                     View progress
                   </Button>
                   {isUnreviewedByStaff(row) ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => setEditingId(row.id)}
-                    >
-                      Edit
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setEditingId(row.id)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setDeletingId(row.id)}
+                      >
+                        Remove
+                      </Button>
+                    </>
                   ) : null}
                   {row.status === "rejected" && !row.wantsSecondLevelReview ? (
                     <Button
@@ -393,13 +431,23 @@ export function PartnerSubmissionsPageClient({
           <div className="space-y-4">
             <SubmissionReviewPanel submission={selected} canEdit={false} />
             {isUnreviewedByStaff(selected) ? (
-              <Button
-                type="button"
-                className="w-full"
-                onClick={() => setEditingId(selected.id)}
-              >
-                Edit candidate
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  className="w-full"
+                  onClick={() => setEditingId(selected.id)}
+                >
+                  Edit candidate
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setDeletingId(selected.id)}
+                >
+                  Remove profile
+                </Button>
+              </>
             ) : null}
             {selected.status === "rejected" &&
             !selected.wantsSecondLevelReview ? (
@@ -438,6 +486,22 @@ export function PartnerSubmissionsPageClient({
             current?.id === updated.id ? updated : current,
           );
         }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deletingId)}
+        onOpenChange={(next) => {
+          if (!next && !deleting) {
+            setDeletingId(null);
+          }
+        }}
+        title="Remove this profile?"
+        description="This permanently removes the uploaded candidate while it is still pending review. You cannot undo this."
+        confirmLabel="Remove profile"
+        cancelLabel="Keep"
+        variant="destructive"
+        loading={deleting}
+        onConfirm={() => void confirmDelete()}
       />
     </ContentContainer>
   );

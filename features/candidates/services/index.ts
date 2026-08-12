@@ -1,5 +1,6 @@
 export {
   attachResumeToCandidate,
+  clearResumeFromCandidate,
   createCandidate,
   findDuplicateCandidates,
   getCandidateById,

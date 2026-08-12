@@ -65,4 +65,9 @@ export interface UploadService {
     upload: UploadedFile,
     target: BindUploadTarget,
   ): Promise<BoundFile>;
+
+  /**
+   * Clear an attachment field on a record (optional — Airtable clears via empty array).
+   */
+  clearEntityAttachment?(target: BindUploadTarget): Promise<void>;
 }

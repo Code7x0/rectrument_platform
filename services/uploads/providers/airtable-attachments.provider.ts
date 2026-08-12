@@ -119,6 +119,9 @@ export class AirtableAttachmentUploadService implements UploadService {
     // Allow callers to override the stored filename (typed doc prefixes).
     const filename = upload.filename || payload.filename;
 
+    // Replace (not append): Airtable Content API adds attachments; clear first.
+    await this.clearEntityAttachment(target);
+
     const apiKey = getRequiredEnv("AIRTABLE_API_KEY");
     const baseId = getRequiredEnv("AIRTABLE_BASE_ID");
     const fieldId = await resolveAttachmentFieldId(target.fieldName);
@@ -160,5 +163,41 @@ export class AirtableAttachmentUploadService implements UploadService {
       size: upload.size,
       provider: "airtable",
     };
+  }
+
+  async clearEntityAttachment(target: BindUploadTarget): Promise<void> {
+    const { updateRecord } = await import("@/lib/airtable/client");
+    const { getAirtableTableName } = await import("@/lib/airtable/tables");
+
+    let tableName: string;
+    if (
+      target.fieldName === CANDIDATES_TABLE_FIELDS.resume ||
+      target.fieldName === "Resume"
+    ) {
+      tableName = getAirtableTableName("candidatesTable");
+    } else if (
+      target.fieldName === DOCUMENTS_TABLE_FIELDS.file ||
+      target.fieldName === "File"
+    ) {
+      tableName = getAirtableTableName("documentsTable");
+    } else if (
+      target.fieldName === JOBS_TABLE_FIELDS.description ||
+      target.fieldName === "Job Description" ||
+      target.fieldName === JOBS_TABLE_FIELDS.sampleProfiling ||
+      target.fieldName === "Sample Profiling"
+    ) {
+      tableName = getAirtableTableName("jobsTable");
+    } else if (target.fieldName === "Partners.Resume") {
+      tableName = getAirtableTableName("partnersTable");
+    } else {
+      tableName = getAirtableTableName("candidatesTable");
+    }
+
+    const fieldName =
+      target.fieldName === "Partners.Resume" ? "Resume" : target.fieldName;
+
+    await updateRecord(tableName, target.entityId, {
+      [fieldName]: [],
+    });
   }
 }

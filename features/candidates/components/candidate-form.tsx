@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useFieldArray, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
@@ -27,13 +27,18 @@ interface CandidateFormProps {
   resumeRequired?: boolean;
   currentResumeUrl?: string | null;
   currentResumeFilename?: string | null;
+  /** Allow clearing the existing resume on edit (unreviewed partner flow). */
+  allowRemoveResume?: boolean;
   onCancel?: () => void;
   onSubmit: (
     values: CandidateFormValues,
     resumeFile: File | null,
+    options?: { removeResume?: boolean },
   ) => Promise<void> | void;
   submitLabel?: string;
   submittingLabel?: string;
+  /** Optional content above the profile fields (e.g. job multi-select). */
+  topSlot?: ReactNode;
 }
 
 export function CandidateForm({
@@ -42,13 +47,16 @@ export function CandidateForm({
   resumeRequired = true,
   currentResumeUrl = null,
   currentResumeFilename = null,
+  allowRemoveResume = false,
   onCancel,
   onSubmit,
   submitLabel = "Submit Candidate",
   submittingLabel = "Uploading & submitting…",
+  topSlot,
 }: CandidateFormProps) {
   const resumeRef = useRef<HTMLInputElement>(null);
   const [resumeName, setResumeName] = useState<string | null>(null);
+  const [removeResume, setRemoveResume] = useState(false);
   const {
     register,
     control,
@@ -85,7 +93,7 @@ export function CandidateForm({
       className="flex min-h-0 flex-1 flex-col"
       onSubmit={handleSubmit(async (values) => {
         const file = resumeRef.current?.files?.[0] ?? null;
-        if (resumeRequired && !file) {
+        if (resumeRequired && !file && !(currentResumeUrl && !removeResume)) {
           toast.error("Resume is required");
           return;
         }
@@ -100,10 +108,13 @@ export function CandidateForm({
             return;
           }
         }
-        await onSubmit(values, file);
+        await onSubmit(values, file, {
+          removeResume: !file && removeResume,
+        });
       })}
     >
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        {topSlot}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="fullName">Candidate Name *</Label>
@@ -174,25 +185,75 @@ export function CandidateForm({
                   setResumeName(null);
                   return;
                 }
+                setRemoveResume(false);
                 setResumeName(file.name);
               }}
             />
             {resumeName ? (
-              <p className="text-xs text-muted-foreground">
-                Selected: {resumeName}
-              </p>
-            ) : currentResumeUrl ? (
-              <p className="text-xs text-muted-foreground">
-                Current resume stays unless you upload a replacement.{" "}
-                <FilePreviewLink
-                  url={currentResumeUrl}
-                  filename={currentResumeFilename}
-                  title="Current resume"
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>
+                  {currentResumeUrl && !removeResume
+                    ? "Replacement ready: "
+                    : "Selected: "}
+                  <span className="font-medium text-foreground">{resumeName}</span>
+                </span>
+                <button
+                  type="button"
                   className="font-medium text-[#2563EB] hover:underline"
+                  disabled={submitting}
+                  onClick={() => {
+                    if (resumeRef.current) {
+                      resumeRef.current.value = "";
+                    }
+                    setResumeName(null);
+                  }}
                 >
-                  Preview current
-                </FilePreviewLink>
-              </p>
+                  Clear selection
+                </button>
+              </div>
+            ) : removeResume ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Resume will be removed when you save.</span>
+                <button
+                  type="button"
+                  className="font-medium text-[#2563EB] hover:underline"
+                  disabled={submitting}
+                  onClick={() => setRemoveResume(false)}
+                >
+                  Undo
+                </button>
+              </div>
+            ) : currentResumeUrl ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span>
+                  Current:{" "}
+                  <FilePreviewLink
+                    url={currentResumeUrl}
+                    filename={currentResumeFilename}
+                    title="Current resume"
+                    className="font-medium text-[#2563EB] hover:underline"
+                  >
+                    {currentResumeFilename?.trim() || "Preview / download"}
+                  </FilePreviewLink>
+                </span>
+                <span>Choose a file above to replace it.</span>
+                {allowRemoveResume ? (
+                  <button
+                    type="button"
+                    className="font-medium text-destructive hover:underline"
+                    disabled={submitting}
+                    onClick={() => {
+                      if (resumeRef.current) {
+                        resumeRef.current.value = "";
+                      }
+                      setResumeName(null);
+                      setRemoveResume(true);
+                    }}
+                  >
+                    Remove resume
+                  </button>
+                ) : null}
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground">
                 PDF or Word · max 8MB

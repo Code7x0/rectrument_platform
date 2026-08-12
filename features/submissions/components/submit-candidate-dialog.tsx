@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -10,7 +10,14 @@ import { CandidateForm } from "@/features/candidates/components/candidate-form";
 import { appendCandidateFormFields } from "@/features/candidates/lib/candidate-form-data";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
 import type { Candidate } from "@/features/candidates/types";
-import { submitCandidateAction } from "@/features/submissions/actions/submissions.actions";
+import {
+  listPartnerSubmitJobsAction,
+  submitCandidateAction,
+} from "@/features/submissions/actions/submissions.actions";
+import {
+  PartnerJobMultiSelect,
+  type PartnerJobOption,
+} from "@/features/submissions/components/partner-job-multi-select";
 import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface SubmitCandidateDialogProps {
@@ -37,6 +44,56 @@ export function SubmitCandidateDialog({
     useState<CandidateFormValues | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [duplicates, setDuplicates] = useState<Candidate[]>([]);
+  const [jobs, setJobs] = useState<PartnerJobOption[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setJobs([]);
+      setSelectedTaskIds([]);
+      return;
+    }
+
+    let cancelled = false;
+    setJobsLoading(true);
+    void listPartnerSubmitJobsAction().then((result) => {
+      if (cancelled) {
+        return;
+      }
+      setJobsLoading(false);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      setJobs(result.data);
+      const matched = result.data.filter(
+        (task) =>
+          task.jobId === jobId || task.allocationId === allocationId,
+      );
+      if (matched.length > 0) {
+        setSelectedTaskIds(matched.map((task) => task.id));
+      } else {
+        const synthetic: PartnerJobOption = {
+          id: `seed-${jobId}`,
+          allocationId,
+          jobId,
+          jobTitle,
+          jobCode: null,
+          clientName: null,
+          location: null,
+          remainingProfiles: 0,
+          submittedProfiles: 0,
+        };
+        setJobs([synthetic, ...result.data]);
+        setSelectedTaskIds([synthetic.id]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, jobId, allocationId, jobTitle]);
 
   function resetDuplicateState() {
     setDuplicates([]);
@@ -52,11 +109,24 @@ export function SubmitCandidateDialog({
     if (submittingLock.current) {
       return;
     }
+    const selected = jobs.filter((task) => selectedTaskIds.includes(task.id));
+    if (selected.length === 0) {
+      toast.error("Select at least one job");
+      return;
+    }
+
     submittingLock.current = true;
 
     const formData = new FormData();
-    formData.set("jobId", jobId);
-    formData.set("allocationId", allocationId);
+    formData.set(
+      "jobSelections",
+      JSON.stringify(
+        selected.map((task) => ({
+          jobId: task.jobId,
+          allocationId: task.allocationId,
+        })),
+      ),
+    );
     appendCandidateFormFields(formData, values);
 
     if (options?.existingCandidateId) {
@@ -83,19 +153,28 @@ export function SubmitCandidateDialog({
         return;
       }
 
+      const jobCount =
+        result.data &&
+        typeof result.data === "object" &&
+        "jobCount" in result.data &&
+        typeof result.data.jobCount === "number"
+          ? result.data.jobCount
+          : selected.length;
+
       toast.success(
         result.data &&
           typeof result.data === "object" &&
           "reusedCandidate" in result.data &&
           result.data.reusedCandidate
           ? "Existing candidate submitted"
-          : "Candidate submitted",
+          : jobCount > 1
+            ? `Candidate submitted to ${jobCount} jobs`
+            : "Candidate submitted",
       );
       resetDuplicateState();
       onOpenChange(false);
       onCompleted?.();
       signalLiveDataChange();
-      // Navigate once — destination RSC load is fresh; avoid double refresh.
       router.push("/partner/candidates");
     } catch (error) {
       const message =
@@ -141,21 +220,40 @@ export function SubmitCandidateDialog({
           onOpenChange(next);
         }}
         title="Submit Candidate"
-        description={`Submit a candidate for ${jobTitle}. Screening notes are optional.`}
+        description={`Submit a candidate for ${jobTitle}${selectedTaskIds.length > 1 ? " and other selected jobs" : ""}. Screening notes are optional.`}
         className="h-[min(92vh,52rem)] sm:max-w-2xl"
         bodyLayout="split"
       >
-        <CandidateForm
-          key={`${jobId}-${allocationId}-${open ? "open" : "closed"}`}
-          submitting={submitting}
-          resumeRequired
-          onCancel={() => {
-            if (!submitting) {
-              onOpenChange(false);
+        {jobsLoading ? (
+          <div className="px-6 py-10 text-sm text-[#64748B]">Loading jobs…</div>
+        ) : (
+          <CandidateForm
+            key={`${jobId}-${allocationId}-${open ? "open" : "closed"}`}
+            submitting={submitting}
+            resumeRequired
+            topSlot={
+              <PartnerJobMultiSelect
+                jobs={jobs}
+                selectedTaskIds={selectedTaskIds}
+                onChange={setSelectedTaskIds}
+                disabled={submitting}
+                label="Jobs"
+                hint="This job is pre-selected. Add more allocated jobs if the profile fits them too."
+              />
             }
-          }}
-          onSubmit={(values, file) => postSubmission(values, file)}
-        />
+            onCancel={() => {
+              if (!submitting) {
+                onOpenChange(false);
+              }
+            }}
+            onSubmit={(values, file) => postSubmission(values, file)}
+            submitLabel={
+              selectedTaskIds.length > 1
+                ? `Submit to ${selectedTaskIds.length} jobs`
+                : "Submit Candidate"
+            }
+          />
+        )}
       </FormDialog>
 
       <ConfirmDialog

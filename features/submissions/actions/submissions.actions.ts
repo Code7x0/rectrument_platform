@@ -12,6 +12,7 @@ import {
 import { candidateFormSchema } from "@/features/candidates/schemas/candidate.schema";
 import { parseCandidateFormData } from "@/features/candidates/lib/candidate-form-data";
 import {
+  deleteOwnUnreviewedSubmission,
   deleteSubmission,
   getSubmissionById,
   stageResumeFile,
@@ -112,8 +113,47 @@ export async function lookupCandidateDuplicatesAction(
   }
 }
 
+function parseJobSelections(
+  formData: FormData,
+): Array<{ jobId: string; allocationId: string }> {
+  const raw = String(formData.get("jobSelections") ?? "").trim();
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      const unique = new Map<string, { jobId: string; allocationId: string }>();
+      for (const row of parsed) {
+        if (!row || typeof row !== "object") {
+          continue;
+        }
+        const jobId = String(
+          (row as { jobId?: unknown }).jobId ?? "",
+        ).trim();
+        const allocationId = String(
+          (row as { allocationId?: unknown }).allocationId ?? "",
+        ).trim();
+        if (jobId && allocationId) {
+          unique.set(jobId, { jobId, allocationId });
+        }
+      }
+      return [...unique.values()];
+    } catch {
+      return [];
+    }
+  }
+
+  const jobId = String(formData.get("jobId") ?? "").trim();
+  const allocationId = String(formData.get("allocationId") ?? "").trim();
+  if (jobId && allocationId) {
+    return [{ jobId, allocationId }];
+  }
+  return [];
+}
+
 /**
- * Submit candidate against an active partner allocation.
+ * Submit candidate against one or more active partner allocations.
  * Accepts FormData so resume upload stays out of the UI storage layer.
  */
 export async function submitCandidateAction(
@@ -140,38 +180,55 @@ export async function submitCandidateAction(
       };
     }
 
-    const jobId = String(formData.get("jobId") ?? "");
-    const allocationId = String(formData.get("allocationId") ?? "");
+    const selections = parseJobSelections(formData);
+    if (selections.length === 0) {
+      return {
+        success: false,
+        message: "Select at least one job",
+      };
+    }
+
     const existingCandidateId =
       String(formData.get("existingCandidateId") ?? "") || undefined;
     const reuseConfirmed = formData.get("reuseConfirmed") === "true";
 
-    if (!jobId || !allocationId) {
-      return { success: false, message: "Job and allocation are required" };
-    }
-
     const resumeUpload = await parseResumeFromFormData(formData);
 
-    const result = await submitCandidateForAllocation({
-      jobId,
-      allocationId,
-      partnerId: session.partnerId,
-      form: parsed.data,
-      existingCandidateId:
-        existingCandidateId && reuseConfirmed
-          ? existingCandidateId
-          : undefined,
-      resumeUpload,
-      resumeRequired: !existingCandidateId,
-    });
+    const createdIds: string[] = [];
+    let reusedCandidate = false;
+    let primaryCandidateId: string | null = null;
 
-    if (!result.ok) {
-      return {
-        success: false,
-        message:
-          "A matching candidate already exists. You can reuse their profile.",
-        duplicates: result.duplicates,
-      };
+    for (let index = 0; index < selections.length; index += 1) {
+      const selection = selections[index]!;
+      const isFirst = index === 0;
+      const result = await submitCandidateForAllocation({
+        jobId: selection.jobId,
+        allocationId: selection.allocationId,
+        partnerId: session.partnerId,
+        form: parsed.data,
+        existingCandidateId:
+          isFirst && existingCandidateId && reuseConfirmed
+            ? existingCandidateId
+            : undefined,
+        resumeUpload: isFirst ? resumeUpload : undefined,
+        resumeRequired: isFirst && !existingCandidateId,
+        allowSamePersonOtherJob: !isFirst,
+      });
+
+      if (!result.ok) {
+        return {
+          success: false,
+          message:
+            "A matching candidate already exists. You can reuse their profile.",
+          duplicates: result.duplicates,
+        };
+      }
+
+      createdIds.push(result.submission.id);
+      primaryCandidateId = result.candidate.id;
+      if (result.reusedCandidate) {
+        reusedCandidate = true;
+      }
     }
 
     revalidateSubmissionPaths();
@@ -179,9 +236,11 @@ export async function submitCandidateAction(
     return {
       success: true,
       data: {
-        submissionId: result.submission.id,
-        candidateId: result.candidate.id,
-        reusedCandidate: result.reusedCandidate,
+        submissionId: createdIds[0],
+        submissionIds: createdIds,
+        candidateId: primaryCandidateId,
+        jobCount: createdIds.length,
+        reusedCandidate,
       },
     };
   } catch (error) {
@@ -289,12 +348,23 @@ export async function updateOwnCandidateAction(
       };
     }
 
+    const hasJobSelectionsField =
+      formData.has("jobSelections") || formData.has("jobId");
+    const jobSelections = parseJobSelections(formData);
+    if (hasJobSelectionsField && jobSelections.length === 0) {
+      return { success: false, message: "Select at least one job" };
+    }
+
     const resumeUpload = await parseResumeFromFormData(formData);
+    const removeResume =
+      !resumeUpload && formData.get("removeResume") === "true";
     const updated = await updatePartnerSubmissionProfile({
       submissionId,
       partnerId: session.partnerId,
       form: parsed.data,
       resumeUpload,
+      removeResume,
+      jobSelections: hasJobSelectionsField ? jobSelections : undefined,
     });
 
     revalidateSubmissionPaths();
@@ -303,6 +373,81 @@ export async function updateOwnCandidateAction(
     return {
       success: false,
       message: actionErrorMessage(error, "Unable to update candidate"),
+    };
+  }
+}
+
+/** Partner: remove a mistaken upload while still unreviewed by AM. */
+export async function deleteOwnUnreviewedSubmissionAction(
+  submissionId: string,
+): Promise<ActionResult> {
+  try {
+    const session = await requirePermission("submit_candidates");
+    if (session.role !== "partner" || !session.partnerId) {
+      return {
+        success: false,
+        message: "Only partners can remove their candidates",
+      };
+    }
+
+    await deleteOwnUnreviewedSubmission({
+      submissionId,
+      partnerId: session.partnerId,
+    });
+    revalidateSubmissionPaths();
+    return { success: true, data: { id: submissionId } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to remove candidate"),
+    };
+  }
+}
+
+/** Slim job list for partner submit/edit multi-select. */
+export async function listPartnerSubmitJobsAction(): Promise<
+  ActionResult<
+    Array<{
+      id: string;
+      allocationId: string;
+      jobId: string;
+      jobTitle: string;
+      jobCode: string | null;
+      clientName: string | null;
+      location: string | null;
+      remainingProfiles: number;
+      submittedProfiles: number;
+    }>
+  >
+> {
+  try {
+    const session = await requirePermission("submit_candidates");
+    if (session.role !== "partner" || !session.partnerId) {
+      return { success: false, message: "Only partners can list jobs" };
+    }
+
+    const { listPartnerWorkTasks } = await import(
+      "@/features/tasks/services"
+    );
+    const tasks = await listPartnerWorkTasks(session.partnerId);
+    return {
+      success: true,
+      data: tasks.map((task) => ({
+        id: task.id,
+        allocationId: task.allocationId,
+        jobId: task.jobId,
+        jobTitle: task.jobTitle,
+        jobCode: task.jobCode,
+        clientName: task.clientName,
+        location: task.location,
+        remainingProfiles: task.remainingProfiles,
+        submittedProfiles: task.submittedProfiles,
+      })),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to load jobs"),
     };
   }
 }
