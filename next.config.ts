@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
  * Client validation allows 8MB; keep the action body limit above that so
  * multipart overhead does not reject valid resumes (Vercel still caps ~4.5MB).
  */
-const UPLOAD_BODY_LIMIT = process.env.UPLOAD_BODY_LIMIT ?? "10mb";
+const UPLOAD_BODY_LIMIT = "10mb" as const;
 
 const nextConfig: NextConfig = {
   transpilePackages: ["pdfjs-dist"],
