@@ -17,8 +17,8 @@ export function PartnerWorkQueuePageClient({
     <ContentContainer>
       <Breadcrumb items={[{ label: "Partner" }, { label: "My Work" }]} />
       <PageHeader
-        title="My Work"
-        description="Active jobs assigned to you. Submit profiles until remaining is zero."
+        title="Assigned Jobs"
+        description="Active jobs assigned to you, sorted by priority."
       />
       <PartnerWorkQueue tasks={tasks} />
     </ContentContainer>

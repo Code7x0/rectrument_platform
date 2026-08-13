@@ -195,9 +195,6 @@ export function PartnerSubmitProfilePageClient({
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {task.submittedProfiles} submitted
-                  {task.remainingProfiles > 0
-                    ? ` · ${task.remainingProfiles} remaining`
-                    : ""}
                 </p>
               </li>
             ))}

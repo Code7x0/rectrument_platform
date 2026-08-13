@@ -23,6 +23,9 @@ export {
   EMPLOYMENT_TYPE_LABELS,
   JOB_PRIORITY_LABELS,
   JOB_STATUS_LABELS,
+  isAssignableJobStatus,
+  isClaimableJobStatus,
+  isClosedJobStatus,
 } from "./job.entity";
 export type { AllocationEntity, AllocationStatus } from "./allocation.entity";
 export {

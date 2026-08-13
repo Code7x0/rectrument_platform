@@ -141,4 +141,45 @@
   .transition-ui {
     @apply transition-all duration-150 ease-out;
   }
+
+  /** Partner working surfaces — dense, scannable, token-aligned */
+  .partner-job-card {
+    @apply rounded-xl border border-border bg-card p-5 shadow-xs transition-all duration-150 ease-out;
+    @apply hover:border-border hover:shadow-sm;
+    @apply active:scale-[0.997];
+  }
+
+  .partner-meta-label {
+    @apply text-[11px] font-medium uppercase tracking-wide text-muted-foreground;
+  }
+
+  .partner-meta-value {
+    @apply mt-0.5 text-sm text-foreground;
+  }
+
+  .partner-section-label {
+    @apply text-xs font-medium uppercase tracking-wide text-muted-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .transition-ui,
+  .partner-job-card {
+    transition: none !important;
+  }
+
+  .partner-job-card:active {
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .drawer-chrome {
+    background-color: var(--card) !important;
+    backdrop-filter: none !important;
+  }
 }

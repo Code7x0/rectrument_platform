@@ -39,12 +39,12 @@ export function JobFilters({
         }
       >
         <option value="all">All statuses</option>
-        <option value="open">Open</option>
-        <option value="on_hold">On Hold</option>
-        <option value="closed">Closed</option>
-        <option value="cancelled">Cancelled</option>
-        <option value="filled">Filled</option>
-        <option value="archived">Archived</option>
+        <option value="open">Active</option>
+        <option value="cancelled">Inactive</option>
+        <option value="hold_by_us">Hold by us</option>
+        <option value="hold_by_client">Hold by Client</option>
+        <option value="closed_by_us">Closed by us</option>
+        <option value="closed_alternatively">Closed Alternatively</option>
       </Select>
 
       <Select

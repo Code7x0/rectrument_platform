@@ -34,7 +34,8 @@ export function DashboardMetricCard({
       href={href}
       className={cn(
         "group block rounded-xl border border-border bg-card p-4 shadow-xs transition-ui",
-        "hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "motion-safe:hover:-translate-y-0.5",
         TONE_STYLES[tone],
         className,
       )}

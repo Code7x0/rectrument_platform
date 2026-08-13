@@ -121,7 +121,7 @@ export interface Job {
   id: string;
   title: string;
   clientId: string;
-  status: "open" | "closed" | "on_hold" | "cancelled" | "filled" | "archived";
+  status: "open" | "closed" | "on_hold" | "cancelled" | "filled" | "archived" | "hold_by_us" | "hold_by_client" | "closed_by_us" | "closed_alternatively";
   location?: string;
   description?: string;
   createdAt: string;

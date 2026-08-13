@@ -3,6 +3,7 @@ import type { JobListFilters } from "@/features/jobs/types";
 import {
   DOMAIN_EMPLOYMENT_TYPE_TO_AIRTABLE,
   DOMAIN_JOB_PRIORITY_TO_AIRTABLE,
+  DOMAIN_JOB_STATUS_AIRTABLE_FILTER_VALUES,
   DOMAIN_JOB_STATUS_TO_AIRTABLE,
 } from "@/lib/airtable/fields";
 
@@ -10,12 +11,21 @@ function escapeFormulaValue(value: string): string {
   return value.replace(/'/g, "\\'");
 }
 
+function statusEqualsClause(airtableValues: readonly string[]): string {
+  if (airtableValues.length === 1) {
+    return `{${JOBS_TABLE_FIELDS.status}} = '${airtableValues[0]}'`;
+  }
+  return `OR(${airtableValues
+    .map((value) => `{${JOBS_TABLE_FIELDS.status}} = '${value}'`)
+    .join(",")})`;
+}
+
 export function buildJobsFilterFormula(filters: JobListFilters = {}): string {
   const clauses: string[] = [];
 
   if (!filters.includeArchived && (!filters.status || filters.status === "all")) {
-    // Locked client Jobs has no "Archived" choice. Domain `archived` maps to
-    // "Closed" for writes — do not treat Closed as archive or we hide real jobs.
+    // Locked client Jobs has no distinct "Archived" choice — archived writes as
+    // Closed by us. Do not hide Closed jobs when excluding archive.
     const archivedLabel = DOMAIN_JOB_STATUS_TO_AIRTABLE.archived;
     const closedLabel = DOMAIN_JOB_STATUS_TO_AIRTABLE.closed;
     if (archivedLabel !== closedLabel) {
@@ -26,9 +36,8 @@ export function buildJobsFilterFormula(filters: JobListFilters = {}): string {
   }
 
   if (filters.status && filters.status !== "all") {
-    clauses.push(
-      `{${JOBS_TABLE_FIELDS.status}} = '${DOMAIN_JOB_STATUS_TO_AIRTABLE[filters.status]}'`,
-    );
+    const values = DOMAIN_JOB_STATUS_AIRTABLE_FILTER_VALUES[filters.status];
+    clauses.push(statusEqualsClause(values));
   }
 
   if (filters.clientId && filters.clientId !== "all") {

@@ -49,13 +49,13 @@ export function DetailDrawer({
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
         {stickyHeader ? (
-          <div className="shrink-0 border-b border-border bg-card px-6 py-3">
+          <div className="drawer-chrome shrink-0 border-b border-border bg-card px-6 py-3 supports-[backdrop-filter]:bg-card/90 supports-[backdrop-filter]:backdrop-blur-sm">
             {stickyHeader}
           </div>
         ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
         {stickyFooter ? (
-          <div className="shrink-0 border-t border-border bg-card px-6 py-4">
+          <div className="drawer-chrome shrink-0 border-t border-border bg-card px-6 py-4 supports-[backdrop-filter]:bg-card/90 supports-[backdrop-filter]:backdrop-blur-sm">
             {stickyFooter}
           </div>
         ) : null}

@@ -13,6 +13,9 @@ interface PartnerDashboardProps {
 }
 
 export function PartnerDashboard({ data }: PartnerDashboardProps) {
+  const topPipeline = data.metrics.slice(0, 4);
+  const bottomPipeline = data.metrics.slice(4, 7);
+
   return (
     <ContentContainer>
       <div className="space-y-8">
@@ -23,24 +26,31 @@ export function PartnerDashboard({ data }: PartnerDashboardProps) {
         />
 
         <DashboardSection
-          title="Today’s work"
-          description="Assigned jobs that still need profiles."
+          title="Today's Priority Work"
+          description="High-priority jobs that need your attention."
         >
           <DashboardList
             items={data.todaysWork}
-            emptyTitle="No open work"
-            emptyDescription="New job allocations will show up here."
-            emptyActionHref="/partner/jobs"
-            emptyActionLabel="View assigned jobs"
+            emptyTitle="No priority work right now"
+            emptyDescription="Approved high-priority jobs appear here. Browse Available Jobs to request new work."
+            emptyActionHref="/partner/available-jobs"
+            emptyActionLabel="Browse available jobs"
           />
         </DashboardSection>
 
         <DashboardSection title="Pipeline">
-          <DashboardGrid columns={6}>
-            {data.metrics.map((metric) => (
-              <DashboardMetricCard key={metric.id} {...metric} />
-            ))}
-          </DashboardGrid>
+          <div className="space-y-3">
+            <DashboardGrid columns={4}>
+              {topPipeline.map((metric) => (
+                <DashboardMetricCard key={metric.id} {...metric} />
+              ))}
+            </DashboardGrid>
+            <DashboardGrid columns={3}>
+              {bottomPipeline.map((metric) => (
+                <DashboardMetricCard key={metric.id} {...metric} />
+              ))}
+            </DashboardGrid>
+          </div>
         </DashboardSection>
 
         <DashboardSection title="Earnings">
@@ -56,7 +66,7 @@ export function PartnerDashboard({ data }: PartnerDashboardProps) {
             items={data.quickActions.map((item) => ({
               ...item,
               iconKey:
-                item.id === "jobs"
+                item.id === "available" || item.id === "jobs"
                   ? "job"
                   : item.id === "submit"
                     ? "review"

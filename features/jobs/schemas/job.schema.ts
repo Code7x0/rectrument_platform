@@ -2,9 +2,13 @@ import { z } from "zod";
 
 export const jobStatusSchema = z.enum([
   "open",
+  "cancelled",
+  "hold_by_us",
+  "hold_by_client",
+  "closed_by_us",
+  "closed_alternatively",
   "on_hold",
   "closed",
-  "cancelled",
   "filled",
   "archived",
 ]);
@@ -35,7 +39,8 @@ export const jobFormSchema = z.object({
   experience: z.string().trim().optional().or(z.literal("")),
   salary: z.string().trim().optional().or(z.literal("")),
   priority: jobPrioritySchema.optional().default("medium"),
-  openPositions: z.coerce.number().int().min(1, "At least 1 position").default(1),
+  /** Not persisted on locked client Jobs — optional for app-schema only. */
+  openPositions: z.coerce.number().int().min(1).optional(),
   skills: z.string().trim().optional(),
   status: jobStatusSchema,
   notes: z.string().trim().optional(),

@@ -18,6 +18,7 @@ import { listUsers } from "@/services/users/users.service";
 import { getUsersSummary } from "@/features/users/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { JOB_STATUS_LABELS } from "@/features/jobs/types";
+import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
 import {
   submissionStatusDisplayLabel,
 } from "@/features/shared/entities";
@@ -553,7 +554,7 @@ export async function getAccountManagerDashboardData(
   }));
 
   const activeJobs = jobs.filter(
-    (j) => j.status === "open" || j.status === "on_hold",
+    (j) => isAssignableJobStatus(j.status),
   );
   const myAllocations = allocations.filter((a) => a.status !== "archived");
   const uniquePartners = new Set(
@@ -576,8 +577,11 @@ export async function getAccountManagerDashboardData(
   const interviews = mySubmissions.filter((s) =>
     matchesSubmissionStatusGroup(s, "interviewing"),
   );
-  const offers = mySubmissions.filter((s) =>
-    matchesSubmissionStatusGroup(s, "offers"),
+  // AM Offers metric keeps Selected + Offered (legacy combined view).
+  const offers = mySubmissions.filter(
+    (s) =>
+      matchesSubmissionStatusGroup(s, "offers") ||
+      matchesSubmissionStatusGroup(s, "selected"),
   );
   const joined = mySubmissions.filter((s) =>
     matchesSubmissionStatusGroup(s, "joined"),
@@ -692,7 +696,9 @@ export async function getAccountManagerDashboardData(
         id: "offers",
         label: "Offers",
         value: offers.length,
-        href: candidatesListHref(AM_CANDIDATES, { statusGroup: "offers" }),
+        href: candidatesListHref(AM_CANDIDATES, {
+          status: ["Selected", "Offered", "Offer"],
+        }),
         tone: "positive",
       },
       {
@@ -766,6 +772,9 @@ export async function getPartnerDashboardData(
   const interviews = submissions.filter((s) =>
     matchesSubmissionStatusGroup(s, "interviewing"),
   );
+  const selected = submissions.filter((s) =>
+    matchesSubmissionStatusGroup(s, "selected"),
+  );
   const offers = submissions.filter((s) =>
     matchesSubmissionStatusGroup(s, "offers"),
   );
@@ -781,9 +790,6 @@ export async function getPartnerDashboardData(
         label: "Active Jobs",
         value: tasks.length,
         href: "/partner/jobs",
-        tone: tasks.some((t) => t.remainingProfiles > 0)
-          ? "attention"
-          : "default",
       },
       {
         id: "submitted",
@@ -793,7 +799,7 @@ export async function getPartnerDashboardData(
       },
       {
         id: "review",
-        label: "Pending My Review",
+        label: "Pending with Account Managers",
         value: pendingReview.length,
         href: candidatesListHref(PARTNER_CANDIDATES, {
           status: [
@@ -801,16 +807,26 @@ export async function getPartnerDashboardData(
             "Internal Screening in Progress",
           ],
         }),
-        hint: "Awaiting staff review",
+        hint: "Awaiting candidate review",
       },
       {
         id: "interviews",
-        label: "In Process With Client",
+        label: "Interviewing",
         value: interviews.length,
         href: candidatesListHref(PARTNER_CANDIDATES, {
           statusGroup: "interviewing",
         }),
-        hint: "Interviewing",
+        hint: "In process with client",
+      },
+      {
+        id: "selected",
+        label: "Selected",
+        value: selected.length,
+        href: candidatesListHref(PARTNER_CANDIDATES, {
+          statusGroup: "selected",
+        }),
+        tone: "positive",
+        hint: "Selected by client",
       },
       {
         id: "offers",
@@ -851,12 +867,11 @@ export async function getPartnerDashboardData(
       id: task.id,
       title: task.jobTitle,
       subtitle: task.jobCode ?? "Job",
-      badge:
-        task.remainingProfiles > 0
-          ? `${task.remainingProfiles} remaining`
-          : "Quota met",
+      badge: task.priority
+        ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1)
+        : undefined,
       href: "/partner/jobs",
-      meta: task.priority ?? undefined,
+      meta: task.clientName ?? undefined,
     })),
     recentEarnings: payouts.slice(0, 6).map((payout) => ({
       id: payout.id,
@@ -886,8 +901,14 @@ export async function getPartnerDashboardData(
     })),
     quickActions: [
       {
+        id: "available",
+        label: "Available Jobs",
+        description: "Browse & claim open jobs",
+        href: "/partner/available-jobs",
+      },
+      {
         id: "jobs",
-        label: "My Jobs",
+        label: "Assigned Jobs",
         description: "Open assigned work",
         href: "/partner/jobs",
       },
@@ -902,12 +923,6 @@ export async function getPartnerDashboardData(
         label: "My Earnings",
         description: "Payout status & history",
         href: "/partner/payments",
-      },
-      {
-        id: "docs",
-        label: "My Documents",
-        description: "KYC & agreement files",
-        href: "/partner/documents",
       },
     ],
   };

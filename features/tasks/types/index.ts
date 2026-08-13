@@ -33,15 +33,15 @@ export interface PartnerWorkTask {
   submittedProfiles: number;
   remainingProfiles: number;
   assignedDate: string | null;
+  /**
+   * From Clients.Work Days/Week when the job's client has it set.
+   * Partner-facing "Days of Working" — not a Jobs column on the locked base.
+   */
+  workDaysInWeek: number | null;
   /** Full job for Open Job drawer / future Submit Candidate. */
   job: Job;
 }
 
 export type WorkTask = PartnerWorkTask;
 
-export const PRIORITY_SORT_ORDER: Record<JobPriority, number> = {
-  urgent: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
+export { PRIORITY_SORT_ORDER } from "@/features/jobs/lib/job-priority-sort";

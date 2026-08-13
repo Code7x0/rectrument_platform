@@ -9,9 +9,13 @@ const STATUS_VARIANT: Record<
   "default" | "secondary" | "outline" | "success" | "warning"
 > = {
   open: "success",
+  cancelled: "outline",
+  hold_by_us: "warning",
+  hold_by_client: "warning",
+  closed_by_us: "outline",
+  closed_alternatively: "outline",
   on_hold: "warning",
   closed: "outline",
-  cancelled: "outline",
   filled: "default",
   archived: "secondary",
 };

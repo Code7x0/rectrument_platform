@@ -1,36 +1,76 @@
-# Airtable — Jobs Module Fields
+# Airtable — Jobs Module Fields (live client base)
 
-Configure the **Jobs** table with these fields (Title Case names):
+Configure / map against the **live** Jobs table. Do **not** invent fields that are
+absent on the locked client base.
 
 | Field | Type | Notes |
 |---|---|---|
-| Job ID | Single line / Autonumber | Display code; falls back to record id |
+| Job ID | Single line text | Business job code; prefer this over Comments markers |
 | Job Title | Single line text | Required |
 | Client | Link → Clients | Required |
-| **Assigned Account Manager** | Link → Users | **Required** — operational owner |
 | Hiring Manager | Single line text | Client-side hiring contact |
-| Job Description | Long text | |
+| Job Description | Attachments | File JD; text description lives in Comments in client mode |
+| Sample Profiling | Attachments | Sample profile / resume |
+| Skill Matrix Fitment | Attachments | Optional |
 | Location | Single line text | |
-| Employment Type | Single select | Full-time, Part-time, Contract, Internship |
-| Experience | Single line text | |
-| Salary | Single line text | |
-| Priority | Single select | Low, Medium, High, Urgent |
-| Open Positions | Number | |
-| Skills | Single line or Multiple select | Comma-separated OK |
-| Status | Single select | Open, On Hold, Closed, Cancelled, Filled, **Archived** |
-| Notes | Long text | |
+| Work Mode | Single select / text | WFO / WFH / Hybrid |
+| Years of Exp | Single line text | |
+| Salary Range | Single line text | |
+| Priority | Single select | **Super High**, High, Medium, Low (app `urgent` ↔ Super High) |
+| Status | Single select | **Active**, **Inactive**, **Hold by us**, **Hold by Client**, **Closed by us**, **Closed Alternatively** |
+| Comments | Long text | Text JD + system markers (`[RP_JOBID]`, `[RP_AM]`) |
 | Department | Single line text | Optional |
-| Created By | Link → Users | Optional |
-| Created At | Created time | Optional |
+| Partners | Link → Partners | Allocation source in `job_partners` mode |
+| Candidates | Link → Candidates | |
+| Seniority Level | Single line / select | Optional |
+| Submission Deadline | Date | Optional |
+| Start Date | Date | Optional |
+| Posted Date | Date | Chronology / open date |
+| Payout | Number / text | Possible payout for partners |
+| Interview Process , R1 - KYC | Long text | Interview process |
 
-## Ownership
+## Fields that do **not** exist on the live Jobs table
 
-Every Job has exactly one **Assigned Account Manager**. Admin assigns the AM; the AM then allocates Talent Partners.
+Do **not** create these, and do **not** send them in Airtable create/update payloads:
+
+- Open Positions
+- Skills
+- Employment Type
+- Assigned Account Manager
+- Created By
+
+## Status mapping (app ↔ Airtable)
+
+Exact live choices are preserved (no subtype collapse):
+
+| App (domain) | Airtable |
+|---|---|
+| Active (`open`) | Active |
+| Inactive (`cancelled`) | Inactive |
+| Hold by us (`hold_by_us`) | Hold by us |
+| Hold by Client (`hold_by_client`) | Hold by Client |
+| Closed by us (`closed_by_us`) | Closed by us |
+| Closed Alternatively (`closed_alternatively`) | Closed Alternatively |
+
+Never write legacy labels (`Open`, `On Hold`, bare `Closed`, `Filled`, `Archived`) to Airtable.
+
+## Priority mapping
+
+| App | Airtable |
+|---|---|
+| Urgent (`urgent`) | Super High |
+| High | High |
+| Medium | Medium |
+| Low | Low |
+
+## Days of Working
+
+Comes from **Clients.`Work Days/Week`** (not a Jobs field). Partner surfaces show e.g. `5 days` when the value is `5`.
 
 ## Soft delete
 
-Never destroy Job records. Archive by setting **Status = Archived**.
+Prefer setting Status to a Closed Airtable choice (`Closed by us`). There is no separate Archived choice on the live base.
 
 ## Lookups
 
-Ensure **Clients**, **Talent Partners**, and **Users** tables exist for dropdown lookup services.
+Ensure **Clients**, **Partners**, and identity tables exist for dropdown lookup services.

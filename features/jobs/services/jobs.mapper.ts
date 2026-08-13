@@ -9,6 +9,7 @@ import {
   AIRTABLE_EMPLOYMENT_TYPE,
   AIRTABLE_JOB_PRIORITY,
   AIRTABLE_JOB_STATUS,
+  CLIENT_COMPAT_JOB_WRITABLE_FIELDS,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import {
@@ -37,6 +38,31 @@ function asNumber(value: unknown, fallback = 0): number {
     return Number.isFinite(parsed) ? parsed : fallback;
   }
   return fallback;
+}
+
+function asOptionalNumber(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/** Drop keys that do not exist on the locked client Jobs table. */
+function enforceClientCompatWritableFields(fields: AirtableFields): AirtableFields {
+  const next: AirtableFields = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (CLIENT_COMPAT_JOB_WRITABLE_FIELDS.has(key)) {
+      next[key] = value;
+    }
+  }
+  return next;
 }
 
 function asStringArray(value: unknown): string[] {
@@ -192,9 +218,22 @@ export function mapJobRecord(record: {
     ),
     experience: asString(fields[JOBS_TABLE_FIELDS.experience]),
     salary: asString(fields[JOBS_TABLE_FIELDS.salary]),
+    possiblePayout: (() => {
+      const raw = fields[JOBS_TABLE_FIELDS.payoutPercent];
+      if (typeof raw === "number" && Number.isFinite(raw)) {
+        return `${raw}%`;
+      }
+      const text = asString(raw);
+      return text;
+    })(),
     priority: mapEnum(fields[JOBS_TABLE_FIELDS.priority], AIRTABLE_JOB_PRIORITY),
-    openPositions: asNumber(fields[JOBS_TABLE_FIELDS.openPositions], 1),
-    skills: asStringArray(fields[JOBS_TABLE_FIELDS.skills]),
+    openPositions: isClientCompatMode()
+      ? null
+      : asOptionalNumber(fields[JOBS_TABLE_FIELDS.openPositions]) ??
+        asNumber(fields[JOBS_TABLE_FIELDS.openPositions], 1),
+    skills: isClientCompatMode()
+      ? []
+      : asStringArray(fields[JOBS_TABLE_FIELDS.skills]),
     status:
       mapEnum(fields[JOBS_TABLE_FIELDS.status], AIRTABLE_JOB_STATUS) ?? "open",
     notes: stripJobSystemMarkers(notesRaw),
@@ -234,9 +273,8 @@ export function toAirtableCreateFields(
     if (amIds.length > 0) {
       fields[JOBS_TABLE_FIELDS.accountManager] = amIds;
     }
+    fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions ?? 1;
   }
-
-  fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions ?? 1;
 
   if (input.hiringManager) {
     fields[JOBS_TABLE_FIELDS.hiringManager] = input.hiringManager;
@@ -250,9 +288,8 @@ export function toAirtableCreateFields(
   }
   if (options?.jobCode) {
     commentsText = upsertJobIdMarker(commentsText, options.jobCode);
-    if (!clientMode) {
-      fields[JOBS_TABLE_FIELDS.jobId] = options.jobCode;
-    }
+    // Persist Job ID on the live field (and keep Comments marker for back-compat).
+    fields[JOBS_TABLE_FIELDS.jobId] = options.jobCode;
   }
   if (clientMode) {
     const amIds = resolveAccountManagerIds(input);
@@ -282,7 +319,7 @@ export function toAirtableCreateFields(
   if (input.priority) {
     fields[JOBS_TABLE_FIELDS.priority] = maps.priority[input.priority];
   }
-  if (input.skills && input.skills.length > 0) {
+  if (!clientMode && input.skills && input.skills.length > 0) {
     fields[JOBS_TABLE_FIELDS.skills] = input.skills.join(", ");
   }
   if (input.department) {
@@ -292,7 +329,7 @@ export function toAirtableCreateFields(
     fields[JOBS_TABLE_FIELDS.createdBy] = [input.createdById];
   }
 
-  return fields;
+  return clientMode ? enforceClientCompatWritableFields(fields) : fields;
 }
 
 export function toAirtableUpdateFields(
@@ -353,10 +390,10 @@ export function toAirtableUpdateFields(
       ? maps.priority[input.priority]
       : "";
   }
-  if (input.openPositions !== undefined) {
+  if (!clientMode && input.openPositions !== undefined) {
     fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions;
   }
-  if (input.skills !== undefined) {
+  if (!clientMode && input.skills !== undefined) {
     fields[JOBS_TABLE_FIELDS.skills] =
       input.skills.length > 0 ? input.skills.join(", ") : "";
   }
@@ -367,5 +404,5 @@ export function toAirtableUpdateFields(
     fields[JOBS_TABLE_FIELDS.department] = input.department || "";
   }
 
-  return fields;
+  return clientMode ? enforceClientCompatWritableFields(fields) : fields;
 }

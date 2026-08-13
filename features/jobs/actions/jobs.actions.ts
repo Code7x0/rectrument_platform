@@ -46,7 +46,9 @@ function formValuesToInput(values: JobFormValues, createdById?: string) {
     experience: values.experience || undefined,
     salary: values.salary || undefined,
     priority: values.priority,
-    openPositions: values.openPositions,
+    ...(values.openPositions != null
+      ? { openPositions: values.openPositions }
+      : {}),
     skills: parseSkillsInput(values.skills),
     status: values.status === "archived" ? "open" : values.status,
     notes: values.notes || undefined,

@@ -5,6 +5,7 @@ import { asLinkedIds } from "@/lib/airtable/compat";
 import { getOptionalEnv } from "@/lib/api/env";
 import { listAccountManagerOptions } from "@/services/lookups";
 import { listJobs } from "@/features/jobs/services";
+import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
 import { listSubmissions } from "@/features/submissions/services";
 import {
   findClientById,
@@ -269,7 +270,7 @@ export async function getClientWorkspaceStats(
     partnerCount: 0,
     candidateCount: candidateIds.size,
     activeRoleCount: visibleJobs.filter(
-      (job) => job.status === "open" || job.status === "on_hold",
+      (job) => isAssignableJobStatus(job.status),
     ).length,
   };
 }

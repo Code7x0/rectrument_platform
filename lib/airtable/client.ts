@@ -49,14 +49,36 @@ function wrapAirtableError(
   operation: string,
   tableName: string,
   error: unknown,
+  recordId?: string,
 ): never {
   const sanitized = airtableErrorDetail(error)
     .replace(/\n[\s\S]*$/, "")
     .replace(/^Error:\s*/i, "")
     .slice(0, 240);
+  const fieldMatch =
+    /Unknown field name:\s*"?([^"\n]+)"?/i.exec(sanitized) ??
+    /UNKNOWN_FIELD_NAME[^:]*:\s*"?([^"\n]+)"?/i.exec(sanitized);
+  const fieldName = fieldMatch?.[1]?.trim() ?? null;
+  const errorType =
+    error && typeof error === "object" && "error" in error
+      ? String((error as { error?: unknown }).error ?? "unknown")
+      : error instanceof Error
+        ? error.name
+        : "unknown";
+
+  console.error("[airtable]", {
+    operation,
+    tableName,
+    recordId: recordId ?? null,
+    errorType,
+    fieldName,
+    detail: sanitized,
+  });
+
   throw new AirtableOperationError(
     `Unable to ${operation} records in ${tableName}. ${sanitized}`,
     error,
+    { operation, tableName, recordId: recordId ?? null, fieldName },
   );
 }
 
@@ -82,7 +104,7 @@ export async function findRecord<T extends AirtableFields = AirtableFields>(
     const record = await table.find(recordId);
     return record as unknown as Airtable.Record<T>;
   } catch (error) {
-    wrapAirtableError("find", tableName, error);
+    wrapAirtableError("find", tableName, error, recordId);
   }
 }
 
@@ -109,7 +131,7 @@ export async function updateRecord<T extends AirtableFields = AirtableFields>(
     const record = await table.update(recordId, fields);
     return record as unknown as Airtable.Record<T>;
   } catch (error) {
-    wrapAirtableError("update", tableName, error);
+    wrapAirtableError("update", tableName, error, recordId);
   }
 }
 
@@ -121,6 +143,6 @@ export async function deleteRecord(
     const table = getTable(tableName);
     return await table.destroy(recordId);
   } catch (error) {
-    wrapAirtableError("delete", tableName, error);
+    wrapAirtableError("delete", tableName, error, recordId);
   }
 }

@@ -95,7 +95,8 @@ const STATUS_GROUP_FILTER_OPTIONS: Array<{
   { id: "internal_screening", label: "Internal Screening in Progress" },
   { id: "being_submitted", label: "Being Submitted to Client" },
   { id: "interviewing", label: "Interviewing" },
-  { id: "offers", label: "Offers (Selected / Offered)" },
+  { id: "selected", label: "Selected" },
+  { id: "offers", label: "Offers" },
   { id: "joined", label: "Joined" },
 ];
 

@@ -33,6 +33,7 @@ const SUPER_ADMIN_NAV: AppNavItem[] = [
   { title: "Approvals", href: "/admin/approvals", icon: ClipboardCheck },
   { title: "Clients", href: "/admin/clients", icon: Building2 },
   { title: "Jobs", href: "/admin/jobs", icon: Briefcase },
+  { title: "Job Claims", href: "/admin/job-claims", icon: ClipboardCheck },
   { title: "Talent Partners", href: "/admin/partners", icon: Users },
   { title: "Candidates", href: "/admin/candidates", icon: ClipboardList },
   { title: "Allocations", href: "/admin/allocations", icon: FolderKanban },
@@ -49,6 +50,7 @@ const ADMIN_NAV: AppNavItem[] = [
   { title: "Account Managers", href: "/admin/account-managers", icon: UserCircle },
   { title: "Clients", href: "/admin/clients", icon: Building2 },
   { title: "Jobs", href: "/admin/jobs", icon: Briefcase },
+  { title: "Job Claims", href: "/admin/job-claims", icon: ClipboardCheck },
   { title: "Talent Partners", href: "/admin/partners", icon: Users },
   { title: "Candidates", href: "/admin/candidates", icon: ClipboardList },
   { title: "Allocations", href: "/admin/allocations", icon: FolderKanban },
@@ -72,6 +74,11 @@ const ACCOUNT_MANAGER_NAV: AppNavItem[] = [
   { title: "Clients", href: "/account-manager/clients", icon: Building2 },
   { title: "Jobs", href: "/account-manager/jobs", icon: Briefcase },
   {
+    title: "Job Claims",
+    href: "/account-manager/job-claims",
+    icon: ClipboardCheck,
+  },
+  {
     title: "Allocations",
     href: "/account-manager/allocations",
     icon: FolderKanban,
@@ -89,7 +96,12 @@ const ACCOUNT_MANAGER_NAV: AppNavItem[] = [
 
 const PARTNER_NAV: AppNavItem[] = [
   { title: "My Work", href: "/partner", icon: ListTodo },
-  { title: "Assigned Jobs", href: "/partner/jobs", icon: Briefcase },
+  {
+    title: "Available Jobs",
+    href: "/partner/available-jobs",
+    icon: Briefcase,
+  },
+  { title: "Assigned Jobs", href: "/partner/jobs", icon: FolderKanban },
   { title: "Submit Profile", href: "/partner/submit", icon: UserPlus },
   { title: "Clients", href: "/partner/clients", icon: Building2 },
   {

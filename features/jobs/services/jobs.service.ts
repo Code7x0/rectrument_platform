@@ -158,7 +158,9 @@ export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
       })
     : await loadAllJobsCached();
 
-  let { jobs: enriched, clientOwnersById } = await withEnrichment(jobs);
+  const enrichment = await withEnrichment(jobs);
+  let enriched = enrichment.jobs;
+  const { clientOwnersById } = enrichment;
 
   if (
     accountManagerId &&
@@ -309,6 +311,11 @@ export async function updateJob(
 ): Promise<Job> {
   const existing = await findJobById(jobId);
   const fields = toAirtableUpdateFields(input, valueMaps);
+
+  // Persist Job ID on the live field when known (marker remains for back-compat).
+  if (existing?.jobCode?.trim()) {
+    fields[JOBS_TABLE_FIELDS.jobId] = existing.jobCode.trim().toUpperCase();
+  }
 
   // Locked client Jobs store text JD/notes + system markers in Comments.
   // Always merge markers onto the intended body — never discard a new description

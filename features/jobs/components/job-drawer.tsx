@@ -23,11 +23,14 @@ interface JobDrawerProps {
   headerAction?: ReactNode;
   footer?: ReactNode;
   /**
-   * Partner view: hide commercial client / AM names, prioritize JD + submit CTA.
+   * Partner view: prioritize JD + sample profile + submit CTA.
+   * Client is shown for assigned jobs (allocation = approved access).
    */
   partnerView?: boolean;
   /** Submitted profiles for this partner allocation (partner view). */
   submittedProfiles?: number | null;
+  /** Clients.Work Days/Week — partner "Days of Working". */
+  workDaysInWeek?: number | null;
   /** AM view: hide own name. */
   hideAccountManager?: boolean;
 }
@@ -41,14 +44,19 @@ function Detail({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-        {label}
-      </p>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">
+      <p className="partner-section-label">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
         {value || "—"}
       </p>
     </div>
   );
+}
+
+function formatDaysOfWorking(days: number | null | undefined): string | null {
+  if (typeof days !== "number" || !Number.isFinite(days)) {
+    return null;
+  }
+  return `${days} day${days === 1 ? "" : "s"}`;
 }
 
 export function JobDrawer({
@@ -59,12 +67,22 @@ export function JobDrawer({
   footer,
   partnerView = false,
   submittedProfiles = null,
+  workDaysInWeek = null,
   hideAccountManager = false,
 }: JobDrawerProps) {
   const descriptionText = job?.description?.trim() || null;
-  const hasDocuments = Boolean(job && job.documents.length > 0);
   const workMode = deriveJobWorkMode(job?.location, job?.workMode);
   const openDate = job?.postedDate || job?.startDate || job?.createdAt;
+  const daysOfWorking = formatDaysOfWorking(workDaysInWeek);
+  const jdDocs =
+    job?.documents.filter((doc) => doc.label === "Job Description") ?? [];
+  const sampleDocs =
+    job?.documents.filter((doc) => doc.label === "Sample Profiling") ?? [];
+  const otherDocs =
+    job?.documents.filter(
+      (doc) =>
+        doc.label !== "Job Description" && doc.label !== "Sample Profiling",
+    ) ?? [];
 
   return (
     <DetailDrawer
@@ -87,20 +105,21 @@ export function JobDrawer({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            <Detail label="Client" value={job.clientName} />
+            {!partnerView && !hideAccountManager ? (
+              <Detail
+                label="Assigned Account Managers"
+                value={job.accountManagerName}
+              />
+            ) : null}
             {!partnerView ? (
-              <>
-                <Detail label="Client" value={job.clientName} />
-                {!hideAccountManager ? (
-                  <Detail
-                    label="Assigned Account Managers"
-                    value={job.accountManagerName}
-                  />
-                ) : null}
-                <Detail label="Hiring Manager" value={job.hiringManager} />
-              </>
+              <Detail label="Hiring Manager" value={job.hiringManager} />
             ) : null}
             <Detail label="Location" value={job.location} />
-            <Detail label="WFO / WFH" value={workMode} />
+            <Detail label="Mode of Working" value={workMode} />
+            {partnerView || workDaysInWeek != null ? (
+              <Detail label="Days of Working" value={daysOfWorking} />
+            ) : null}
             <Detail
               label="Employment Type"
               value={
@@ -118,9 +137,6 @@ export function JobDrawer({
               label="Priority"
               value={job.priority ? JOB_PRIORITY_LABELS[job.priority] : null}
             />
-            {!partnerView ? (
-              <Detail label="Open Positions" value={job.openPositions} />
-            ) : null}
             {partnerView && submittedProfiles != null ? (
               <Detail label="Submitted Profiles" value={submittedProfiles} />
             ) : null}
@@ -132,28 +148,31 @@ export function JobDrawer({
             ) : null}
           </div>
 
-          <Detail label="Skills" value={job.skills.join(", ") || null} />
+          {!partnerView && job.skills.length > 0 ? (
+            <Detail label="Skills" value={job.skills.join(", ")} />
+          ) : null}
 
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-              Description
+            <p className="partner-section-label">
+              {partnerView ? "Additional Comments" : "Description"}
             </p>
             {descriptionText ? (
-              <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">
+              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
                 {descriptionText}
               </p>
-            ) : hasDocuments ? (
-              <p className="mt-1 text-sm text-[#64748B]">
+            ) : jdDocs.length > 0 ? (
+              <p className="mt-1 text-sm text-muted-foreground">
                 Job Description is available as attachments below.
               </p>
             ) : (
-              <p className="mt-1 text-sm text-[#0F172A]">—</p>
+              <p className="mt-1 text-sm text-foreground">—</p>
             )}
           </div>
 
-          {!partnerView ? (
-            <Detail label="Interview process" value={job.interviewProcess} />
-          ) : null}
+          <Detail
+            label="Interview Process R1 KYC"
+            value={job.interviewProcess}
+          />
 
           {job.notes &&
           job.notes.trim() &&
@@ -161,33 +180,62 @@ export function JobDrawer({
             <Detail label="Notes" value={job.notes} />
           ) : null}
 
-          {hasDocuments ? (
+          {jdDocs.length > 0 ? (
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-                Documents
-              </p>
+              <p className="partner-section-label">Job Description</p>
               <ul className="mt-2 space-y-2">
-                {job.documents.map((doc) => (
+                {jdDocs.map((doc) => (
                   <li key={`${doc.label}-${doc.url}`}>
-                {partnerView ? (
-                  <FilePreviewLink
-                    url={doc.url}
-                    filename={doc.filename}
-                    title={`${doc.label}: ${doc.filename}`}
-                    className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
-                  >
-                    {doc.label}: {doc.filename}
-                  </FilePreviewLink>
-                ) : (
-                      <FilePreviewLink
-                        url={doc.url}
-                        filename={doc.filename}
-                        title={`${doc.label}: ${doc.filename}`}
-                        className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
-                      >
-                        {doc.label}: {doc.filename}
-                      </FilePreviewLink>
-                    )}
+                    <FilePreviewLink
+                      url={doc.url}
+                      filename={doc.filename}
+                      title={`Job Description: ${doc.filename}`}
+                      className="text-sm font-medium text-success underline-offset-2 hover:underline"
+                    >
+                      {doc.filename}
+                    </FilePreviewLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div>
+            <p className="partner-section-label">Sample Profile</p>
+            {sampleDocs.length > 0 ? (
+              <ul className="mt-2 space-y-2">
+                {sampleDocs.map((doc) => (
+                  <li key={`${doc.label}-${doc.url}`}>
+                    <FilePreviewLink
+                      url={doc.url}
+                      filename={doc.filename}
+                      title={`Sample Profile: ${doc.filename}`}
+                      className="text-sm font-medium text-success underline-offset-2 hover:underline"
+                    >
+                      View / Download · {doc.filename}
+                    </FilePreviewLink>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-1 text-sm text-foreground">—</p>
+            )}
+          </div>
+
+          {otherDocs.length > 0 ? (
+            <div>
+              <p className="partner-section-label">Other documents</p>
+              <ul className="mt-2 space-y-2">
+                {otherDocs.map((doc) => (
+                  <li key={`${doc.label}-${doc.url}`}>
+                    <FilePreviewLink
+                      url={doc.url}
+                      filename={doc.filename}
+                      title={`${doc.label}: ${doc.filename}`}
+                      className="text-sm font-medium text-success underline-offset-2 hover:underline"
+                    >
+                      {doc.label}: {doc.filename}
+                    </FilePreviewLink>
                   </li>
                 ))}
               </ul>

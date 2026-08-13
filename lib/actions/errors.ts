@@ -29,11 +29,26 @@ export function actionErrorMessage(
 ): string {
   rethrowNextControlFlow(error);
 
+  const friendly = toUserFacingAirtableMessage(error);
+  if (
+    error instanceof Error &&
+    (error.name === "AirtableOperationError" ||
+      /UNKNOWN_FIELD_NAME|Unknown field name|Unable to (list|create|update|find|delete)/i.test(
+        error.message,
+      ))
+  ) {
+    if (fallback.toLowerCase().includes("job")) {
+      return "Unable to save job. Please check the job details and try again.";
+    }
+    if (friendly !== "Something went wrong loading data. Please try again.") {
+      return friendly;
+    }
+    return fallback;
+  }
+
   if (error instanceof Error && error.message.trim()) {
     const msg = error.message.replace(/\n[\s\S]*$/, "").slice(0, 240);
 
-    // Prefer AirtableOperationError detail via toUserFacingAirtableMessage.
-    const friendly = toUserFacingAirtableMessage(error);
     if (
       friendly !== "Something went wrong loading data. Please try again." &&
       !friendly.startsWith("Unable to save or load data right now")
@@ -41,23 +56,14 @@ export function actionErrorMessage(
       return friendly;
     }
 
-    // Domain validation / explicit Error messages — keep short, no stacks.
-    if (
-      msg.includes("UNKNOWN_ERROR") ||
-      /status code/i.test(msg)
-    ) {
+    if (msg.includes("UNKNOWN_ERROR") || /status code/i.test(msg)) {
       return fallback;
     }
-    if (msg.startsWith("Unable to ") || msg.length > 0) {
-      // AirtableOperationError messages start with "Unable to list/create/update…"
-      if (error.name === "AirtableOperationError" || msg.startsWith("Unable to ")) {
-        return msg;
-      }
-      return msg;
-    }
+
+    // Domain validation messages are OK for the UI.
+    return msg;
   }
 
-  const friendly = toUserFacingAirtableMessage(error);
   if (friendly !== "Something went wrong loading data. Please try again.") {
     return friendly;
   }

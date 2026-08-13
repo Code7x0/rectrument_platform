@@ -20,11 +20,28 @@ export class AirtableStorageUnavailableError extends Error {
 export class AirtableOperationError extends Error {
   readonly code = "AIRTABLE_OPERATION_ERROR";
   override readonly cause?: unknown;
+  readonly operation?: string;
+  readonly tableName?: string;
+  readonly recordId?: string | null;
+  readonly fieldName?: string | null;
 
-  constructor(message: string, cause?: unknown) {
+  constructor(
+    message: string,
+    cause?: unknown,
+    meta?: {
+      operation?: string;
+      tableName?: string;
+      recordId?: string | null;
+      fieldName?: string | null;
+    },
+  ) {
     super(message);
     this.name = "AirtableOperationError";
     this.cause = cause;
+    this.operation = meta?.operation;
+    this.tableName = meta?.tableName;
+    this.recordId = meta?.recordId ?? null;
+    this.fieldName = meta?.fieldName ?? null;
   }
 }
 
@@ -34,16 +51,17 @@ export function isStorageUnavailable(
   return error instanceof AirtableStorageUnavailableError;
 }
 
+function looksLikeUnknownField(message: string): boolean {
+  return /UNKNOWN_FIELD_NAME|Unknown field name/i.test(message);
+}
+
 export function toUserFacingAirtableMessage(error: unknown): string {
   if (isStorageUnavailable(error)) {
     return "This feature is not available on the connected Airtable base. Contact an administrator.";
   }
   if (error instanceof AirtableOperationError) {
-    // Prefer the sanitized operation message (table + Airtable detail) over a
-    // opaque generic — partners need actionable feedback when writes fail.
-    const detail = error.message.replace(/\n[\s\S]*$/, "").trim().slice(0, 240);
-    if (detail) {
-      return detail;
+    if (looksLikeUnknownField(error.message) || error.fieldName) {
+      return "Unable to save job. Please check the job details and try again.";
     }
     return "Unable to save or load data right now. Please try again.";
   }

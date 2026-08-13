@@ -60,13 +60,14 @@ const STATUS_GROUP_FILTER_OPTIONS: Array<{
   id: SubmissionStatusGroupId;
   label: string;
 }> = [
-  { id: "pending_review", label: "Pending Review (not reviewed)" },
+  { id: "pending_review", label: "Pending with Account Managers" },
   { id: "hold", label: "Hold" },
   { id: "internal_screening", label: "Internal Screening in Progress" },
   { id: "being_submitted", label: "Being Submitted to Client" },
   { id: "interviewing", label: "Interviewing" },
-  { id: "offers", label: "Offers (Selected / Offered)" },
-  { id: "joined", label: "Joined" },
+  { id: "selected", label: "Selected" },
+  { id: "offers", label: "Offers" },
+  { id: "joined", label: "Joining" },
 ];
 
 const STATUS_FILTER_OPTIONS = [

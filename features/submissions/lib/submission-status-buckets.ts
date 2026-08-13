@@ -28,7 +28,10 @@ export const SUBMISSION_STATUS_GROUPS = {
     "Interview L1",
     "Interview L2",
   ],
-  offers: ["Offered", "Selected", "Offer"],
+  /** Selected by client — before formal offer. */
+  selected: ["Selected"],
+  /** Formal offer issued (excludes Selected). */
+  offers: ["Offered", "Offer"],
   joined: ["Joined"],
 } as const;
 

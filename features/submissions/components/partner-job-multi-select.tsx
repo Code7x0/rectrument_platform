@@ -132,12 +132,9 @@ export function PartnerJobMultiSelect({
                   <span className="block font-medium leading-snug">
                     {partnerJobOptionLabel(task)}
                   </span>
-                  {typeof task.remainingProfiles === "number" ? (
+                  {typeof task.submittedProfiles === "number" ? (
                     <span className="mt-0.5 block text-xs text-[#64748B]">
                       {task.submittedProfiles} submitted
-                      {task.remainingProfiles > 0
-                        ? ` · ${task.remainingProfiles} remaining`
-                        : ""}
                     </span>
                   ) : null}
                 </span>

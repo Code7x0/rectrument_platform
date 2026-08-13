@@ -60,7 +60,8 @@ export const CLIENTS_TABLE_FIELDS = {
   addresses: "Addresses",
   employeeSize: "Employee Size",
   modeOfWork: "Mode Of Work",
-  workDaysInWeek: "Work Days in Week",
+  /** Live client Clients field (not "Work Days in Week"). */
+  workDaysInWeek: "Work Days/Week",
 } as const;
 
 export const AIRTABLE_CLIENT_STATUS = {
@@ -223,35 +224,73 @@ export const DOMAIN_IDENTITY_VISIBILITY_TO_AIRTABLE = {
   private: "PRIVATE",
 } as const;
 
+/**
+ * Live Airtable Jobs.Status choices → domain (1:1 subtype preservation).
+ * Never collapse Hold by us / Hold by Client or Closed by us / Closed Alternatively.
+ */
 export const AIRTABLE_JOB_STATUS = {
-  Open: "open",
-  "On Hold": "on_hold",
-  Closed: "closed",
-  Cancelled: "cancelled",
-  Filled: "filled",
-  Archived: "archived",
-  /** Legacy / informal labels seen in UI — map to closed, never invent options. */
-  Complete: "closed",
-  Completed: "closed",
   Active: "open",
+  Inactive: "cancelled",
+  "Hold by us": "hold_by_us",
+  "Hold by Client": "hold_by_client",
+  "Closed by us": "closed_by_us",
+  "Closed Alternatively": "closed_alternatively",
+  /** Legacy labels — read only; never write these to the live base. */
+  Open: "open",
+  "On Hold": "hold_by_us",
+  Closed: "closed_by_us",
+  Cancelled: "cancelled",
+  Filled: "closed_by_us",
+  Archived: "closed_by_us",
+  Complete: "closed_by_us",
+  Completed: "closed_by_us",
   Assigned: "open",
 } as const;
 
+/** Canonical write mapping — exact live Airtable choice names only. */
 export const DOMAIN_JOB_STATUS_TO_AIRTABLE = {
-  open: "Open",
-  on_hold: "On Hold",
-  closed: "Closed",
-  /** Client Jobs has no Cancelled — persist as Closed. */
-  cancelled: "Closed",
-  filled: "Filled",
-  /** Client Jobs has no Archived — persist as Closed. */
-  archived: "Closed",
+  open: "Active",
+  cancelled: "Inactive",
+  hold_by_us: "Hold by us",
+  hold_by_client: "Hold by Client",
+  closed_by_us: "Closed by us",
+  closed_alternatively: "Closed Alternatively",
+  /** Legacy domain keys still write valid live choices. */
+  on_hold: "Hold by us",
+  closed: "Closed by us",
+  filled: "Closed by us",
+  archived: "Closed by us",
 } as const;
 
+/**
+ * List-filter Airtable Status values per domain status.
+ */
+export const DOMAIN_JOB_STATUS_AIRTABLE_FILTER_VALUES: Record<
+  keyof typeof DOMAIN_JOB_STATUS_TO_AIRTABLE,
+  readonly string[]
+> = {
+  open: ["Active"],
+  cancelled: ["Inactive"],
+  hold_by_us: ["Hold by us"],
+  hold_by_client: ["Hold by Client"],
+  closed_by_us: ["Closed by us"],
+  closed_alternatively: ["Closed Alternatively"],
+  on_hold: ["Hold by us", "Hold by Client"],
+  closed: ["Closed by us", "Closed Alternatively"],
+  filled: ["Closed by us", "Closed Alternatively"],
+  archived: ["Closed by us", "Closed Alternatively"],
+};
+
+/**
+ * Live Airtable Jobs.Priority: Super High, High, Medium, Low.
+ * Domain keeps `urgent` ↔ Super High.
+ */
 export const AIRTABLE_JOB_PRIORITY = {
-  Low: "low",
-  Medium: "medium",
+  "Super High": "urgent",
   High: "high",
+  Medium: "medium",
+  Low: "low",
+  /** Legacy read alias — never write "Urgent" to live Airtable. */
   Urgent: "urgent",
 } as const;
 
@@ -259,8 +298,38 @@ export const DOMAIN_JOB_PRIORITY_TO_AIRTABLE = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  urgent: "Urgent",
+  urgent: "Super High",
 } as const;
+
+/**
+ * Fields safe to write on the locked client Jobs table.
+ * Anything not listed must never reach Airtable in client compat mode.
+ */
+export const CLIENT_COMPAT_JOB_WRITABLE_FIELDS = new Set<string>([
+  "Job ID",
+  "Job Title",
+  "Client",
+  "Status",
+  "Job Description",
+  "Partners",
+  "Candidates",
+  "Sample Profiling",
+  "Skill Matrix Fitment",
+  "Location",
+  "Start Date",
+  "Work Mode",
+  "Hiring Manager",
+  "Seniority Level",
+  "Submission Deadline",
+  "Years of Exp",
+  "Priority",
+  "Salary Range",
+  "Interview Process , R1 - KYC",
+  "Comments",
+  "Department",
+  "Posted Date",
+  "Payout",
+]);
 
 export const AIRTABLE_EMPLOYMENT_TYPE = {
   "Full-time": "full_time",

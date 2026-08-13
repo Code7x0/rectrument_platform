@@ -3,11 +3,22 @@
  * Feature modules may re-export or extend for list filters / form DTOs.
  */
 
+/**
+ * Job Status mirrors live Airtable Jobs.Status choices.
+ * Legacy keys (`on_hold`, `closed`, `filled`, `archived`) remain for soft-delete
+ * / older code paths and always write a valid live Airtable choice.
+ */
 export type JobStatus =
   | "open"
-  | "on_hold"
-  | "closed"
   | "cancelled"
+  | "hold_by_us"
+  | "hold_by_client"
+  | "closed_by_us"
+  | "closed_alternatively"
+  /** @deprecated Prefer hold_by_us — retained for older callers. */
+  | "on_hold"
+  /** @deprecated Prefer closed_by_us. */
+  | "closed"
   | "filled"
   | "archived";
 
@@ -47,8 +58,13 @@ export interface JobEntity {
   employmentType: EmploymentType | null;
   experience: string | null;
   salary: string | null;
+  /** Airtable Jobs.Payout (percent or text) — Possible Payout for partners. */
+  possiblePayout: string | null;
   priority: JobPriority | null;
-  openPositions: number;
+  /**
+   * App-schema only. Locked client Jobs has no Open Positions — null there.
+   */
+  openPositions: number | null;
   skills: string[];
   status: JobStatus;
   notes: string | null;
@@ -71,19 +87,49 @@ export interface JobDocument {
 }
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
-  open: "Open",
-  on_hold: "On Hold",
-  closed: "Closed",
-  cancelled: "Cancelled",
-  filled: "Filled",
-  archived: "Archived",
+  open: "Active",
+  cancelled: "Inactive",
+  hold_by_us: "Hold by us",
+  hold_by_client: "Hold by Client",
+  closed_by_us: "Closed by us",
+  closed_alternatively: "Closed Alternatively",
+  on_hold: "Hold by us",
+  closed: "Closed by us",
+  filled: "Closed by us",
+  archived: "Closed by us",
 };
+
+/** Statuses Partners can still work (Assigned Jobs queue). */
+export function isAssignableJobStatus(status: JobStatus): boolean {
+  return (
+    status === "open" ||
+    status === "hold_by_us" ||
+    status === "hold_by_client" ||
+    status === "on_hold"
+  );
+}
+
+/** Statuses Partners may claim from Available Jobs. */
+export function isClaimableJobStatus(status: JobStatus): boolean {
+  return status === "open";
+}
+
+export function isClosedJobStatus(status: JobStatus): boolean {
+  return (
+    status === "closed_by_us" ||
+    status === "closed_alternatively" ||
+    status === "closed" ||
+    status === "filled" ||
+    status === "archived"
+  );
+}
 
 export const JOB_PRIORITY_LABELS: Record<JobPriority, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  urgent: "Urgent",
+  /** Domain `urgent` displays as live Airtable "Super High". */
+  urgent: "Super High",
 };
 
 export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {

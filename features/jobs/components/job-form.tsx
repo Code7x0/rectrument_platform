@@ -78,7 +78,6 @@ function jobToFormValues(
       experience: "",
       salary: "",
       priority: "medium",
-      openPositions: 1,
       skills: "",
       status: "open",
       notes: "",
@@ -99,9 +98,15 @@ function jobToFormValues(
     experience: job.experience ?? "",
     salary: job.salary ?? "",
     priority: job.priority ?? "medium",
-    openPositions: job.openPositions || 1,
     skills: job.skills.join(", "),
-    status: job.status === "archived" ? "open" : job.status,
+    status:
+      job.status === "archived" ||
+      job.status === "filled" ||
+      job.status === "closed"
+        ? "closed_by_us"
+        : job.status === "on_hold"
+          ? "hold_by_us"
+          : job.status,
     notes: job.notes ?? "",
   };
 }
@@ -405,40 +410,15 @@ export function JobForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="openPositions">Open Positions</Label>
-          <Input
-            id="openPositions"
-            type="number"
-            min={1}
-            {...register("openPositions")}
-            disabled={submitting}
-          />
-          {errors.openPositions ? (
-            <p className="text-xs text-[#EF4444]">
-              {errors.openPositions.message}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
           <Select id="status" {...register("status")} disabled={submitting}>
-            <option value="open">Open</option>
-            <option value="on_hold">On Hold</option>
-            <option value="closed">Closed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="filled">Filled</option>
+            <option value="open">Active</option>
+            <option value="cancelled">Inactive</option>
+            <option value="hold_by_us">Hold by us</option>
+            <option value="hold_by_client">Hold by Client</option>
+            <option value="closed_by_us">Closed by us</option>
+            <option value="closed_alternatively">Closed Alternatively</option>
           </Select>
-        </div>
-
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="skills">Skills</Label>
-          <Input
-            id="skills"
-            placeholder="Comma-separated skills"
-            {...register("skills")}
-            disabled={submitting}
-          />
         </div>
       </div>
 

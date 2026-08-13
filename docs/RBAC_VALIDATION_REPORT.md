@@ -211,7 +211,7 @@ On next session resolution:
 | Sidebar | My Work, Assigned Jobs, My Candidates, Documents, Earnings, Activity, Profile | ✅ |
 | Accessible | `/partner/*`, `/activities` (scoped), `/notifications` | ✅ |
 | Blocked | All admin/AM/super-admin routes | ✅ |
-| View assigned Jobs | Only jobs where `Jobs.Partners` includes self; Open/On Hold only | ✅ |
+| View assigned Jobs | Only jobs where `Jobs.Partners` includes self; Active/Hold only | ✅ |
 | Submit candidates | From Assigned Jobs; writes Candidates Job+Role+Partner | ✅ |
 | View status | `/partner/candidates` live from Airtable Submission Status | ✅ |
 | Profile update | Own Partners fields; notes preserve `[RP_DOC]` markers | ✅ |
@@ -234,7 +234,7 @@ Account Manager
   → Updates status (if review_candidates)   [Submission Status]
 
 Talent Partner
-  → Sees allocated Open/On Hold jobs
+  → Sees allocated Active/Hold jobs
   → Submits candidates                      [Candidates + Job/Role]
   → Sees status updates after refresh
 ```

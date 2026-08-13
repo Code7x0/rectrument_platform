@@ -1,18 +1,11 @@
 import { findActiveAllocationsForPartner } from "@/features/tasks/repositories/tasks.repository";
 import { getJobById } from "@/features/jobs/services";
+import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import { listPartnerSubmissions } from "@/features/submissions/services";
 import type { Allocation } from "@/features/allocations/types";
-import type { Job, JobPriority, JobStatus } from "@/features/jobs/types";
-import {
-  PRIORITY_SORT_ORDER,
-  type PartnerWorkTask,
-} from "@/features/tasks/types";
-
-/** Jobs partners can still work — closed/filled should leave the queue. */
-const ASSIGNABLE_JOB_STATUSES: ReadonlySet<JobStatus> = new Set([
-  "open",
-  "on_hold",
-]);
+import type { Job } from "@/features/jobs/types";
+import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
+import type { PartnerWorkTask } from "@/features/tasks/types";
 
 function remainingProfiles(expected: number, submitted: number): number {
   return Math.max(0, expected - submitted);
@@ -22,6 +15,7 @@ function toPartnerWorkTask(
   allocation: Allocation,
   job: Job,
   submittedProfiles: number,
+  workDaysInWeek: number | null,
 ): PartnerWorkTask {
   const expectedProfiles = Math.max(1, allocation.expectedProfiles || 1);
   return {
@@ -41,30 +35,20 @@ function toPartnerWorkTask(
     submittedProfiles,
     remainingProfiles: remainingProfiles(expectedProfiles, submittedProfiles),
     assignedDate: allocation.assignedDate,
+    workDaysInWeek,
     job,
   };
 }
 
-function priorityRank(priority: JobPriority | null): number {
-  if (!priority) {
-    return 99;
-  }
-  return PRIORITY_SORT_ORDER[priority];
-}
-
 /**
- * Sort Assigned Jobs by Airtable priority: High (then Urgent) first, then Medium, then Low.
+ * Sort Assigned Jobs by Airtable priority (Super High/Urgent first), then job open date.
  */
 export function sortPartnerWorkTasks(
   tasks: PartnerWorkTask[],
 ): PartnerWorkTask[] {
-  return [...tasks].sort((a, b) => {
-    const byPriority = priorityRank(a.priority) - priorityRank(b.priority);
-    if (byPriority !== 0) {
-      return byPriority;
-    }
-    return (a.jobTitle ?? "").localeCompare(b.jobTitle ?? "");
-  });
+  return [...tasks].sort((a, b) =>
+    compareJobsByPriorityThenOpenDate(a.job, b.job),
+  );
 }
 
 /**
@@ -103,18 +87,43 @@ export async function listPartnerWorkTasks(
       .map((job) => [job.id, job]),
   );
 
+  const clientIds = [
+    ...new Set(
+      [...jobMap.values()]
+        .map((job) => job.clientId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const { getClientById } = await import("@/features/clients/services");
+  const clientRows = await Promise.all(
+    clientIds.map((id) => getClientById(id).catch(() => null)),
+  );
+  const workDaysByClientId = new Map<string, number | null>();
+  for (let index = 0; index < clientIds.length; index += 1) {
+    const clientId = clientIds[index]!;
+    const client = clientRows[index];
+    workDaysByClientId.set(
+      clientId,
+      typeof client?.workDaysInWeek === "number" ? client.workDaysInWeek : null,
+    );
+  }
+
   const tasks: PartnerWorkTask[] = [];
 
   for (const allocation of allocations) {
     const job = jobMap.get(allocation.jobId);
-    if (!job || !ASSIGNABLE_JOB_STATUSES.has(job.status)) {
+    if (!job || !isAssignableJobStatus(job.status)) {
       continue;
     }
+    const workDaysInWeek = job.clientId
+      ? (workDaysByClientId.get(job.clientId) ?? null)
+      : null;
     tasks.push(
       toPartnerWorkTask(
         allocation,
         job,
         submittedByJob.get(allocation.jobId) ?? 0,
+        workDaysInWeek,
       ),
     );
   }

@@ -67,14 +67,22 @@ test("hold is its own group", () => {
   );
 });
 
-test("offers includes Selected and Offered", () => {
+test("selected and offers are separate groups", () => {
+  assert.equal(
+    matchesSubmissionStatusGroup(row("Selected", "offer"), "selected"),
+    true,
+  );
   assert.equal(
     matchesSubmissionStatusGroup(row("Selected", "offer"), "offers"),
-    true,
+    false,
   );
   assert.equal(
     matchesSubmissionStatusGroup(row("Offered", "offer"), "offers"),
     true,
+  );
+  assert.equal(
+    matchesSubmissionStatusGroup(row("Offered", "offer"), "selected"),
+    false,
   );
 });
 

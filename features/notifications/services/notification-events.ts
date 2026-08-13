@@ -793,3 +793,119 @@ export function notifyCompanySettingChanged(input: {
     }),
   );
 }
+
+export function notifyJobClaimRequested(input: {
+  accountManagerId: string | null;
+  partnerId: string;
+  partnerLabel: string;
+  jobTitle: string;
+  jobCode?: string | null;
+  claimId: string;
+}): void {
+  const label = input.jobCode?.trim() || input.jobTitle;
+  const description = `New job claim request from ${input.partnerLabel} for ${label}.`;
+
+  if (input.accountManagerId) {
+    safe(
+      findAccountManagerUserId(input.accountManagerId).then(async (userId) => {
+        if (!userId) {
+          return;
+        }
+        await publishNotification({
+          recipientUserId: userId,
+          title: "New job claim request",
+          description,
+          type: "allocation",
+          category: "jobs",
+          priority: "high",
+          entityType: "allocation",
+          entityId: input.claimId,
+          actionUrl: "/account-manager/job-claims",
+        });
+      }),
+    );
+  }
+
+  safe(
+    notifyRole("admin", {
+      title: "New job claim request",
+      description,
+      type: "allocation",
+      category: "jobs",
+      priority: "medium",
+      entityType: "allocation",
+      entityId: input.claimId,
+      actionUrl: "/admin/job-claims",
+    }),
+  );
+  safe(
+    notifyRole("super_admin", {
+      title: "New job claim request",
+      description,
+      type: "allocation",
+      category: "jobs",
+      priority: "low",
+      entityType: "allocation",
+      entityId: input.claimId,
+      actionUrl: "/admin/job-claims",
+    }),
+  );
+}
+
+export function notifyJobClaimApproved(input: {
+  partnerId: string;
+  jobTitle: string;
+  jobCode?: string | null;
+  claimId: string;
+}): void {
+  const label = input.jobCode?.trim() || input.jobTitle;
+  safe(
+    findPartnerUserId(input.partnerId).then(async (userId) => {
+      if (!userId) {
+        return;
+      }
+      await publishNotification({
+        recipientUserId: userId,
+        title: "Job claim approved",
+        description: `Your request to work on ${label} has been approved.`,
+        type: "approval",
+        category: "jobs",
+        priority: "high",
+        entityType: "allocation",
+        entityId: input.claimId,
+        actionUrl: "/partner/jobs",
+      });
+    }),
+  );
+}
+
+export function notifyJobClaimRejected(input: {
+  partnerId: string;
+  jobTitle: string;
+  jobCode?: string | null;
+  claimId: string;
+  reason?: string | null;
+}): void {
+  const label = input.jobCode?.trim() || input.jobTitle;
+  const reason = input.reason?.trim();
+  safe(
+    findPartnerUserId(input.partnerId).then(async (userId) => {
+      if (!userId) {
+        return;
+      }
+      await publishNotification({
+        recipientUserId: userId,
+        title: "Job claim not approved",
+        description: reason
+          ? `Your request to work on ${label} was not approved. ${reason}`
+          : `Your request to work on ${label} was not approved.`,
+        type: "rejected",
+        category: "jobs",
+        priority: "high",
+        entityType: "allocation",
+        entityId: input.claimId,
+        actionUrl: "/partner/available-jobs",
+      });
+    }),
+  );
+}

@@ -27,8 +27,8 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
   if (tasks.length === 0) {
     return (
       <EmptyState
-        title="No assigned work."
-        description="When an Account Manager allocates you to a job, it will appear here."
+        title="No assigned work"
+        description="Claim an open job from Available Jobs, or wait until an Account Manager allocates you."
         icon={<Briefcase className="h-5 w-5" />}
       />
     );
@@ -56,15 +56,7 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
         }}
         partnerView
         submittedProfiles={selected?.submittedProfiles ?? null}
-        headerAction={
-          <Button
-            type="button"
-            className="w-full"
-            onClick={() => setSubmitOpen(true)}
-          >
-            Submit Candidate
-          </Button>
-        }
+        workDaysInWeek={selected?.workDaysInWeek ?? null}
         footer={
           <Button
             type="button"
