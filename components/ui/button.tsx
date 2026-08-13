@@ -3,13 +3,11 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion, useReducedMotion } from "framer-motion";
 
-import { springs } from "@/components/motion/presets";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.97] hover:-translate-y-px",
   {
     variants: {
       variant: {
@@ -22,7 +20,7 @@ const buttonVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-muted hover:text-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-primary underline-offset-4 hover:underline hover:translate-y-0 active:scale-100",
       },
       size: {
         default: "h-9 px-4 py-2",
@@ -46,39 +44,12 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const reduce = useReducedMotion();
-    const classes = cn(buttonVariants({ variant, size, className }));
-
-    if (asChild) {
-      return <Slot className={classes} ref={ref} {...props} />;
-    }
-
-    if (reduce) {
-      return (
-        <button
-          className={cn(classes, "active:scale-[0.98]")}
-          ref={ref}
-          {...props}
-        />
-      );
-    }
-
-    // Strip HTML drag/animation handlers incompatible with motion.button props.
-    const buttonProps = { ...props } as React.ButtonHTMLAttributes<HTMLButtonElement> &
-      Record<string, unknown>;
-    delete buttonProps.onDrag;
-    delete buttonProps.onDragStart;
-    delete buttonProps.onDragEnd;
-    delete buttonProps.onAnimationStart;
-
+    const Comp = asChild ? Slot : "button";
     return (
-      <motion.button
-        className={classes}
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        whileHover={{ y: -1 }}
-        whileTap={{ scale: 0.97 }}
-        transition={springs.press}
-        {...buttonProps}
+        {...props}
       />
     );
   },

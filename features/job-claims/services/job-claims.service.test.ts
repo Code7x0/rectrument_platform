@@ -81,6 +81,21 @@ test("toPartnerAvailableJob strips client identity fields", () => {
   assert.equal(json.includes("clientName"), false);
 });
 
+test("claim store read does not throw when file is missing", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "job-claims-missing-"));
+  process.env.JOB_CLAIMS_STORE_PATH = path.join(
+    dir,
+    "missing",
+    "job-claims.json",
+  );
+
+  const { readJobClaimsStore } = await import(
+    "@/features/job-claims/lib/claim-store"
+  );
+  const store = await readJobClaimsStore();
+  assert.equal(store.claims.length, 0);
+});
+
 test("claim store prevents duplicate pending claims", async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "job-claims-"));
   const file = path.join(dir, "job-claims.json");
