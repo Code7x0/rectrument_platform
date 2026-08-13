@@ -17,7 +17,7 @@
     "am:upsert": "node --env-file=.env.local scripts/upsert-account-manager.mjs",
     "test:roles": "node --env-file=.env.local scripts/verify-role-identity.mjs",
     "test:file-preview": "tsx --test lib/files/build-file-response.test.ts lib/files/resolve-client-preview.test.ts",
-    "test:unit": "tsx --test features/jobs/services/jobs.mapper.client.test.ts features/jobs/lib/job-priority-sort.test.ts features/submissions/lib/submission-status-buckets.test.ts features/job-claims/services/job-claims.service.test.ts features/jobs/services/jobs-am-visibility.test.ts lib/files/build-file-response.test.ts lib/files/resolve-client-preview.test.ts"
+    "test:unit": "tsx --test features/jobs/services/jobs.mapper.client.test.ts features/jobs/lib/job-priority-sort.test.ts features/submissions/lib/submission-status-buckets.test.ts features/job-claims/services/job-claims.service.test.ts features/jobs/services/jobs-am-visibility.test.ts lib/files/build-file-response.test.ts lib/files/resolve-client-preview.test.ts features/users/lib/partner-registration.test.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.18",

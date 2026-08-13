@@ -20,6 +20,7 @@ import type {
   PartnerJobClaimUiState,
 } from "@/features/job-claims/types";
 import { getPartnerById } from "@/features/partners/services";
+import { operationalPartnerLabel } from "@/features/partners/services/partner-privacy";
 import {
   notifyJobClaimApproved,
   notifyJobClaimRejected,
@@ -160,7 +161,10 @@ export async function listPartnerAvailableJobs(
   const [jobs, allocations, claims] = await Promise.all([
     listJobs({ includeArchived: false }),
     listActiveAllocationsForPartner(partnerId),
-    listJobClaimsForPartner(partnerId),
+    listJobClaimsForPartner(partnerId).catch((error) => {
+      console.error("[job-claims] partner claims read failed", error);
+      return [] as JobClaim[];
+    }),
   ]);
 
   const allocatedJobIds = new Set(allocations.map((row) => row.jobId));
@@ -244,11 +248,9 @@ export async function createPartnerJobClaim(input: {
   notifyJobClaimRequested({
     accountManagerId,
     partnerId: input.partnerId,
-    partnerLabel:
-      partner?.contactName?.trim() ||
-      partner?.companyName?.trim() ||
-      partner?.partnerCode ||
-      "Talent Partner",
+    partnerLabel: partner
+      ? operationalPartnerLabel(partner)
+      : "Talent Partner",
     jobTitle: job.title,
     jobCode: job.jobCode,
     claimId: claim.id,
@@ -298,7 +300,9 @@ export async function listJobClaimsForReview(options: {
       jobCode: job.jobCode || null,
       partnerCode: partner.partnerCode ?? "—",
       partnerName:
-        partner.contactName?.trim() || partner.companyName?.trim() || null,
+        partner.identityVisibility === "public"
+          ? partner.contactName?.trim() || partner.companyName?.trim() || null
+          : null,
       specialization: partner.specialization,
       skills: partner.skills ?? null,
       experience: partner.experience ?? null,

@@ -69,6 +69,7 @@ export interface PartnerRegistrationInput {
   bankDetails?: string;
   identityVisibility: IdentityVisibility;
   agreementAccepted: boolean;
+  agreementViewed: boolean;
 }
 
 export interface AcceptInvitationInput {

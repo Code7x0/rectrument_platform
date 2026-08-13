@@ -23,10 +23,12 @@ import {
   registerTalentPartnerAction,
   uploadPartnerRegistrationDocumentAction,
 } from "@/features/users/actions";
+import { TermsPdfAcceptance } from "@/features/users/components/terms-pdf-acceptance";
 import {
   prepareSignupFile,
   SIGNUP_MAX_FILE_BYTES,
 } from "@/features/users/lib/prepare-signup-files";
+import { RECRUITMENT_EXPERIENCE_OPTIONS } from "@/features/users/lib/recruitment-experience";
 import {
   partnerRegistrationSchema,
   type PartnerRegistrationValues,
@@ -36,15 +38,16 @@ import {
   DOCUMENT_ACCEPT,
   validateDocumentUploadMeta,
 } from "@/lib/files/document-types";
+import { INDIAN_STATES_AND_UTS } from "@/lib/india/states";
+import { normalizeIndianMobileInput } from "@/lib/india/mobile";
 import { cn } from "@/lib/utils";
 
-type DocKey = "resume" | "pan" | "aadhaar" | "agreement";
+type DocKey = "resume" | "pan" | "aadhaar";
 
 const DOC_FIELDS: Array<{ key: DocKey; label: string }> = [
   { key: "resume", label: "Resume" },
   { key: "pan", label: "PAN" },
   { key: "aadhaar", label: "Aadhaar" },
-  { key: "agreement", label: "Signed Partner Agreement" },
 ];
 
 export function PartnerRegistrationForm() {
@@ -54,19 +57,16 @@ export function PartnerRegistrationForm() {
     resume: null,
     pan: null,
     aadhaar: null,
-    agreement: null,
   });
   const [fileError, setFileError] = useState<string | null>(null);
 
   const resumeRef = useRef<HTMLInputElement>(null);
   const panRef = useRef<HTMLInputElement>(null);
   const aadhaarRef = useRef<HTMLInputElement>(null);
-  const agreementRef = useRef<HTMLInputElement>(null);
   const refs: Record<DocKey, RefObject<HTMLInputElement | null>> = {
     resume: resumeRef,
     pan: panRef,
     aadhaar: aadhaarRef,
-    agreement: agreementRef,
   };
 
   const form = useForm<PartnerRegistrationValues>({
@@ -83,6 +83,7 @@ export function PartnerRegistrationForm() {
       bankDetails: "",
       identityVisibility: "private",
       agreementAccepted: false,
+      agreementViewed: false,
     },
   });
 
@@ -98,12 +99,10 @@ export function PartnerRegistrationForm() {
       filename: file.name || label,
       contentType: file.type,
       size: file.size,
+      maxBytes: SIGNUP_MAX_FILE_BYTES,
     });
     if (metaError) {
       return `${label}: ${metaError}`;
-    }
-    if (file.size > SIGNUP_MAX_FILE_BYTES) {
-      return `${label} must be under 4 MB. Please use a smaller file.`;
     }
     return null;
   }
@@ -113,7 +112,6 @@ export function PartnerRegistrationForm() {
       resume: readFile("resume"),
       pan: readFile("pan"),
       aadhaar: readFile("aadhaar"),
-      agreement: readFile("agreement"),
     };
     setFiles(selected);
 
@@ -143,9 +141,9 @@ export function PartnerRegistrationForm() {
               : "Unable to submit registration";
           setFileError(message);
           toast.error(message);
-          created && "errors" in created
-            ? created.errors?.forEach((err) => toast.error(err))
-            : null;
+          if (created && "errors" in created) {
+            created.errors?.forEach((err) => toast.error(err));
+          }
           return;
         }
 
@@ -187,7 +185,6 @@ export function PartnerRegistrationForm() {
         finalizeData.set("identityVisibility", values.identityVisibility);
         const finalized = await finalizePartnerRegistrationAction(finalizeData);
         if (!finalized?.success) {
-          // Profile + docs saved; don't block success UX on notification failure.
           console.error("[registration] finalize failed", finalized);
         }
 
@@ -242,14 +239,36 @@ export function PartnerRegistrationForm() {
           <Field label="Email" error={form.formState.errors.email?.message}>
             <Input type="email" {...form.register("email")} autoComplete="email" />
           </Field>
-          <Field label="Phone" error={form.formState.errors.phone?.message}>
-            <Input {...form.register("phone")} autoComplete="tel" />
+          <Field
+            label="Mobile number"
+            error={form.formState.errors.phone?.message}
+          >
+            <Input
+              inputMode="numeric"
+              autoComplete="tel-national"
+              maxLength={10}
+              placeholder="10-digit Indian mobile"
+              {...form.register("phone", {
+                onChange: (event) => {
+                  event.target.value = normalizeIndianMobileInput(
+                    event.target.value,
+                  );
+                },
+              })}
+            />
           </Field>
           <Field label="City" error={form.formState.errors.city?.message}>
             <Input {...form.register("city")} />
           </Field>
           <Field label="State" error={form.formState.errors.state?.message}>
-            <Input {...form.register("state")} />
+            <Select {...form.register("state")}>
+              <option value="">Select state / UT</option>
+              {INDIAN_STATES_AND_UTS.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </Select>
           </Field>
         </section>
 
@@ -262,14 +281,17 @@ export function PartnerRegistrationForm() {
         </Field>
 
         <Field
-          label="Experience"
+          label="Experience in Recruitment/HR"
           error={form.formState.errors.experience?.message}
         >
-          <Textarea
-            rows={3}
-            placeholder="Years of experience and focus areas"
-            {...form.register("experience")}
-          />
+          <Select {...form.register("experience")}>
+            <option value="">Select experience</option>
+            {RECRUITMENT_EXPERIENCE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         <Field
@@ -281,10 +303,11 @@ export function PartnerRegistrationForm() {
             placeholder="Account holder, bank name, account number, IFSC"
             {...form.register("bankDetails")}
           />
+          <p className="text-xs text-[#64748B]">Bank details for payouts</p>
         </Field>
 
         <Field
-          label="Name visibility to Account Managers"
+          label="Name visibility"
           error={form.formState.errors.identityVisibility?.message}
         >
           <Select {...form.register("identityVisibility")}>
@@ -310,31 +333,25 @@ export function PartnerRegistrationForm() {
           ))}
         </section>
         <p className="text-xs text-[#64748B]">
-          Allowed: PDF, DOC, DOCX, PNG, JPG — up to 4 MB per file. Each file
-          uploads separately to Airtable.
+          Required: Resume, PAN, and Aadhaar. Allowed: PDF, DOC, DOCX, PNG, JPG
+          — up to 4 MB per file.
         </p>
 
-        <label className="flex items-start gap-3 text-sm text-[#334155]">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={form.watch("agreementAccepted")}
-            onChange={(e) =>
-              form.setValue("agreementAccepted", e.target.checked, {
-                shouldValidate: true,
-              })
-            }
-          />
-          <span>
-            I accept the Talent Partner agreement and confirm the documents
-            uploaded are accurate.
-            {form.formState.errors.agreementAccepted ? (
-              <span className="mt-1 block text-xs text-red-600">
-                {form.formState.errors.agreementAccepted.message}
-              </span>
-            ) : null}
-          </span>
-        </label>
+        <TermsPdfAcceptance
+          accepted={form.watch("agreementAccepted")}
+          viewed={form.watch("agreementViewed")}
+          disabled={pending}
+          error={
+            form.formState.errors.agreementAccepted?.message ||
+            form.formState.errors.agreementViewed?.message
+          }
+          onAcceptedChange={(next) =>
+            form.setValue("agreementAccepted", next, { shouldValidate: true })
+          }
+          onViewedChange={(next) =>
+            form.setValue("agreementViewed", next, { shouldValidate: true })
+          }
+        />
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <Button type="submit" disabled={pending}>
@@ -392,7 +409,7 @@ function FileField({
         <label
           htmlFor={inputId}
           className={cn(
-            "inline-flex h-9 cursor-pointer items-center rounded-lg border border-input bg-card px-3 text-sm font-medium text-foreground shadow-xs transition-ui hover:bg-muted/60",
+            "inline-flex h-9 cursor-pointer items-center rounded-lg border border-input bg-card px-3 text-sm font-medium text-foreground shadow-xs transition-all duration-150 ease-out hover:bg-muted/60",
           )}
         >
           {file ? "Change file" : "Choose file"}

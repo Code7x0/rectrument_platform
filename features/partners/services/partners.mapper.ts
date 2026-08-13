@@ -15,6 +15,7 @@ import {
   PARTNERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { isValidPartnerCode } from "@/lib/business-ids";
+import { parsePartnerRegistrationNotes } from "@/features/partners/lib/registration-notes";
 import type {
   CreatePartnerInput,
   IdentityVisibility,
@@ -76,6 +77,10 @@ export function mapPartnerRecord(record: {
 }): Partner {
   const fields = record.fields;
   const rawCode = asString(fields[PARTNERS_TABLE_FIELDS.partnerId]);
+  const notes = asString(fields[PARTNERS_TABLE_FIELDS.notes]);
+  const notesMeta = parsePartnerRegistrationNotes(notes);
+  const clientMode = isClientCompatMode();
+
   return {
     id: record.id,
     // Never invent PRT-/TP-rec… codes — only Airtable Partner Code.
@@ -95,15 +100,22 @@ export function mapPartnerRecord(record: {
     verificationStatus: mapVerification(
       fields[PARTNERS_TABLE_FIELDS.verificationStatus],
     ),
-    identityVisibility: mapIdentityVisibility(
-      fields[PARTNERS_TABLE_FIELDS.identityVisibility],
-    ),
+    identityVisibility: clientMode
+      ? (notesMeta.identityVisibility ?? "private")
+      : mapIdentityVisibility(
+          fields[PARTNERS_TABLE_FIELDS.identityVisibility],
+        ),
     city: asString(fields[PARTNERS_TABLE_FIELDS.city]),
-    state: asString(fields[PARTNERS_TABLE_FIELDS.state]),
+    state:
+      asString(fields[PARTNERS_TABLE_FIELDS.state]) ?? notesMeta.state,
     skills: asString(fields[PARTNERS_TABLE_FIELDS.skills]),
-    experience: asString(fields[PARTNERS_TABLE_FIELDS.experience]),
-    bankDetails: asString(fields[PARTNERS_TABLE_FIELDS.bankDetails]),
-    notes: asString(fields[PARTNERS_TABLE_FIELDS.notes]),
+    experience:
+      asString(fields[PARTNERS_TABLE_FIELDS.experience]) ??
+      notesMeta.experience,
+    bankDetails:
+      asString(fields[PARTNERS_TABLE_FIELDS.bankDetails]) ??
+      notesMeta.bankDetails,
+    notes,
   };
 }
 

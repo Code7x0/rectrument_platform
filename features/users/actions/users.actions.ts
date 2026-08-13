@@ -103,11 +103,15 @@ export async function registerTalentPartnerAction(
       agreementAccepted:
         formData.get("agreementAccepted") === "true" ||
         formData.get("agreementAccepted") === "on",
+      agreementViewed:
+        formData.get("agreementViewed") === "true" ||
+        formData.get("agreementViewed") === "on",
     };
 
     const parsed = partnerRegistrationSchema.safeParse({
       ...raw,
       agreementAccepted: raw.agreementAccepted ? true : false,
+      agreementViewed: raw.agreementViewed ? true : false,
     });
     if (!parsed.success) {
       return {
@@ -130,12 +134,7 @@ export async function registerTalentPartnerAction(
   }
 }
 
-const REGISTRATION_DOC_TYPES = [
-  "resume",
-  "pan",
-  "aadhaar",
-  "agreement",
-] as const;
+const REGISTRATION_DOC_TYPES = ["resume", "pan", "aadhaar"] as const;
 
 /**
  * Upload a single registration document (keeps each request under Vercel body limit).

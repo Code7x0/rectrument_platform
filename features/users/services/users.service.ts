@@ -4,10 +4,15 @@ import { createPartner } from "@/features/partners/services/partners.service";
 import { updatePartner } from "@/features/partners/services/partners.service";
 import { findPartnerById } from "@/features/partners/repositories/partners.repository";
 import {
+  buildPartnerRegistrationNotes,
+  mergeIdentityVisibilityIntoNotes,
+} from "@/features/partners/lib/registration-notes";
+import {
   listDocumentsForPartner,
   stageDocumentFile,
   uploadPartnerDocument,
 } from "@/features/partner-documents/services/documents.service";
+import { validateDocumentFileMeta } from "@/features/partner-documents/schemas/document.schema";
 import type { PartnerDocumentType } from "@/features/partner-documents/types";
 import { recordActivity } from "@/features/workflows/services/activity.service";
 import { sendEmail, sendEmailSafe } from "@/services/email";
@@ -21,6 +26,11 @@ import {
 } from "@/services/users/users.service";
 import { getRoleLabel } from "@/lib/auth/permissions";
 import { APP_NAME } from "@/lib/constants";
+import {
+  INDIAN_MOBILE_ERROR,
+  isValidIndianMobile,
+} from "@/lib/india/mobile";
+import { isClientCompatMode } from "@/lib/airtable/compat";
 import type { IdentityVisibility, User, UserRole } from "@/types";
 
 import type {
@@ -82,6 +92,12 @@ export async function submitPartnerRegistration(
   if (!input.agreementAccepted) {
     throw new Error("Agreement must be accepted");
   }
+  if (!input.agreementViewed) {
+    throw new Error("Please review the Terms & Conditions before accepting");
+  }
+  if (!isValidIndianMobile(input.phone)) {
+    throw new Error(INDIAN_MOBILE_ERROR);
+  }
 
   const existing = await findUserByEmail(input.email);
   if (existing) {
@@ -89,16 +105,15 @@ export async function submitPartnerRegistration(
   }
 
   const fullName = `${input.firstName} ${input.lastName}`.trim();
-  const registrationNotes = [
-    `Self-registered Talent Partner.`,
-    `Experience: ${input.experience}`,
-    input.state ? `State: ${input.state}` : null,
-    input.skills ? `Skills: ${input.skills}` : null,
-    input.bankDetails ? `Bank: ${input.bankDetails}` : null,
-    `Identity visibility preference: ${input.identityVisibility}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const registrationNotes = buildPartnerRegistrationNotes({
+    experience: input.experience,
+    state: input.state,
+    skills: input.skills,
+    bankDetails: input.bankDetails,
+    identityVisibility: input.identityVisibility,
+    termsAccepted: true,
+    termsAcceptedAt: new Date().toISOString(),
+  });
 
   const partner = await createPartner({
     companyName: fullName,
@@ -163,6 +178,15 @@ export async function attachPartnerRegistrationDocument(input: {
   }
   if (partner.status !== "pending") {
     throw new Error("Registration is no longer open for uploads");
+  }
+
+  const metaError = validateDocumentFileMeta({
+    filename: input.file.filename,
+    contentType: input.file.contentType,
+    size: input.file.size,
+  });
+  if (metaError) {
+    throw new Error(metaError);
   }
 
   if (input.documentType === "resume") {
@@ -741,7 +765,14 @@ export async function updatePartnerIdentityVisibility(
   }
 
   const from = partner.identityVisibility;
-  await updatePartner(partnerId, { identityVisibility: visibility });
+  if (isClientCompatMode()) {
+    await updatePartner(partnerId, {
+      identityVisibility: visibility,
+      notes: mergeIdentityVisibilityIntoNotes(partner.notes, visibility),
+    });
+  } else {
+    await updatePartner(partnerId, { identityVisibility: visibility });
+  }
 
   const users = await listUsers({ role: "partner" });
   const linked = users.find((u) => u.partnerId === partnerId);
