@@ -3,11 +3,13 @@
 import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { springs, useMotionSafe } from "@/components/motion/presets";
 import { JOB_PRIORITY_LABELS, JOB_STATUS_LABELS } from "@/features/jobs/types";
 import type {
   PartnerAvailableJob,
   PartnerJobClaimUiState,
 } from "@/features/job-claims/types";
+import { motion } from "framer-motion";
 
 function Meta({
   label,
@@ -65,9 +67,17 @@ export function AvailableJobCard({
 }: AvailableJobCardProps) {
   const canClaim =
     job.claimState === "available" || job.claimState === "rejected";
+  const animate = useMotionSafe();
 
   return (
-    <article className="partner-job-card">
+    <motion.article
+      className="partner-job-card will-change-transform"
+      initial={animate ? { opacity: 0, y: 10 } : false}
+      whileInView={animate ? { opacity: 1, y: 0 } : undefined}
+      viewport={{ once: true, margin: "-40px" }}
+      whileHover={animate ? { y: -3 } : undefined}
+      transition={springs.soft}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-lg font-semibold tracking-tight text-foreground">
@@ -132,7 +142,7 @@ export function AvailableJobCard({
           </Button>
         )}
       </div>
-    </article>
+    </motion.article>
   );
 }
 

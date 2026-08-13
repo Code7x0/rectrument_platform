@@ -3,6 +3,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Landing / GSAP reveal targets — visible immediately if JS/motion reduced */
+[data-reveal],
+[data-ledger-step] {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-ledger-step] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
 :root {
   /* Premium B2B SaaS palette — cool slate + blue accent (Linear/Stripe-like) */
   --background: #f4f6f9;
