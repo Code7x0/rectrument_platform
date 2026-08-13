@@ -39,6 +39,11 @@ export interface BindUploadTarget {
   entityId: string;
   /** Storage field name — Airtable field or object metadata key. */
   fieldName: string;
+  /**
+   * replace (default): clear field then upload one file.
+   * append: keep existing attachments (Job Description / Sample Profiling).
+   */
+  mode?: "replace" | "append";
 }
 
 export interface BoundFile {

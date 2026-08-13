@@ -92,17 +92,19 @@ function mapEnum<T extends string>(
 
 function asAttachments(
   value: unknown,
-): Array<{ url: string; filename: string }> {
+): Array<{ id: string | null; url: string; filename: string }> {
   if (!Array.isArray(value)) {
     return [];
   }
   return value
     .map((item) => {
-      const row = item as { url?: string; filename?: string };
+      const row = item as { id?: string; url?: string; filename?: string };
       if (typeof row.url !== "string" || !row.url.trim()) {
         return null;
       }
       return {
+        id:
+          typeof row.id === "string" && row.id.trim() ? row.id.trim() : null,
         url: row.url.trim(),
         filename:
           typeof row.filename === "string" && row.filename.trim()
@@ -110,7 +112,12 @@ function asAttachments(
             : "Attachment",
       };
     })
-    .filter((row): row is { url: string; filename: string } => Boolean(row));
+    .filter(
+      (
+        row,
+      ): row is { id: string | null; url: string; filename: string } =>
+        Boolean(row),
+    );
 }
 
 function collectJobDocuments(fields: AirtableFields): Job["documents"] {
@@ -128,6 +135,7 @@ function collectJobDocuments(fields: AirtableFields): Job["documents"] {
     for (const file of asAttachments(fields[group.field])) {
       docs.push({
         label: group.label,
+        id: file.id,
         url: file.url,
         filename: file.filename,
       });

@@ -6,6 +6,7 @@ export {
   getJobById,
   getJobLocations,
   listJobs,
+  removeJobAttachment,
   updateJob,
 } from "./jobs.service";
 export { mapJobRecord } from "./jobs.mapper";

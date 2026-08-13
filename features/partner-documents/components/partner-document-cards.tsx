@@ -121,9 +121,16 @@ export function PartnerDocumentCards({
     <>
       <WorkspaceSection title="Required documents">
         <p className="mb-4 text-sm text-[#64748B]">
-          PAN, Aadhaar, and Agreement. PDF, PNG, JPEG, DOC, or DOCX up to 10 MB.
+          PAN and Aadhaar are required. Agreement is shown only when uploaded.
+          PDF, PNG, JPEG, DOC, or DOCX up to 10 MB.
         </p>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div
+          className={
+            slots.length >= 3
+              ? "grid gap-4 md:grid-cols-3"
+              : "grid gap-4 md:grid-cols-2"
+          }
+        >
           {slots.map((slot) => {
             const uploaded = Boolean(slot.document?.fileUrl);
             const busy = isPending && pendingType === slot.documentType;

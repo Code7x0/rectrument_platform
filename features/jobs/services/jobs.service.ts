@@ -285,6 +285,7 @@ export async function attachJobDescription(
   await uploader.bindToEntity(upload, {
     entityId: jobId,
     fieldName: JOBS_TABLE_FIELDS.description,
+    mode: "append",
   });
 }
 
@@ -297,7 +298,63 @@ export async function attachSampleResume(
   await uploader.bindToEntity(upload, {
     entityId: jobId,
     fieldName: JOBS_TABLE_FIELDS.sampleProfiling,
+    mode: "append",
   });
+}
+
+type JobAttachmentField = "Job Description" | "Sample Profiling";
+
+/**
+ * Remove one attachment from Job Description or Sample Profiling.
+ * Remaining files are kept via Airtable attachment ids.
+ */
+export async function removeJobAttachment(input: {
+  jobId: string;
+  field: JobAttachmentField;
+  attachmentId?: string | null;
+  url: string;
+}): Promise<Job> {
+  const { findRecord, updateRecord } = await import("@/lib/airtable/client");
+  const { getAirtableTableName } = await import("@/lib/airtable/tables");
+  const { mapJobRecord } = await import("@/features/jobs/services/jobs.mapper");
+
+  const fieldName =
+    input.field === "Sample Profiling"
+      ? JOBS_TABLE_FIELDS.sampleProfiling
+      : JOBS_TABLE_FIELDS.description;
+
+  const tableName = getAirtableTableName("jobsTable");
+  const record = await findRecord(tableName, input.jobId);
+  const current = record.fields[fieldName];
+  const attachments = Array.isArray(current) ? current : [];
+
+  const remaining = attachments.filter((item) => {
+    const row = item as { id?: string; url?: string };
+    if (input.attachmentId && row.id) {
+      return row.id !== input.attachmentId;
+    }
+    return (row.url ?? "").trim() !== input.url.trim();
+  });
+
+  if (remaining.length === attachments.length) {
+    throw new Error("Attachment not found on this job");
+  }
+
+  const nextAttachments = remaining
+    .map((item) => {
+      const row = item as { id?: string };
+      return typeof row.id === "string" && row.id.trim()
+        ? { id: row.id.trim() }
+        : null;
+    })
+    .filter((row): row is { id: string } => Boolean(row));
+
+  await updateRecord(tableName, input.jobId, {
+    [fieldName]: nextAttachments,
+  } as unknown as Parameters<typeof updateRecord>[2]);
+
+  const refreshed = await findRecord(tableName, input.jobId);
+  return mapJobRecord({ id: refreshed.id, fields: refreshed.fields });
 }
 
 export async function updateJob(

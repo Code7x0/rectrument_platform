@@ -1,21 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { removeJobAttachmentAction } from "@/features/jobs/actions/jobs.actions";
 import {
   JOB_WORK_MODE_OPTIONS,
   jobFormSchema,
   type JobFormValues,
 } from "@/features/jobs/schemas/job.schema";
 import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
-import type { Job } from "@/features/jobs/types";
+import type { Job, JobDocument } from "@/features/jobs/types";
 import { DOCUMENT_ACCEPT } from "@/lib/files/document-types";
 import type { LookupOption } from "@/services/lookups";
 
@@ -132,6 +135,18 @@ export function JobForm({
   );
   const [commentAttachmentFile, setCommentAttachmentFile] =
     useState<File | null>(null);
+  const [jdDocs, setJdDocs] = useState<JobDocument[]>(() =>
+    (initialJob?.documents ?? []).filter(
+      (doc) => doc.label === "Job Description",
+    ),
+  );
+  const [sampleDocs, setSampleDocs] = useState<JobDocument[]>(() =>
+    (initialJob?.documents ?? []).filter(
+      (doc) => doc.label === "Sample Profiling",
+    ),
+  );
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const [pendingRemove, startRemove] = useTransition();
   const defaultAccountManagerId = lockAccountManager
     ? (initialJob?.accountManagerId || accountManagers[0]?.id || "")
     : undefined;
@@ -149,12 +164,8 @@ export function JobForm({
     }),
   });
 
-  const existingJdCount =
-    initialJob?.documents?.filter((doc) => doc.label === "Job Description")
-      .length ?? 0;
-  const existingSampleResumeCount =
-    initialJob?.documents?.filter((doc) => doc.label === "Sample Profiling")
-      .length ?? 0;
+  const existingJdCount = jdDocs.length;
+  const existingSampleResumeCount = sampleDocs.length;
   const selectedAmIds = watch("accountManagerIds") ?? [];
 
   function toggleAccountManager(id: string, checked: boolean) {
@@ -163,6 +174,38 @@ export function JobForm({
       : selectedAmIds.filter((row) => row !== id);
     setValue("accountManagerIds", next, { shouldDirty: true });
     setValue("accountManagerId", next[0] ?? "", { shouldDirty: true });
+  }
+
+  function removeAttachment(
+    field: "Job Description" | "Sample Profiling",
+    doc: JobDocument,
+  ) {
+    if (!initialJob?.id) {
+      return;
+    }
+    const key = `${field}:${doc.id ?? doc.url}`;
+    setRemovingKey(key);
+    startRemove(async () => {
+      const result = await removeJobAttachmentAction({
+        jobId: initialJob.id,
+        field,
+        attachmentId: doc.id,
+        url: doc.url,
+      });
+      setRemovingKey(null);
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      const nextDocs = result.data.documents ?? [];
+      setJdDocs(
+        nextDocs.filter((row) => row.label === "Job Description"),
+      );
+      setSampleDocs(
+        nextDocs.filter((row) => row.label === "Sample Profiling"),
+      );
+      toast.success("Attachment removed");
+    });
   }
 
   return (
@@ -249,6 +292,19 @@ export function JobForm({
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="jd">Job Description (attachment)</Label>
+          {existingJdCount > 0 ? (
+            <p className="text-sm font-semibold text-[#0F766E]">
+              {existingJdCount} file{existingJdCount === 1 ? "" : "s"} already
+              attached
+            </p>
+          ) : null}
+          <JobAttachmentList
+            docs={jdDocs}
+            field="Job Description"
+            disabled={submitting || pendingRemove}
+            removingKey={removingKey}
+            onRemove={(doc) => removeAttachment("Job Description", doc)}
+          />
           <Input
             id="jd"
             type="file"
@@ -260,21 +316,29 @@ export function JobForm({
               setJdError(null);
             }}
           />
-          {existingJdCount > 0 ? (
-            <p className="text-xs text-[#64748B]">
-              {existingJdCount} file(s) already attached. Upload a new file to
-              add another JD attachment.
-            </p>
-          ) : (
-            <p className="text-xs text-[#64748B]">
-              PDF, Word, PNG, or JPG.
-            </p>
-          )}
+          <p className="text-xs text-[#64748B]">
+            {existingJdCount > 0
+              ? "Upload another file to add to Job Description (PDF, Word, PNG, or JPG)."
+              : "PDF, Word, PNG, or JPG."}
+          </p>
           {jdError ? <p className="text-xs text-[#EF4444]">{jdError}</p> : null}
         </div>
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="sampleResume">Sample Resume</Label>
+          {existingSampleResumeCount > 0 ? (
+            <p className="text-sm font-semibold text-[#0F766E]">
+              {existingSampleResumeCount} sample file
+              {existingSampleResumeCount === 1 ? "" : "s"} already attached
+            </p>
+          ) : null}
+          <JobAttachmentList
+            docs={sampleDocs}
+            field="Sample Profiling"
+            disabled={submitting || pendingRemove}
+            removingKey={removingKey}
+            onRemove={(doc) => removeAttachment("Sample Profiling", doc)}
+          />
           <Input
             id="sampleResume"
             type="file"
@@ -286,16 +350,11 @@ export function JobForm({
               setSampleResumeError(null);
             }}
           />
-          {existingSampleResumeCount > 0 ? (
-            <p className="text-xs text-[#64748B]">
-              {existingSampleResumeCount} sample file(s) already on this job.
-              Upload to add another to Sample Profiling.
-            </p>
-          ) : (
-            <p className="text-xs text-[#64748B]">
-              PDF, Word, PNG, or JPG — saved to Sample Profiling on the job.
-            </p>
-          )}
+          <p className="text-xs text-[#64748B]">
+            {existingSampleResumeCount > 0
+              ? "Upload another file to add to Sample Profiling (PDF, Word, PNG, or JPG)."
+              : "PDF, Word, PNG, or JPG — saved to Sample Profiling on the job."}
+          </p>
           {sampleResumeError ? (
             <p className="text-xs text-[#EF4444]">{sampleResumeError}</p>
           ) : null}
@@ -452,5 +511,66 @@ export function JobForm({
         </div>
       </div>
     </form>
+  );
+}
+
+function JobAttachmentList({
+  docs,
+  field,
+  disabled,
+  removingKey,
+  onRemove,
+}: {
+  docs: JobDocument[];
+  field: "Job Description" | "Sample Profiling";
+  disabled?: boolean;
+  removingKey: string | null;
+  onRemove: (doc: JobDocument) => void;
+}) {
+  if (docs.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul className="space-y-2 rounded-xl border border-[#CCFBF1] bg-[#F0FDFA] p-3">
+      {docs.map((doc) => {
+        const key = `${field}:${doc.id ?? doc.url}`;
+        const busy = removingKey === key;
+        return (
+          <li
+            key={key}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 shadow-xs"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-[#0F172A]">
+                {doc.filename}
+              </p>
+              <p className="text-[11px] text-[#64748B]">{field}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <FilePreviewLink
+                url={doc.url}
+                filename={doc.filename}
+                title={`${field}: ${doc.filename}`}
+                asButton
+                variant="outline"
+                size="sm"
+              >
+                View
+              </FilePreviewLink>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={disabled || busy}
+                onClick={() => onRemove(doc)}
+              >
+                {busy ? "Removing…" : "Remove"}
+              </Button>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

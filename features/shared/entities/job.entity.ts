@@ -84,6 +84,8 @@ export interface JobDocument {
   label: string;
   url: string;
   filename: string;
+  /** Airtable attachment id — required to keep/remove individual files. */
+  id?: string | null;
 }
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {

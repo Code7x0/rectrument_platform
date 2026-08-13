@@ -80,6 +80,7 @@ async function uploadPartnerDocumentToResume(input: {
     {
       entityId: input.partnerId,
       fieldName: "Partners.Resume",
+      mode: "append",
     },
   );
 

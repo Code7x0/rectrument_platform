@@ -119,8 +119,10 @@ export class AirtableAttachmentUploadService implements UploadService {
     // Allow callers to override the stored filename (typed doc prefixes).
     const filename = upload.filename || payload.filename;
 
-    // Replace (not append): Airtable Content API adds attachments; clear first.
-    await this.clearEntityAttachment(target);
+    // Resume/KYC fields replace; job multi-file fields append.
+    if (target.mode !== "append") {
+      await this.clearEntityAttachment(target);
+    }
 
     const apiKey = getRequiredEnv("AIRTABLE_API_KEY");
     const baseId = getRequiredEnv("AIRTABLE_BASE_ID");

@@ -9,12 +9,14 @@ import {
   archiveJob,
   createJob,
   deleteJob,
+  removeJobAttachment,
   updateJob,
 } from "@/features/jobs/services";
 import { parseSkillsInput } from "@/features/jobs/services/jobs.validation";
 import { jobFormSchema } from "@/features/jobs/schemas/job.schema";
 import type { JobFormValues } from "@/features/jobs/schemas/job.schema";
 import { getUploadService, type UploadedFile } from "@/services/uploads";
+import type { Job } from "@/features/jobs/types";
 
 export type ActionResult<T = unknown> =
   | { success: true; data: T }
@@ -307,6 +309,41 @@ export async function archiveJobAction(jobId: string): Promise<ActionResult> {
     return {
       success: false,
       message: actionErrorMessage(error, "Unable to archive job"),
+    };
+  }
+}
+
+export async function removeJobAttachmentAction(input: {
+  jobId: string;
+  field: "Job Description" | "Sample Profiling";
+  attachmentId?: string | null;
+  url: string;
+}): Promise<ActionResult<Job>> {
+  try {
+    const session = await requirePermission("manage_jobs");
+    await requireRole(["admin", "super_admin", "account_manager"]);
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsJob, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      try {
+        await assertAccountManagerOwnsJob(session, input.jobId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+    }
+
+    const job = await removeJobAttachment(input);
+    revalidatePath("/admin/jobs");
+    revalidatePath("/account-manager/jobs");
+    return { success: true, data: job };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to remove attachment"),
     };
   }
 }

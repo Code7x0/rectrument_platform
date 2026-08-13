@@ -30,7 +30,7 @@ export function PartnerDocumentsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="Documents"
-        description="Upload PAN, Aadhaar, and Agreement for verification."
+        description="Upload PAN and Aadhaar for verification. Agreement appears here only if one was uploaded."
       />
       <div className="mb-6 grid gap-3 sm:grid-cols-4">
         <WorkspaceMetricCard label="Total" value={summary.total} />

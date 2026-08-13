@@ -46,7 +46,7 @@ function asAttachments(
 
 function inferDocumentType(
   filename: string,
-): PartnerDocument["documentType"] {
+): PartnerDocument["documentType"] | null {
   const lower = filename.toLowerCase();
   if (lower.includes("pan")) {
     return "pan";
@@ -54,10 +54,15 @@ function inferDocumentType(
   if (lower.includes("aadhaar") || lower.includes("aadhar")) {
     return "aadhaar";
   }
-  if (lower.includes("agreement") || lower.includes("contract")) {
+  if (
+    lower.includes("agreement") ||
+    lower.includes("contract") ||
+    lower.startsWith("terms")
+  ) {
     return "agreement";
   }
-  return "agreement";
+  // Registration resumes and other non-KYC files must not inflate Agreement.
+  return null;
 }
 
 function filenamesMatch(a: string, b: string): boolean {
@@ -89,6 +94,10 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
       asString(fields[PARTNERS_TABLE_FIELDS.name]);
 
     attachments.forEach((file, index) => {
+      const documentType = inferDocumentType(file.filename);
+      if (!documentType) {
+        return;
+      }
       const marker = markers.find((row) =>
         filenamesMatch(row.filename, file.filename),
       );
@@ -97,7 +106,7 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
         documentCode: asString(fields[PARTNERS_TABLE_FIELDS.partnerId]),
         partnerId: record.id,
         partnerName,
-        documentType: inferDocumentType(file.filename),
+        documentType,
         fileUrl: file.url,
         fileName: file.filename,
         uploadedAt: null,
