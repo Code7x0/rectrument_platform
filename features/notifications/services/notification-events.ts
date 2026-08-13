@@ -795,7 +795,8 @@ export function notifyCompanySettingChanged(input: {
 }
 
 export function notifyJobClaimRequested(input: {
-  accountManagerId: string | null;
+  accountManagerId?: string | null;
+  accountManagerIds?: string[] | null;
   partnerId: string;
   partnerLabel: string;
   jobTitle: string;
@@ -805,9 +806,20 @@ export function notifyJobClaimRequested(input: {
   const label = input.jobCode?.trim() || input.jobTitle;
   const description = `New job claim request from ${input.partnerLabel} for ${label}.`;
 
-  if (input.accountManagerId) {
+  const amIds = Array.from(
+    new Set(
+      [
+        ...(input.accountManagerIds ?? []),
+        input.accountManagerId ?? null,
+      ]
+        .map((id) => id?.trim())
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  for (const accountManagerId of amIds) {
     safe(
-      findAccountManagerUserId(input.accountManagerId).then(async (userId) => {
+      findAccountManagerUserId(accountManagerId).then(async (userId) => {
         if (!userId) {
           return;
         }
@@ -844,7 +856,7 @@ export function notifyJobClaimRequested(input: {
       description,
       type: "allocation",
       category: "jobs",
-      priority: "low",
+      priority: amIds.length === 0 ? "high" : "low",
       entityType: "allocation",
       entityId: input.claimId,
       actionUrl: "/admin/job-claims",

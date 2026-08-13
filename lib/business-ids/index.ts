@@ -545,9 +545,30 @@ export function stripJobAmMarker(
 export function stripJobSystemMarkers(
   comments: string | null | undefined,
 ): string | null {
-  return stripPartnerAssignedByMarkers(
-    stripJobAmMarker(stripJobIdMarker(comments)),
+  const withoutClaims = stripJobClaimMarkers(
+    stripPartnerAssignedByMarkers(
+      stripJobAmMarker(stripJobIdMarker(comments)),
+    ),
   );
+  return withoutClaims || null;
+}
+
+const JOB_CLAIM_MARKER_PREFIX = "[RP_CLAIM]";
+
+function stripJobClaimMarkers(
+  comments: string | null | undefined,
+): string | null {
+  if (!comments?.trim()) {
+    return null;
+  }
+  const cleaned = comments
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith(JOB_CLAIM_MARKER_PREFIX))
+    .join("\n")
+    .trim();
+  return cleaned || null;
 }
 
 /**

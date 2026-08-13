@@ -237,7 +237,17 @@ export async function createPartnerJobClaim(input: {
     throw new Error("This job is already assigned to you");
   }
 
-  const accountManagerId = job.accountManagerId;
+  const accountManagerIds = Array.from(
+    new Set(
+      [
+        ...(job.accountManagerIds ?? []),
+        job.accountManagerId,
+      ]
+        .map((id) => id?.trim())
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const accountManagerId = accountManagerIds[0] ?? null;
   const claim = await insertJobClaim({
     partnerId: input.partnerId,
     jobId: input.jobId,
@@ -247,6 +257,7 @@ export async function createPartnerJobClaim(input: {
   const partner = await getPartnerById(input.partnerId);
   notifyJobClaimRequested({
     accountManagerId,
+    accountManagerIds,
     partnerId: input.partnerId,
     partnerLabel: partner
       ? operationalPartnerLabel(partner)

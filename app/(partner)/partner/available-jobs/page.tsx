@@ -46,7 +46,7 @@ export default async function PartnerAvailableJobsPage() {
       />
       <PageHeader
         title="Available Jobs"
-        description="Browse open jobs and request to work on them. Client details unlock only after approval."
+        description="Browse open jobs and request to work on them. Pending claims stay highlighted until approval, then move to Assigned Jobs. Client details unlock only after approval."
       />
       {loadError ? (
         <p className="mb-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
