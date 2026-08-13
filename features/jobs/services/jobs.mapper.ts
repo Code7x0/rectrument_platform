@@ -12,6 +12,7 @@ import {
   CLIENT_COMPAT_JOB_WRITABLE_FIELDS,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { formatAirtablePercent } from "@/lib/airtable/format-percent";
 import {
   isValidJobCode,
   parseJobAmAssignment,
@@ -218,14 +219,9 @@ export function mapJobRecord(record: {
     ),
     experience: asString(fields[JOBS_TABLE_FIELDS.experience]),
     salary: asString(fields[JOBS_TABLE_FIELDS.salary]),
-    possiblePayout: (() => {
-      const raw = fields[JOBS_TABLE_FIELDS.payoutPercent];
-      if (typeof raw === "number" && Number.isFinite(raw)) {
-        return `${raw}%`;
-      }
-      const text = asString(raw);
-      return text;
-    })(),
+    possiblePayout: formatAirtablePercent(
+      fields[JOBS_TABLE_FIELDS.payoutPercent],
+    ),
     priority: mapEnum(fields[JOBS_TABLE_FIELDS.priority], AIRTABLE_JOB_PRIORITY),
     openPositions: isClientCompatMode()
       ? null

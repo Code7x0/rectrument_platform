@@ -190,6 +190,26 @@ test("Clients Work Days/Week field constant is correct", () => {
   assert.equal(CLIENTS_TABLE_FIELDS.workDaysInWeek, "Work Days/Week");
 });
 
+test("Airtable percent Payout maps 0.02 → 2%", () => {
+  const job = mapJobRecord({
+    id: "recPayout",
+    fields: {
+      "Job Title": "Director Marketing",
+      Payout: 0.02,
+    },
+  });
+  assert.equal(job.possiblePayout, "2%");
+
+  const jobHalf = mapJobRecord({
+    id: "recPayout25",
+    fields: {
+      "Job Title": "Chief of Staff",
+      Payout: 0.025,
+    },
+  });
+  assert.equal(jobHalf.possiblePayout, "2.5%");
+});
+
 test("priority sorting ignores status subtype", () => {
   function job(
     partial: Partial<Job> & Pick<Job, "id" | "title" | "priority" | "status">,
