@@ -115,7 +115,14 @@ export async function publishNotification(
     let created: Notification | null = null;
 
     if (channelAllowsInApp(channel)) {
-      created = await insertNotification(toAirtableNotificationFields(input));
+      if (isNotificationsStorageAvailable()) {
+        created = await insertNotification(toAirtableNotificationFields(input));
+      } else {
+        const { insertEphemeralNotification } = await import(
+          "@/features/notifications/lib/ephemeral-notification-store"
+        );
+        created = await insertEphemeralNotification(input);
+      }
     }
 
     if (
@@ -397,32 +404,28 @@ export async function getSyncFingerprint(userId: string): Promise<{
 
     if (!isNotificationsStorageAvailable()) {
       // Reuse the CRM sample — avoid a second Candidates scan every pulse.
-      // Unread from pulse is unused by the client; fingerprint still moves on CRM edits.
-      const [user, crm] = await Promise.all([
+      const [user, crm, derived] = await Promise.all([
         getUserById(userId),
         crmHeadPromise,
+        getUserById(userId).then((viewer) =>
+          deriveNotificationsForViewer({
+            recipientUserId: userId,
+            partnerId: viewer?.partnerId,
+            accountManagerId: viewer?.accountManagerId,
+            role: viewer?.role,
+            maxRecords: 40,
+          }),
+        ),
       ]);
-      let scoped = crm.rows;
-      if (user?.partnerId) {
-        scoped = scoped.filter((row) => row.partnerId === user.partnerId);
-      } else if (user?.accountManagerId) {
-        const { listJobs } = await import("@/features/jobs/services");
-        const ownedJobs = await listJobs({
-          accountManagerId: user.accountManagerId,
-          includeArchived: true,
-        });
-        const allowed = new Set(ownedJobs.map((job) => job.id));
-        scoped = scoped.filter((row) => allowed.has(row.jobId));
-      }
-      const head = scoped[0];
-      const unread = Math.min(scoped.length, 5);
+      const unread = derived.filter((row) => row.readStatus === "unread").length;
+      const head = derived[0];
       return {
         unread,
         fingerprint: [
           unread,
           head?.id ?? "",
-          head?.submissionDate ?? "",
-          head?.airtableStatus ?? head?.status ?? "",
+          head?.createdAt ?? "",
+          head?.type ?? "",
           crm.crmHead,
         ].join("|"),
       };

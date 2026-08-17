@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { AirtableFields } from "@/lib/airtable/client";
 import {
   AIRTABLE_NOTIFICATION_CATEGORY,
@@ -221,6 +223,32 @@ export function toAirtableNotificationFields(
   }
 
   return fields;
+}
+
+/** Build an in-app Notification row from a publish input (ephemeral / derived). */
+export function notificationFromCreateInput(
+  input: CreateNotificationInput,
+  id?: string,
+): Notification {
+  return {
+    id: id ?? `ephemeral_notif_${randomUUID().replace(/-/g, "").slice(0, 16)}`,
+    notificationCode: null,
+    recipientUserId: input.recipientUserId,
+    title: input.title,
+    description: input.description ?? null,
+    type: input.type,
+    priority: input.priority ?? "medium",
+    category: input.category,
+    entityType: input.entityType ?? null,
+    entityId: input.entityId ?? null,
+    actionUrl: input.actionUrl ?? null,
+    readStatus: "unread",
+    createdAt: new Date().toISOString(),
+    readAt: null,
+    archived: false,
+    metadata: input.metadata ?? null,
+    activityId: input.activityId ?? null,
+  };
 }
 
 export function mapPreferencesRecord(record: {

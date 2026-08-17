@@ -104,10 +104,39 @@ export async function deriveNotificationsForViewer(input: {
     console.error("[notifications] claim derive failed", error);
   }
 
+  try {
+    const { listEphemeralNotificationsForRecipient } = await import(
+      "@/features/notifications/lib/ephemeral-notification-store"
+    );
+    const ephemeral = await listEphemeralNotificationsForRecipient(
+      input.recipientUserId,
+      { maxRecords: input.maxRecords ?? 40 },
+    );
+    const existingKeys = new Set(
+      items.map(
+        (row) =>
+          `${row.type}::${row.entityType ?? ""}::${row.entityId ?? ""}::${row.title}`,
+      ),
+    );
+    for (const row of ephemeral) {
+      const key = `${row.type}::${row.entityType ?? ""}::${row.entityId ?? ""}::${row.title}`;
+      if (existingKeys.has(key)) {
+        continue;
+      }
+      items.push({
+        ...row,
+        readStatus: dismissed.has(row.id) ? "read" : row.readStatus,
+      });
+      existingKeys.add(key);
+    }
+  } catch (error) {
+    console.error("[notifications] ephemeral merge failed", error);
+  }
+
   items.sort((a, b) =>
     (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
   );
-  return items;
+  return items.slice(0, input.maxRecords ?? 40);
 }
 
 async function deriveClaimNotificationsForViewer(input: {

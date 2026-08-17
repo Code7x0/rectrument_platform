@@ -9,7 +9,11 @@ export const NOTIFICATION_READ_COOKIE = "rp_notif_read";
 const MAX_IDS = 120;
 
 export function isDerivedNotificationId(id: string): boolean {
-  return id.startsWith("derived_notif_");
+  return (
+    id.startsWith("derived_notif_") ||
+    id.startsWith("derived_claim_") ||
+    id.startsWith("ephemeral_notif_")
+  );
 }
 
 export async function getDismissedNotificationIds(): Promise<Set<string>> {
