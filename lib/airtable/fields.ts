@@ -4,8 +4,6 @@
  * Default values match the client's Partner Relationship Manager base
  * (`AIRTABLE_COMPAT_MODE=client`). Set `AIRTABLE_COMPAT_MODE=app` only when
  * pointing at a normalized app base that uses the original Title Case names.
- *
- * See docs/AIRTABLE_ALIGNMENT_REPORT.md for the full audit.
  */
 
 export const USERS_TABLE_FIELDS = {
@@ -174,6 +172,37 @@ export const JOBS_TABLE_FIELDS = {
   startDate: "Start Date",
   postedDate: "Posted Date",
   interviewProcess: "Interview Process , R1 - KYC",
+} as const;
+
+/**
+ * New Job Claims table (tblTtaHk1xCdHIZaX).
+ * Foreign keys are text record ids so Jobs/Partners/AM schemas stay untouched.
+ */
+export const JOB_CLAIMS_TABLE_FIELDS = {
+  claimId: "Claim ID",
+  job: "Job",
+  partner: "Talent Partner",
+  accountManager: "Account Manager",
+  status: "Claim Status",
+  requestedAt: "Requested At",
+  reviewedAt: "Reviewed At",
+  rejectionReason: "Rejection Reason",
+  rejectedAt: "Rejected At",
+  reclaimAvailableAt: "Reclaim Available At",
+  reviewedBy: "Reviewed By",
+  allocationId: "Allocation ID",
+} as const;
+
+export const AIRTABLE_JOB_CLAIM_STATUS = {
+  Pending: "pending",
+  Approved: "approved",
+  Rejected: "rejected",
+} as const;
+
+export const DOMAIN_JOB_CLAIM_STATUS_TO_AIRTABLE = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
 } as const;
 
 export const AIRTABLE_ROLE_MAP = {

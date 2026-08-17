@@ -1,16 +1,15 @@
-# Recruiting Partner Management System
+# Talent Platform
 
-Production-ready foundation for a Recruitment Partner Management SaaS built with Next.js 15.
+Next.js recruitment partner platform (Clerk + Airtable), deployed on Vercel.
 
 ## Stack
 
 - Next.js 15 (App Router) + TypeScript
-- Tailwind CSS + shadcn/ui
-- Clerk Authentication
-- Airtable SDK
-- TanStack Query + Axios
+- Tailwind CSS
+- Clerk authentication
+- Airtable
 - React Hook Form + Zod
-- Sonner, Framer Motion, Lucide
+- Framer Motion, Lucide, Sonner
 
 ## Getting started
 
@@ -25,16 +24,14 @@ pnpm dev
 
 | Command | Description |
 |---|---|
-| `pnpm dev` | Start development server |
+| `pnpm dev` | Development server |
 | `pnpm build` | Production build |
 | `pnpm lint` | ESLint |
-| `pnpm format` | Prettier |
 | `pnpm typecheck` | TypeScript check |
+| `pnpm test:unit` | Unit tests |
 
-## Architecture notes
+## Roles
 
-- Public routes: `/`, `/sign-in`, `/sign-up`
-- Protected route groups: `/admin`, `/account-manager`, `/partner`
-- Airtable client lives in `lib/airtable` — no business logic
-- Domain types live in `types/` as placeholders
-- Role-based access control is intentionally not implemented yet
+- `/admin` — Admin
+- `/account-manager` — Account Manager
+- `/partner` — Talent Partner

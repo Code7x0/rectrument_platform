@@ -25,7 +25,8 @@ export type ActionResult<T = unknown> =
   | { success: false; message: string };
 
 function revalidateNotificationPaths() {
-  revalidatePath("/", "layout");
+  // Role layouts already revalidate when their own paths refresh — avoid
+  // wiping the entire app cache tree on every notification mark/archive.
   revalidatePath("/notifications");
   revalidatePath("/notifications/preferences");
   revalidatePath("/admin");

@@ -32,10 +32,17 @@ export function PartnerAvailableJobsPageClient({
   }, [initialJobs]);
 
   const pendingJobs = jobs.filter((job) => job.claimState === "pending");
-  const openJobs = jobs.filter((job) => job.claimState !== "pending");
+  const rejectedJobs = jobs.filter(
+    (job) => job.claimState === "rejected" || job.claimState === "cooling",
+  );
+  const openJobs = jobs.filter((job) => job.claimState === "available");
 
   async function handleClaim(job: PartnerAvailableJob) {
     if (claimingId) {
+      return;
+    }
+    if (job.claimState === "cooling") {
+      toast.error("You cannot reclaim this job yet.");
       return;
     }
     setClaimingId(job.id);
@@ -58,6 +65,7 @@ export function PartnerAvailableJobsPageClient({
                 claimId: result.data.id,
                 claimRequestedAt: result.data.requestedAt,
                 claimRejectionReason: null,
+                claimReclaimAvailableAt: null,
               }
             : row,
         ),
@@ -70,6 +78,7 @@ export function PartnerAvailableJobsPageClient({
               claimId: result.data.id,
               claimRequestedAt: result.data.requestedAt,
               claimRejectionReason: null,
+              claimReclaimAvailableAt: null,
             }
           : current,
       );
@@ -98,11 +107,10 @@ export function PartnerAvailableJobsPageClient({
               <Clock3 className="h-4 w-4 text-[#C2410C]" />
               <div>
                 <h2 className="text-sm font-semibold text-[#0F172A]">
-                  Claims pending approval
+                  Pending claims
                 </h2>
                 <p className="text-xs text-[#64748B]">
-                  Waiting for Account Manager / Admin review. These stay
-                  highlighted until approved or rejected.
+                  Waiting for Account Manager / Admin review.
                 </p>
               </div>
             </div>
@@ -121,20 +129,18 @@ export function PartnerAvailableJobsPageClient({
         ) : null}
 
         <section className="space-y-3">
-          {pendingJobs.length > 0 ? (
-            <div>
-              <h2 className="text-sm font-semibold text-[#0F172A]">
-                Open jobs to claim
-              </h2>
-              <p className="text-xs text-[#64748B]">
-                Request access here. Approved jobs move to Assigned Jobs.
-              </p>
-            </div>
-          ) : null}
+          <div>
+            <h2 className="text-sm font-semibold text-[#0F172A]">
+              Open jobs to claim
+            </h2>
+            <p className="text-xs text-[#64748B]">
+              Request access here. Approved jobs move to Assigned Jobs.
+            </p>
+          </div>
           {openJobs.length === 0 ? (
             <EmptyState
-              title="No other open jobs"
-              description="Your pending claim requests are listed above."
+              title="No open jobs to claim"
+              description="Check pending or rejected claims below, or your Assigned Jobs."
               icon={<Briefcase className="h-5 w-5" />}
             />
           ) : (
@@ -151,6 +157,31 @@ export function PartnerAvailableJobsPageClient({
             </div>
           )}
         </section>
+
+        {rejectedJobs.length > 0 ? (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-sm font-semibold text-[#0F172A]">
+                Rejected claims
+              </h2>
+              <p className="text-xs text-[#64748B]">
+                Historical rejections. Claim Again creates a new claim after the
+                waiting period.
+              </p>
+            </div>
+            <div className="space-y-4">
+              {rejectedJobs.map((job) => (
+                <AvailableJobCard
+                  key={job.id}
+                  job={job}
+                  claiming={claimingId === job.id}
+                  onView={setSelected}
+                  onClaim={handleClaim}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <DetailDrawer
@@ -172,7 +203,11 @@ export function PartnerAvailableJobsPageClient({
                 aria-busy={claimingId === selected.id}
                 onClick={() => void handleClaim(selected)}
               >
-                {claimingId === selected.id ? "Submitting…" : "Claim Job"}
+                {claimingId === selected.id
+                  ? "Submitting…"
+                  : selected.claimState === "rejected"
+                    ? "Claim Again"
+                    : "Claim Job"}
               </Button>
             ) : (
               <Button
@@ -183,7 +218,9 @@ export function PartnerAvailableJobsPageClient({
               >
                 {selected.claimState === "pending"
                   ? "Claim Pending"
-                  : "Assigned"}
+                  : selected.claimState === "cooling"
+                    ? "Waiting to reclaim"
+                    : "Assigned"}
               </Button>
             )
           ) : null

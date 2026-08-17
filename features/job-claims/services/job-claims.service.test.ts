@@ -62,6 +62,7 @@ test("toPartnerAvailableJob strips client identity fields", () => {
     claimId: null,
     claimRequestedAt: null,
     claimRejectionReason: null,
+    claimReclaimAvailableAt: null,
   });
 
   assert.equal(sanitized.title, "Lab Operations");

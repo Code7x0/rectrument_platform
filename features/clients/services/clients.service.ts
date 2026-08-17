@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getRecords, type AirtableFields } from "@/lib/airtable/client";
 import { asLinkedIds } from "@/lib/airtable/compat";
 import { getOptionalEnv } from "@/lib/api/env";
+import { buildRecordIdOrFormula } from "@/lib/airtable/record-id-formula";
 import { listAccountManagerOptions } from "@/services/lookups";
 import { listJobs } from "@/features/jobs/services";
 import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
@@ -30,6 +31,9 @@ import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   CLIENTS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+
+/** Prefer ID formula when the set is small; otherwise one full Clients scan. */
+const CLIENTS_BY_ID_THRESHOLD = 40;
 
 async function listAccountManagerClientIds(
   accountManagerId: string,
@@ -146,6 +150,36 @@ export const getClientById = cache(async function getClientById(
   }
   const [enriched] = await withAccountManagerNames([client]);
   return enriched ?? null;
+});
+
+/**
+ * Fetch a small set of Clients by record id (request-scoped via sorted key).
+ * Falls back to the full Clients scan when the set is large — one list is cheaper
+ * than a huge OR() formula.
+ */
+export async function getClientsByIds(ids: string[]): Promise<Client[]> {
+  const unique = [
+    ...new Set(ids.map((id) => id.trim()).filter((id) => id.startsWith("rec"))),
+  ].sort();
+  if (unique.length === 0) {
+    return [];
+  }
+  if (unique.length > CLIENTS_BY_ID_THRESHOLD) {
+    const all = await listClients({ includeArchived: true });
+    const wanted = new Set(unique);
+    return all.filter((client) => wanted.has(client.id));
+  }
+  return getClientsByIdsCached(unique.join(","));
+}
+
+const getClientsByIdsCached = cache(async (key: string): Promise<Client[]> => {
+  const unique = key.split(",").filter(Boolean);
+  const formula = buildRecordIdOrFormula(unique);
+  if (!formula) {
+    return [];
+  }
+  const rows = await findClients({ filterByFormula: formula });
+  return withAccountManagerNames(rows);
 });
 
 export async function createClient(input: CreateClientInput): Promise<Client> {

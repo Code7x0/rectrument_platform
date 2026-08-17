@@ -18,6 +18,8 @@ const claim: JobClaim = {
   reviewedAt: null,
   reviewedByUserId: null,
   rejectionReason: null,
+  rejectedAt: null,
+  reclaimAvailableAt: null,
   allocationId: null,
 };
 

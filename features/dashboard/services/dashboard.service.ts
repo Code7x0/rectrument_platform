@@ -587,7 +587,15 @@ export async function getAccountManagerDashboardData(
     matchesSubmissionStatusGroup(s, "joined"),
   );
 
-  const awaitingAction = myReviews.slice(0, 8).map((row) => ({
+  const bySubmissionDateDesc = (
+    a: { submissionDate?: string | null },
+    b: { submissionDate?: string | null },
+  ) => (b.submissionDate ?? "").localeCompare(a.submissionDate ?? "");
+
+  const awaitingAction = [...myReviews]
+    .sort(bySubmissionDateDesc)
+    .slice(0, 8)
+    .map((row) => ({
     id: row.id,
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
@@ -596,7 +604,10 @@ export async function getAccountManagerDashboardData(
     meta: row.submissionDate ? formatDate(row.submissionDate) : undefined,
   }));
 
-  const recentCandidateActivity = mySubmissions.slice(0, 6).map((row) => ({
+  const recentCandidateActivity = [...mySubmissions]
+    .sort(bySubmissionDateDesc)
+    .slice(0, 6)
+    .map((row) => ({
     id: row.id,
     title: row.candidateName ?? "Candidate",
     subtitle: row.jobTitle ?? "Job",
@@ -649,6 +660,16 @@ export async function getAccountManagerDashboardData(
         tone: myReviews.length > 0 ? "attention" : "default",
       },
       {
+        id: "screening-todo",
+        label: "Screening to be Completed",
+        value: internalScreening.length,
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "internal_screening",
+        }),
+        hint: "Internal Screening in Progress",
+        tone: internalScreening.length > 0 ? "attention" : "default",
+      },
+      {
         id: "hold",
         label: "On Hold",
         value: onHold.length,
@@ -675,12 +696,26 @@ export async function getAccountManagerDashboardData(
     ],
     funnel: [
       {
+        id: "pending-review",
+        label: "Pending Review",
+        value: myReviews.length,
+        href: candidatesListHref(AM_CANDIDATES, {
+          statusGroup: "pending_review",
+        }),
+      },
+      {
         id: "internal-screening",
-        label: "Internal Screening in Progress",
+        label: "Internal Screening",
         value: internalScreening.length,
         href: candidatesListHref(AM_CANDIDATES, {
           statusGroup: "internal_screening",
         }),
+      },
+      {
+        id: "on-hold",
+        label: "On Hold",
+        value: onHold.length,
+        href: candidatesListHref(AM_CANDIDATES, { statusGroup: "hold" }),
       },
       {
         id: "being-submitted",

@@ -3,6 +3,8 @@
  * + optional paid/processing markers in Partners.Communications.
  */
 
+import { cache } from "react";
+
 import { findRecord, getRecords, updateRecord, type AirtableFields } from "@/lib/airtable/client";
 import { asString } from "@/lib/airtable/compat";
 import {
@@ -57,7 +59,8 @@ function asPayoutStatus(value: string): PayoutStatus | null {
     : null;
 }
 
-export async function derivePayoutsFromClientCrm(): Promise<Payout[]> {
+/** Request-scoped — partner payments pages often call list + summary together. */
+export const derivePayoutsFromClientCrm = cache(async function derivePayoutsFromClientCrm(): Promise<Payout[]> {
   const candidatesTable = getAirtableTableName("candidatesTable");
   const jobsTable = getAirtableTableName("jobsTable");
   const partnersTable = getAirtableTableName("partnersTable");
@@ -168,7 +171,7 @@ export async function derivePayoutsFromClientCrm(): Promise<Payout[]> {
   }
 
   return payouts;
-}
+});
 
 export function isDerivedPayoutId(id: string): boolean {
   return id.startsWith("derived_payout_");

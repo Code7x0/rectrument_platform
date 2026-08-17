@@ -143,7 +143,7 @@ export function SubmitCandidateDialog({
     try {
       const result = await submitCandidateAction(formData);
       if (!result.success) {
-        if (result.duplicates?.length) {
+        if (result.duplicates?.length && !result.blocked) {
           setPendingValues(values);
           setPendingFile(resumeFile);
           setDuplicates(result.duplicates);

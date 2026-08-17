@@ -12,10 +12,3 @@ export function formatCurrency(
   }).format(amount);
 }
 
-export function formatNumber(
-  value: number,
-  locale: string = DEFAULT_LOCALE,
-  options?: Intl.NumberFormatOptions,
-): string {
-  return new Intl.NumberFormat(locale, options).format(value);
-}

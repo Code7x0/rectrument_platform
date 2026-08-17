@@ -7,11 +7,9 @@ import {
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { isClientCompatMode } from "@/lib/airtable/compat";
+import { buildRecordIdOrFormula } from "@/lib/airtable/record-id-formula";
 import { allocateNextJobCodeForClient } from "@/features/shared/services/business-ids.service";
-import {
-  listAccountManagerOptions,
-  listClientOptions,
-} from "@/services/lookups";
+import { listAccountManagerOptions } from "@/services/lookups";
 import type {
   CreateJobInput,
   Job,
@@ -40,6 +38,9 @@ const valueMaps = {
   employmentType: DOMAIN_EMPLOYMENT_TYPE_TO_AIRTABLE,
 };
 
+/** Prefer ID formula when the set is small; otherwise one full Jobs scan. */
+const JOBS_BY_ID_THRESHOLD = 40;
+
 async function withEnrichment(
   jobs: Job[],
 ): Promise<{ jobs: Job[]; clientOwnersById: Map<string, string[]> }> {
@@ -47,23 +48,35 @@ async function withEnrichment(
     return { jobs, clientOwnersById: new Map() };
   }
 
-  const [clients, accountManagers] = await Promise.all([
-    listClientOptions(),
+  const neededClientIds = [
+    ...new Set(
+      jobs
+        .map((job) => job.clientId)
+        .filter((id): id is string => Boolean(id?.startsWith("rec"))),
+    ),
+  ];
+
+  // Small job sets (Partner assigned / getJobById): fetch only needed Clients.
+  // Large admin lists: one full Clients scan remains cheaper than huge OR().
+  const { listClients, getClientsByIds } = await import(
+    "@/features/clients/services"
+  );
+  const [clientRows, accountManagers] = await Promise.all([
+    neededClientIds.length === 0
+      ? Promise.resolve([])
+      : neededClientIds.length <= JOBS_BY_ID_THRESHOLD
+        ? getClientsByIds(neededClientIds)
+        : listClients({ includeArchived: true }),
     listAccountManagerOptions(),
   ]);
-  const clientMap = new Map(clients.map((client) => [client.id, client]));
+  const clientRecordMap = new Map(
+    clientRows.map((client) => [client.id, client]),
+  );
   const amMap = new Map(
     accountManagers.map((am) => [
       am.id,
       { name: am.label, code: am.code ?? null },
     ]),
-  );
-
-  // Need Account Owner ids for inherit — lookup options are labels only.
-  const { listClients } = await import("@/features/clients/services");
-  const clientRows = await listClients({ includeArchived: true });
-  const clientRecordMap = new Map(
-    clientRows.map((client) => [client.id, client]),
   );
   const clientOwnersById = new Map(
     clientRows.map((client) => [
@@ -77,7 +90,6 @@ async function withEnrichment(
   );
 
   const enriched = jobs.map((job) => {
-    const lookup = job.clientId ? clientMap.get(job.clientId) : undefined;
     const clientRecord = job.clientId
       ? clientRecordMap.get(job.clientId)
       : undefined;
@@ -100,11 +112,8 @@ async function withEnrichment(
 
     return {
       ...job,
-      clientName: clientRecord?.name ?? lookup?.label ?? null,
-      clientCode:
-        clientRecord?.clientCode?.trim() ||
-        lookup?.clientCode?.trim() ||
-        null,
+      clientName: clientRecord?.name ?? null,
+      clientCode: clientRecord?.clientCode?.trim() || null,
       accountManagerId,
       accountManagerIds,
       accountManagerUnassigned: job.accountManagerUnassigned,
@@ -204,6 +213,36 @@ export const getJobById = cache(async function getJobById(
   return enrichedJobs[0] ?? null;
 });
 
+/**
+ * Fetch a small set of Jobs by record id, enriched like listJobs.
+ * Falls back to filtering the full Jobs scan when the set is large.
+ */
+export async function listJobsByIds(ids: string[]): Promise<Job[]> {
+  const unique = [
+    ...new Set(ids.map((id) => id.trim()).filter((id) => id.startsWith("rec"))),
+  ].sort();
+  if (unique.length === 0) {
+    return [];
+  }
+  if (unique.length > JOBS_BY_ID_THRESHOLD) {
+    const all = await listJobs({ includeArchived: true });
+    const wanted = new Set(unique);
+    return all.filter((job) => wanted.has(job.id));
+  }
+  return listJobsByIdsCached(unique.join(","));
+}
+
+const listJobsByIdsCached = cache(async (key: string): Promise<Job[]> => {
+  const unique = key.split(",").filter(Boolean);
+  const formula = buildRecordIdOrFormula(unique);
+  if (!formula) {
+    return [];
+  }
+  const jobs = await findJobs({ filterByFormula: formula });
+  const { jobs: enriched } = await withEnrichment(jobs);
+  return enriched;
+});
+
 export async function createJob(
   input: CreateJobInput,
   options?: {
@@ -229,12 +268,26 @@ export async function createJob(
     await attachSampleResume(created.id, options.sampleResumeUpload);
   }
 
-  const refreshed =
+  let refreshed =
     options?.jdUpload ||
     options?.commentAttachmentUpload ||
     options?.sampleResumeUpload
       ? ((await findJobById(created.id)) ?? created)
       : created;
+
+  // Persist Job ID if Airtable dropped the field on create — never overwrite a
+  // different valid code already on the record.
+  if (!refreshed.jobCode?.trim() && jobCode) {
+    const { upsertJobIdMarker } = await import("@/lib/business-ids");
+    await patchJob(created.id, {
+      [JOBS_TABLE_FIELDS.jobId]: jobCode,
+      [JOBS_TABLE_FIELDS.notes]: upsertJobIdMarker(
+        refreshed.notes ?? "",
+        jobCode,
+      ),
+    });
+    refreshed = (await findJobById(created.id)) ?? refreshed;
+  }
   const { jobs: enrichedCreated } = await withEnrichment([refreshed]);
   const job = enrichedCreated[0];
 

@@ -10,22 +10,25 @@ import {
   isLiveDataRefreshPaused,
 } from "@/lib/live-sync";
 
-/** Cheap pulse poll — only full RSC refresh when the fingerprint changes. */
-const PULSE_INTERVAL_MS = 8_000;
 /**
- * Safety-net full refresh even if pulse is quiet (Airtable direct edits).
- * Status changes outside the pulse sample still need a periodic reload.
+ * Pulse hits Clerk + session + Airtable fingerprint work.
+ * An 8s cadence across all open dashboards dominated Vercel Fluid Active CPU.
  */
-const FULL_REFRESH_INTERVAL_MS = 60_000;
+const PULSE_INTERVAL_MS = 45_000;
+/**
+ * Safety-net full RSC refresh. Pulse + mutation `rpms:data` cover normal
+ * updates; avoid re-running every layout/page Airtable tree every minute.
+ */
+const FULL_REFRESH_INTERVAL_MS = 5 * 60_000;
 const MIN_FULL_REFRESH_GAP_MS = 5_000;
 
 /**
  * Soft real-time sync for Airtable-backed RSC pages.
  *
  * Strategy:
- * 1. Poll /api/sync/pulse every 4s (notification + CRM fingerprint)
+ * 1. Poll /api/sync/pulse periodically (notification + CRM fingerprint)
  * 2. Full router.refresh() only when pulse changes, on focus, or after mutations
- * 3. Safety-net full refresh every 15s while the tab is visible (Airtable direct edits)
+ * 3. Infrequent safety-net full refresh while the tab is visible
  */
 export function useLiveDataSync(): void {
   const router = useRouter();

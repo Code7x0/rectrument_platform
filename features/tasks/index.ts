@@ -6,8 +6,4 @@ export type {
 } from "./types";
 export { PRIORITY_SORT_ORDER } from "./types";
 export { listPartnerWorkTasks } from "./services";
-export {
-  PartnerWorkQueue,
-  PartnerWorkQueuePageClient,
-  WorkQueueSkeleton,
-} from "./components";
+export { PartnerWorkQueue } from "./components";

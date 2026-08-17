@@ -32,6 +32,8 @@ export type ActionResult<T = unknown> =
       message: string;
       errors?: string[];
       duplicates?: Candidate[];
+      blocked?: boolean;
+      existingStatus?: string | null;
     };
 
 function revalidateSubmissionPaths() {
@@ -216,6 +218,15 @@ export async function submitCandidateAction(
       });
 
       if (!result.ok) {
+        if (result.reason === "duplicate_blocked") {
+          return {
+            success: false,
+            message: result.message,
+            duplicates: result.duplicates,
+            blocked: true,
+            existingStatus: result.existingStatus,
+          };
+        }
         return {
           success: false,
           message:

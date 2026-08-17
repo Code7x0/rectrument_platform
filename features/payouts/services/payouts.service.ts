@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { getRecords, type AirtableFields } from "@/lib/airtable/client";
 import { PARTNERS_TABLE_FIELDS, PAYOUTS_TABLE_FIELDS } from "@/lib/airtable/fields";
 import { displayBusinessId, isValidPartnerCode } from "@/lib/business-ids";
@@ -193,12 +195,14 @@ export async function listPayouts(
   return applySearchFilter(enriched, search);
 }
 
-export async function listPayoutsForPartner(partnerId: string): Promise<Payout[]> {
+export const listPayoutsForPartner = cache(async function listPayoutsForPartner(
+  partnerId: string,
+): Promise<Payout[]> {
   return listPayouts({
     partnerId,
     includePartnerIdentity: false,
   });
-}
+});
 
 export async function getPayoutById(
   payoutId: string,
@@ -280,7 +284,7 @@ export async function markPayoutEligibleOnJoined(
   }
 
   try {
-    let payout = await ensurePayoutForSubmission(submission);
+    const payout = await ensurePayoutForSubmission(submission);
     if (!payout) {
       return null;
     }
@@ -340,7 +344,7 @@ async function validatePayoutBusinessRules(
     throw new Error("Rejected submissions cannot become payout eligible");
   }
 
-  // Business rule: Joined → Eligible for Payout (docs/10_BUSINESS_RULES_UPDATE.md).
+  // Business rule: Joined → Eligible for Payout.
   if (toStatus === "eligible" && submission.status !== "joined") {
     throw new Error(
       "Payout becomes eligible only after the candidate has Joined",

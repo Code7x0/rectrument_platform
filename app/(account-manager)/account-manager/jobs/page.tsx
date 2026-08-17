@@ -6,10 +6,22 @@ import {
   resolveAccountManagerScopeId,
 } from "@/lib/auth";
 import { JobsPageClient } from "@/features/jobs/components";
-import { listJobs, getJobLocations } from "@/features/jobs/services";
+import { listJobs } from "@/features/jobs/services";
 import { listClients } from "@/features/clients/services";
 import { listSubmissions } from "@/features/submissions/services";
 import { listPartnerOptions } from "@/services/lookups";
+
+function locationsFromJobs(
+  jobs: Array<{ location?: string | null }>,
+): string[] {
+  const locations = new Set<string>();
+  for (const job of jobs) {
+    if (job.location) {
+      locations.add(job.location);
+    }
+  }
+  return Array.from(locations).sort((a, b) => a.localeCompare(b));
+}
 
 export default async function AccountManagerJobsPage() {
   const session = await getAppSession();
@@ -33,7 +45,7 @@ export default async function AccountManagerJobsPage() {
     "archive_allocations",
   );
 
-  const [jobs, assignedClients, accountManagers, partners, locations, submissions] =
+  const [jobs, assignedClients, accountManagers, partners, submissions] =
     await Promise.all([
       listJobs({
         includeArchived: true,
@@ -42,9 +54,9 @@ export default async function AccountManagerJobsPage() {
       listClients({ includeArchived: true, accountManagerId }),
       Promise.resolve([{ id: accountManagerId, label: "You" }]),
       listPartnerOptions("operational"),
-      getJobLocations(),
       listSubmissions({ enrich: false }),
     ]);
+  const locations = locationsFromJobs(jobs);
 
   const codeByClientId = new Map(
     assignedClients.map((client) => [

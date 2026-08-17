@@ -1,5 +1,7 @@
+import { cache } from "react";
+
 import { findActiveAllocationsForPartner } from "@/features/tasks/repositories/tasks.repository";
-import { getJobById } from "@/features/jobs/services";
+import { listJobsByIds } from "@/features/jobs/services";
 import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import { listPartnerSubmissions } from "@/features/submissions/services";
 import type { Allocation } from "@/features/allocations/types";
@@ -54,8 +56,10 @@ export function sortPartnerWorkTasks(
 /**
  * Partner Work Queue — own active allocations on open/on-hold jobs only.
  * Submitted counts come from Candidates (job_partners has no counters).
+ *
+ * Loads only allocated job/client rows (not full Jobs + Clients tables).
  */
-export async function listPartnerWorkTasks(
+export const listPartnerWorkTasks = cache(async function listPartnerWorkTasks(
   partnerId: string,
 ): Promise<PartnerWorkTask[]> {
   if (!partnerId) {
@@ -79,32 +83,26 @@ export async function listPartnerWorkTasks(
     );
   }
 
-  const jobIds = [...new Set(allocations.map((allocation) => allocation.jobId))];
-  const jobResults = await Promise.all(jobIds.map((jobId) => getJobById(jobId)));
-  const jobMap = new Map(
-    jobResults
-      .filter((job): job is Job => job !== null)
-      .map((job) => [job.id, job]),
-  );
+  const jobIds = [
+    ...new Set(allocations.map((allocation) => allocation.jobId).filter(Boolean)),
+  ];
+  const jobs = await listJobsByIds(jobIds);
+  const jobMap = new Map(jobs.map((job) => [job.id, job]));
 
   const clientIds = [
     ...new Set(
-      [...jobMap.values()]
+      jobs
         .map((job) => job.clientId)
-        .filter((id): id is string => Boolean(id)),
+        .filter((id): id is string => Boolean(id?.startsWith("rec"))),
     ),
   ];
-  const { getClientById } = await import("@/features/clients/services");
-  const clientRows = await Promise.all(
-    clientIds.map((id) => getClientById(id).catch(() => null)),
-  );
+  const { getClientsByIds } = await import("@/features/clients/services");
+  const clients = await getClientsByIds(clientIds);
   const workDaysByClientId = new Map<string, number | null>();
-  for (let index = 0; index < clientIds.length; index += 1) {
-    const clientId = clientIds[index]!;
-    const client = clientRows[index];
+  for (const client of clients) {
     workDaysByClientId.set(
-      clientId,
-      typeof client?.workDaysInWeek === "number" ? client.workDaysInWeek : null,
+      client.id,
+      typeof client.workDaysInWeek === "number" ? client.workDaysInWeek : null,
     );
   }
 
@@ -129,4 +127,4 @@ export async function listPartnerWorkTasks(
   }
 
   return sortPartnerWorkTasks(tasks);
-}
+});

@@ -23,6 +23,11 @@ export async function listClientOptions(): Promise<ClientLookupOption[]> {
   const records = await getRecords(getAirtableTableName("clientsTable"), {
     filterByFormula: `OR({${CLIENTS_TABLE_FIELDS.status}} = 'Active', {${CLIENTS_TABLE_FIELDS.status}} = '')`,
     sort: [{ field: CLIENTS_TABLE_FIELDS.name, direction: "asc" }],
+    fields: [
+      CLIENTS_TABLE_FIELDS.name,
+      CLIENTS_TABLE_FIELDS.clientId,
+      CLIENTS_TABLE_FIELDS.accountManager,
+    ],
   });
 
   return records

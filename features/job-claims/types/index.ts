@@ -1,7 +1,7 @@
 import type { JobPriority, JobStatus } from "@/features/jobs/types";
 import type { JobDocument } from "@/features/shared/entities";
 
-/** Application-side claim lifecycle (not Airtable). */
+/** Application-side claim lifecycle. */
 export type JobClaimStatus = "pending" | "approved" | "rejected";
 
 /** Partner-facing claim UI state for an available job. */
@@ -9,10 +9,13 @@ export type PartnerJobClaimUiState =
   | "available"
   | "pending"
   | "approved"
-  | "rejected";
+  | "rejected"
+  | "cooling";
 
 export interface JobClaim {
   id: string;
+  /** Airtable record id when persisted in Job Claims table. */
+  recordId?: string | null;
   partnerId: string;
   jobId: string;
   /** Primary AM to review (from job / client owner). */
@@ -22,6 +25,9 @@ export interface JobClaim {
   reviewedAt: string | null;
   reviewedByUserId: string | null;
   rejectionReason: string | null;
+  rejectedAt: string | null;
+  /** After rejection — Partner may create a NEW claim once this time is reached. */
+  reclaimAvailableAt: string | null;
   /** Set when approval creates an Airtable allocation. */
   allocationId: string | null;
 }
@@ -54,6 +60,7 @@ export interface PartnerAvailableJob {
   claimId: string | null;
   claimRequestedAt: string | null;
   claimRejectionReason: string | null;
+  claimReclaimAvailableAt: string | null;
 }
 
 export interface JobClaimReviewItem {

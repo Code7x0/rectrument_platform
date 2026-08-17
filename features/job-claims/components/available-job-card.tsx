@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { springs, useMotionSafe } from "@/components/motion/presets";
 import { JOB_PRIORITY_LABELS, JOB_STATUS_LABELS } from "@/features/jobs/types";
+import { formatReclaimAvailability } from "@/features/job-claims/lib/reclaim";
 import type {
   PartnerAvailableJob,
   PartnerJobClaimUiState,
@@ -35,7 +36,9 @@ export function claimStateLabel(state: PartnerJobClaimUiState): string {
     case "approved":
       return "Assigned";
     case "rejected":
-      return "Claim Rejected";
+      return "Claim Again";
+    case "cooling":
+      return "Waiting to reclaim";
   }
 }
 
@@ -47,6 +50,9 @@ function ClaimStateBadge({ state }: { state: PartnerJobClaimUiState }) {
     return <Badge variant="success">Assigned</Badge>;
   }
   if (state === "rejected") {
+    return <Badge variant="outline">Claim Rejected — Reclaim available</Badge>;
+  }
+  if (state === "cooling") {
     return <Badge variant="outline">Claim Rejected</Badge>;
   }
   return <Badge variant="secondary">Available</Badge>;
@@ -68,6 +74,7 @@ export function AvailableJobCard({
   const canClaim =
     job.claimState === "available" || job.claimState === "rejected";
   const animate = useMotionSafe();
+  const reclaimLabel = formatReclaimAvailability(job.claimReclaimAvailableAt);
 
   return (
     <motion.article
@@ -123,6 +130,18 @@ export function AvailableJobCard({
         </p>
       ) : null}
 
+      {job.claimState === "cooling" || job.claimState === "rejected" ? (
+        <p className="mt-4 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          {job.claimRejectionReason
+            ? `Rejected: ${job.claimRejectionReason}. `
+            : "Claim rejected. "}
+          {reclaimLabel}
+          {job.claimState === "rejected"
+            ? " You can submit a new claim request."
+            : null}
+        </p>
+      ) : null}
+
       <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-border/80 pt-4">
         <Button type="button" variant="outline" onClick={() => onView(job)}>
           View Job
@@ -134,11 +153,17 @@ export function AvailableJobCard({
             aria-busy={claiming}
             onClick={() => onClaim(job)}
           >
-            {claiming ? "Submitting…" : "Claim Job"}
+            {claiming
+              ? "Submitting…"
+              : job.claimState === "rejected"
+                ? "Claim Again"
+                : "Claim Job"}
           </Button>
         ) : (
           <Button type="button" variant="secondary" disabled>
-            {claimStateLabel(job.claimState)}
+            {job.claimState === "cooling"
+              ? reclaimLabel
+              : claimStateLabel(job.claimState)}
           </Button>
         )}
       </div>
@@ -162,6 +187,7 @@ export function AvailableJobDetailBody({
 }: AvailableJobDetailProps) {
   const canClaim =
     job.claimState === "available" || job.claimState === "rejected";
+  const reclaimLabel = formatReclaimAvailability(job.claimReclaimAvailableAt);
   const jdDocs = job.documents.filter((doc) => doc.label === "Job Description");
   const sampleDocs = job.documents.filter(
     (doc) => doc.label === "Sample Profiling",
@@ -258,6 +284,15 @@ export function AvailableJobDetailBody({
         </p>
       ) : null}
 
+      {job.claimState === "cooling" || job.claimState === "rejected" ? (
+        <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          {job.claimRejectionReason
+            ? `Rejected: ${job.claimRejectionReason}. `
+            : "Claim rejected. "}
+          {reclaimLabel}
+        </p>
+      ) : null}
+
       {!hideInlineClaim && canClaim ? (
         <Button
           type="button"
@@ -266,7 +301,11 @@ export function AvailableJobDetailBody({
           aria-busy={claiming}
           onClick={() => onClaim(job)}
         >
-          {claiming ? "Submitting…" : "Claim Job"}
+          {claiming
+            ? "Submitting…"
+            : job.claimState === "rejected"
+              ? "Claim Again"
+              : "Claim Job"}
         </Button>
       ) : null}
       {!hideInlineClaim && !canClaim ? (

@@ -111,8 +111,15 @@ async function withEnrichment(
     return allocations;
   }
 
+  // job_partners scan already attaches title/code — skip a second full Jobs list when present.
+  const hasInlineJobMeta = allocations.every(
+    (row) => Boolean(row.jobTitle?.trim()) || Boolean(row.jobCode?.trim()),
+  );
+
   const [jobs, partnerMeta, submissionCounts] = await Promise.all([
-    listJobs({ includeArchived: true }),
+    hasInlineJobMeta
+      ? Promise.resolve([] as Awaited<ReturnType<typeof listJobs>>)
+      : listJobs({ includeArchived: true }),
     loadPartnerMetaMap(allocations.map((row) => row.partnerId)),
     getAllocationsMode() === "job_partners"
       ? import("@/features/submissions/services").then(async ({ listSubmissions }) => {
@@ -139,8 +146,8 @@ async function withEnrichment(
     const partnerName = showIdentity
       ? (meta?.identityLabel ?? null)
       : null;
-    const jobCode = job?.jobCode ?? null;
-    const jobTitle = job?.title ?? null;
+    const jobCode = job?.jobCode ?? allocation.jobCode ?? null;
+    const jobTitle = job?.title ?? allocation.jobTitle ?? null;
     const allocationCode = formatAllocationDisplayCode(jobCode, partnerCode, {
       jobTitle,
       partnerLabel: meta?.identityLabel ?? null,

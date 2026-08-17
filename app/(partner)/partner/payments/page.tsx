@@ -22,11 +22,9 @@ export default async function PartnerPaymentsPage() {
     redirect("/unauthorized");
   }
 
-  // Payouts are created on submit — do not re-ensure on every page load.
-  const [payouts, summary] = await Promise.all([
-    listPayoutsForPartner(session.partnerId),
-    getPartnerEarningsSummary(session.partnerId),
-  ]);
+  // One Airtable-backed list — summary is derived in memory (list is request-cached).
+  const payouts = await listPayoutsForPartner(session.partnerId);
+  const summary = await getPartnerEarningsSummary(session.partnerId);
 
   return (
     <PartnerEarningsPageClient

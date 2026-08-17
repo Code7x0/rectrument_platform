@@ -1,25 +1,29 @@
 import { allocatePartner } from "@/features/allocations/services";
 import { listActiveAllocationsForPartner } from "@/features/allocations/services";
-import { getClientById } from "@/features/clients/services";
+import { getClientsByIds } from "@/features/clients/services";
 import { getJobById, listJobs } from "@/features/jobs/services";
 import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
 import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import {
   findActiveClaimForPartnerJob,
   findJobClaimById,
+  findLatestRejectedClaimForPartnerJob,
   insertJobClaim,
   listAllJobClaims,
   listJobClaimsForPartner,
   listPendingJobClaims,
   updateJobClaimStatus,
 } from "@/features/job-claims/repositories/job-claims.repository";
+import {
+  isReclaimAvailable,
+} from "@/features/job-claims/lib/reclaim";
 import type {
   JobClaim,
   JobClaimReviewItem,
   PartnerAvailableJob,
   PartnerJobClaimUiState,
 } from "@/features/job-claims/types";
-import { getPartnerById } from "@/features/partners/services";
+import { getPartnerById, listPartners } from "@/features/partners/services";
 import { operationalPartnerLabel } from "@/features/partners/services/partner-privacy";
 import {
   notifyJobClaimApproved,
@@ -50,6 +54,7 @@ export function toPartnerAvailableJob(
     claimId: string | null;
     claimRequestedAt: string | null;
     claimRejectionReason: string | null;
+    claimReclaimAvailableAt: string | null;
   },
 ): PartnerAvailableJob {
   return {
@@ -74,29 +79,36 @@ export function toPartnerAvailableJob(
     claimId: options.claimId,
     claimRequestedAt: options.claimRequestedAt,
     claimRejectionReason: options.claimRejectionReason,
+    claimReclaimAvailableAt: options.claimReclaimAvailableAt,
   };
 }
 
 async function loadWorkDaysByClientId(
   clientIds: string[],
 ): Promise<Map<string, number | null>> {
-  const unique = [...new Set(clientIds.filter(Boolean))];
+  const needed = [...new Set(clientIds.filter((id) => Boolean(id)))];
   const map = new Map<string, number | null>();
-  await Promise.all(
-    unique.map(async (clientId) => {
-      try {
-        const client = await getClientById(clientId);
-        map.set(
-          clientId,
-          typeof client?.workDaysInWeek === "number"
-            ? client.workDaysInWeek
-            : null,
-        );
-      } catch {
-        map.set(clientId, null);
-      }
-    }),
-  );
+  if (needed.length === 0) {
+    return map;
+  }
+  try {
+    const clients = await getClientsByIds(needed);
+    for (const client of clients) {
+      map.set(
+        client.id,
+        typeof client.workDaysInWeek === "number"
+          ? client.workDaysInWeek
+          : null,
+      );
+    }
+  } catch (error) {
+    console.error("[job-claims] work-days clients load failed", error);
+  }
+  for (const clientId of needed) {
+    if (!map.has(clientId)) {
+      map.set(clientId, null);
+    }
+  }
   return map;
 }
 
@@ -109,6 +121,7 @@ function claimUiStateForJob(
   claimId: string | null;
   claimRequestedAt: string | null;
   claimRejectionReason: string | null;
+  claimReclaimAvailableAt: string | null;
 } {
   if (allocatedJobIds.has(jobId)) {
     const approved = claims.find(
@@ -119,6 +132,7 @@ function claimUiStateForJob(
       claimId: approved?.id ?? null,
       claimRequestedAt: approved?.requestedAt ?? null,
       claimRejectionReason: null,
+      claimReclaimAvailableAt: null,
     };
   }
   const pending = claims.find(
@@ -130,17 +144,20 @@ function claimUiStateForJob(
       claimId: pending.id,
       claimRequestedAt: pending.requestedAt,
       claimRejectionReason: null,
+      claimReclaimAvailableAt: null,
     };
   }
   const rejected = claims
     .filter((c) => c.jobId === jobId && c.status === "rejected")
     .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0];
   if (rejected) {
+    const cooling = !isReclaimAvailable(rejected.reclaimAvailableAt);
     return {
-      claimState: "rejected",
+      claimState: cooling ? "cooling" : "rejected",
       claimId: rejected.id,
       claimRequestedAt: rejected.requestedAt,
       claimRejectionReason: rejected.rejectionReason,
+      claimReclaimAvailableAt: rejected.reclaimAvailableAt,
     };
   }
   return {
@@ -148,6 +165,7 @@ function claimUiStateForJob(
     claimId: null,
     claimRequestedAt: null,
     claimRejectionReason: null,
+    claimReclaimAvailableAt: null,
   };
 }
 
@@ -159,7 +177,7 @@ export async function listPartnerAvailableJobs(
   partnerId: string,
 ): Promise<PartnerAvailableJob[]> {
   const [jobs, allocations, claims] = await Promise.all([
-    listJobs({ includeArchived: false }),
+    listJobs({ includeArchived: false, status: "open" }),
     listActiveAllocationsForPartner(partnerId),
     listJobClaimsForPartner(partnerId).catch((error) => {
       console.error("[job-claims] partner claims read failed", error);
@@ -237,6 +255,19 @@ export async function createPartnerJobClaim(input: {
     throw new Error("This job is already assigned to you");
   }
 
+  const latestRejected = await findLatestRejectedClaimForPartnerJob(
+    input.partnerId,
+    input.jobId,
+  );
+  if (
+    latestRejected &&
+    !isReclaimAvailable(latestRejected.reclaimAvailableAt)
+  ) {
+    throw new Error(
+      "You cannot reclaim this job yet. Please wait until the reclaim period ends.",
+    );
+  }
+
   const accountManagerIds = Array.from(
     new Set(
       [
@@ -270,36 +301,30 @@ export async function createPartnerJobClaim(input: {
   return claim;
 }
 
-export async function listJobClaimsForReview(options: {
-  /** When set, only claims for these job ids (AM scope). */
-  jobIds?: string[] | null;
-}): Promise<JobClaimReviewItem[]> {
-  const claims = await listAllJobClaims();
-  let scoped = claims;
-  if (options.jobIds) {
-    const allowed = new Set(options.jobIds);
-    scoped = claims.filter((claim) => allowed.has(claim.jobId));
+async function enrichClaimsForReview(
+  claims: JobClaim[],
+): Promise<JobClaimReviewItem[]> {
+  if (claims.length === 0) {
+    return [];
   }
 
-  const partnerIds = [...new Set(scoped.map((c) => c.partnerId))];
-  const jobIds = [...new Set(scoped.map((c) => c.jobId))];
+  const partnerIds = new Set(claims.map((c) => c.partnerId));
+  const jobIds = new Set(claims.map((c) => c.jobId));
+
+  // Batch lists instead of N getPartnerById / getJobById finds.
   const [partners, jobs] = await Promise.all([
-    Promise.all(partnerIds.map((id) => getPartnerById(id))),
-    Promise.all(jobIds.map((id) => getJobById(id))),
+    listPartners({ includeArchived: true }),
+    listJobs({ includeArchived: true }),
   ]);
   const partnerMap = new Map(
-    partners
-      .filter((row): row is NonNullable<typeof row> => Boolean(row))
-      .map((row) => [row.id, row]),
+    partners.filter((row) => partnerIds.has(row.id)).map((row) => [row.id, row]),
   );
   const jobMap = new Map(
-    jobs
-      .filter((row): row is NonNullable<typeof row> => Boolean(row))
-      .map((row) => [row.id, row]),
+    jobs.filter((row) => jobIds.has(row.id)).map((row) => [row.id, row]),
   );
 
   const items: JobClaimReviewItem[] = [];
-  for (const claim of scoped) {
+  for (const claim of claims) {
     const job = jobMap.get(claim.jobId);
     const partner = partnerMap.get(claim.partnerId);
     if (!job || !partner) {
@@ -331,19 +356,33 @@ export async function listJobClaimsForReview(options: {
   });
 }
 
+export async function listJobClaimsForReview(options: {
+  /** When set, only claims for these job ids (AM scope). */
+  jobIds?: string[] | null;
+}): Promise<JobClaimReviewItem[]> {
+  const claims = await listAllJobClaims();
+  let scoped = claims;
+  if (options.jobIds) {
+    const allowed = new Set(options.jobIds);
+    scoped = claims.filter((claim) => allowed.has(claim.jobId));
+  }
+  return enrichClaimsForReview(scoped);
+}
+
 export async function listJobClaimsForAccountManager(
   accountManagerId: string,
 ): Promise<JobClaimReviewItem[]> {
   const { listAccountManagerJobIds } = await import("@/lib/auth/scope");
-  const jobIds = await listAccountManagerJobIds(accountManagerId);
-  // Also include pending claims explicitly routed to this AM (job may lack owner tag).
-  const all = await listJobClaimsForReview({});
+  const [jobIds, allClaims] = await Promise.all([
+    listAccountManagerJobIds(accountManagerId),
+    listAllJobClaims(),
+  ]);
   const owned = new Set(jobIds);
-  return all.filter(
-    (item) =>
-      owned.has(item.claim.jobId) ||
-      item.claim.accountManagerId === accountManagerId,
+  const scoped = allClaims.filter(
+    (claim) =>
+      owned.has(claim.jobId) || claim.accountManagerId === accountManagerId,
   );
+  return enrichClaimsForReview(scoped);
 }
 
 export async function listJobClaimsForAdmin(): Promise<JobClaimReviewItem[]> {

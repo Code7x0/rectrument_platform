@@ -359,8 +359,8 @@ export async function getSyncFingerprint(userId: string): Promise<{
       "@/lib/airtable/fields"
     );
 
-    // Sample recent + a wider status digest so Airtable-only status edits
-    // (Hold → Candidate Backed Out, etc.) bump the pulse for other viewers.
+    // Fingerprint sample only — not a data payload. Cap rows to limit Airtable
+    // page size + mapping cost on every open dashboard tab.
     const crmHeadPromise = findSubmissionsSafe({
       sort: [
         {
@@ -368,11 +368,10 @@ export async function getSyncFingerprint(userId: string): Promise<{
           direction: "desc",
         },
       ],
-      maxRecords: 100,
+      maxRecords: 40,
     })
       .then((rows) => {
         const detail = rows
-          .slice(0, 40)
           .map((row) =>
             [
               row.id,
@@ -390,31 +389,41 @@ export async function getSyncFingerprint(userId: string): Promise<{
           .map((row) => `${row.id}:${row.airtableStatus ?? row.status}`)
           .sort()
           .join(",");
-        return `${detail}#${statusDigest}`;
+        return { crmHead: `${detail}#${statusDigest}`, rows };
       })
-      .catch(() => "");
+      .catch(() => ({ crmHead: "", rows: [] as Awaited<
+        ReturnType<typeof findSubmissionsSafe>
+      > }));
 
     if (!isNotificationsStorageAvailable()) {
-      const user = await getUserById(userId);
-      const [derived, crmHead] = await Promise.all([
-        deriveNotificationsForViewer({
-          recipientUserId: userId,
-          partnerId: user?.partnerId,
-          accountManagerId: user?.accountManagerId,
-          role: user?.role,
-          maxRecords: 5,
-        }),
+      // Reuse the CRM sample — avoid a second Candidates scan every pulse.
+      // Unread from pulse is unused by the client; fingerprint still moves on CRM edits.
+      const [user, crm] = await Promise.all([
+        getUserById(userId),
         crmHeadPromise,
       ]);
-      const unread = derived.filter((row) => row.readStatus === "unread").length;
-      const head = derived[0];
+      let scoped = crm.rows;
+      if (user?.partnerId) {
+        scoped = scoped.filter((row) => row.partnerId === user.partnerId);
+      } else if (user?.accountManagerId) {
+        const { listJobs } = await import("@/features/jobs/services");
+        const ownedJobs = await listJobs({
+          accountManagerId: user.accountManagerId,
+          includeArchived: true,
+        });
+        const allowed = new Set(ownedJobs.map((job) => job.id));
+        scoped = scoped.filter((row) => allowed.has(row.jobId));
+      }
+      const head = scoped[0];
+      const unread = Math.min(scoped.length, 5);
       return {
         unread,
         fingerprint: [
           unread,
           head?.id ?? "",
-          head?.createdAt ?? "",
-          crmHead,
+          head?.submissionDate ?? "",
+          head?.airtableStatus ?? head?.status ?? "",
+          crm.crmHead,
         ].join("|"),
       };
     }
@@ -429,7 +438,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
       archived: false,
     });
 
-    const [latest, unreadRows, crmHead] = await Promise.all([
+    const [latest, unreadRows, crm] = await Promise.all([
       findNotifications({
         filterByFormula: recipientFormula,
         sort: [
@@ -453,7 +462,7 @@ export async function getSyncFingerprint(userId: string): Promise<{
         head?.id ?? "",
         head?.createdAt ?? "",
         head?.readStatus ?? "",
-        crmHead,
+        crm.crmHead,
       ].join("|"),
     };
   } catch (error) {

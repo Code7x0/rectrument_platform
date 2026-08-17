@@ -3,7 +3,6 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { ReactNode } from "react";
 
-import { QueryProvider } from "@/components/providers/query-provider";
 import { ToasterProvider } from "@/components/providers/toaster-provider";
 import { CurrentUserProvider } from "@/providers/current-user-provider";
 import type { AppSession } from "@/types";
@@ -25,12 +24,10 @@ export function AppProviders({
       signInFallbackRedirectUrl="/auth/callback"
       signUpFallbackRedirectUrl="/sign-in"
     >
-      <QueryProvider>
-        <CurrentUserProvider session={session}>
-          {children}
-          <ToasterProvider />
-        </CurrentUserProvider>
-      </QueryProvider>
+      <CurrentUserProvider session={session}>
+        {children}
+        <ToasterProvider />
+      </CurrentUserProvider>
     </ClerkProvider>
   );
 }

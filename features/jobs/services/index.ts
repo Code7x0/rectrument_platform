@@ -6,6 +6,7 @@ export {
   getJobById,
   getJobLocations,
   listJobs,
+  listJobsByIds,
   removeJobAttachment,
   updateJob,
 } from "./jobs.service";

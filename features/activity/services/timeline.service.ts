@@ -148,7 +148,7 @@ export async function getGlobalTimeline(
   try {
     const [access, activities] = await Promise.all([
       resolveViewerAccessKeys(session),
-      listActivities({ maxRecords: 400 }),
+      listActivities({ maxRecords: 200 }),
     ]);
     return enrichAndFilter(activities, session, filters, access);
   } catch (error) {
@@ -192,7 +192,7 @@ export async function getEntityTimeline(
         ref.kind === "document" ? "partner_document" : ref.kind;
       activities = await listActivitiesForEntity(entityType, ref.id);
     } else {
-      activities = await listActivities({ maxRecords: 400 });
+      activities = await listActivities({ maxRecords: 200 });
     }
 
     const access =

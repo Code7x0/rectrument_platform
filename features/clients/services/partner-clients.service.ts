@@ -1,11 +1,13 @@
 import { listActiveAllocationsForPartner } from "@/features/allocations/services";
-import { getClientById } from "@/features/clients/services";
-import { listJobs } from "@/features/jobs/services";
+import { getClientsByIds } from "@/features/clients/services";
+import { listJobsByIds } from "@/features/jobs/services";
 import type { PartnerClientView } from "@/features/shared/entities";
 
 /**
  * Clients related to a partner's assigned jobs only.
  * Derived from Allocations/Jobs.Client — no Partners.Clients reverse link required.
+ *
+ * Fetches only allocated jobs + those clients (not full CRM tables).
  */
 export async function listPartnerAssignedClients(
   partnerId: string,
@@ -15,14 +17,14 @@ export async function listPartnerAssignedClients(
     return [];
   }
 
-  const jobIds = [...new Set(allocations.map((row) => row.jobId))];
-  const jobs = await listJobs({ includeArchived: true });
-  const jobMap = new Map(jobs.map((job) => [job.id, job]));
+  const jobIds = [
+    ...new Set(allocations.map((row) => row.jobId).filter(Boolean)),
+  ];
+  const jobs = await listJobsByIds(jobIds);
 
   const titlesByClient = new Map<string, string[]>();
-  for (const jobId of jobIds) {
-    const job = jobMap.get(jobId);
-    if (!job?.clientId) {
+  for (const job of jobs) {
+    if (!job.clientId) {
       continue;
     }
     const titles = titlesByClient.get(job.clientId) ?? [];
@@ -33,11 +35,11 @@ export async function listPartnerAssignedClients(
   }
 
   const clientIds = [...titlesByClient.keys()];
-  const clients = await Promise.all(
-    clientIds.map((id) => getClientById(id).catch(() => null)),
-  );
+  const clients = await getClientsByIds(clientIds);
+  const clientMap = new Map(clients.map((client) => [client.id, client]));
 
-  return clients
+  return clientIds
+    .map((clientId) => clientMap.get(clientId))
     .filter((client): client is NonNullable<typeof client> => Boolean(client))
     .map((client) => ({
       id: client.id,

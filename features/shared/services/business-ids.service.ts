@@ -155,14 +155,19 @@ export async function allocateNextJobCodeForClient(
   }
   clientCode = clientCode.trim().toUpperCase();
 
-  // ARRAYJOIN({Client}) returns client names, not record ids — filter in memory.
+  // Prefer jobs linked to this client record; fall back to code prefix only when
+  // clientId is missing on legacy rows.
   const allJobs = await findJobs({});
   const codes = allJobs
-    .filter(
-      (j) =>
-        j.clientId === clientRecordId ||
-        j.jobCode.startsWith(`${clientCode}_`),
-    )
+    .filter((j) => {
+      if (j.clientId === clientRecordId) {
+        return true;
+      }
+      if (!j.clientId && j.jobCode.startsWith(`${clientCode}_`)) {
+        return true;
+      }
+      return false;
+    })
     .map((j) => j.jobCode)
     .filter(Boolean);
 

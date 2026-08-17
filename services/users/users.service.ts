@@ -47,6 +47,10 @@ import {
   buildEmailLookupFormula,
 } from "./users.validation";
 
+/** Avoid rewriting Last Login on every pulse/layout session resolve. */
+const LAST_LOGIN_MIN_INTERVAL_MS = 60 * 60 * 1000;
+const lastLoginWrittenAt = new Map<string, number>();
+
 function getUsersTableName(): string {
   return getAirtableTableName("usersTable");
 }
@@ -253,6 +257,14 @@ export async function updateClerkId(
 }
 
 export async function updateLastLogin(userId: string): Promise<void> {
+  // Pulse + layout hit getAppSession constantly — throttle Partner/AM writes.
+  const now = Date.now();
+  const prev = lastLoginWrittenAt.get(userId) ?? 0;
+  if (now - prev < LAST_LOGIN_MIN_INTERVAL_MS) {
+    return;
+  }
+  lastLoginWrittenAt.set(userId, now);
+
   if (isClientIdentityMode()) {
     await clientUpdateLastLogin(userId);
     return;

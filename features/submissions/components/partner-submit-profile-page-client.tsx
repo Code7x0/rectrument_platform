@@ -86,7 +86,7 @@ export function PartnerSubmitProfilePageClient({
     try {
       const result = await submitCandidateAction(formData);
       if (!result.success) {
-        if (result.duplicates?.length) {
+        if (result.duplicates?.length && !(result as { blocked?: boolean }).blocked) {
           setPendingValues(values);
           setPendingFile(resumeFile);
           setDuplicates(result.duplicates);

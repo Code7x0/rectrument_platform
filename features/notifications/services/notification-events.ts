@@ -921,3 +921,64 @@ export function notifyJobClaimRejected(input: {
     }),
   );
 }
+
+/** Partner attempted to submit a candidate that matches an existing mobile. */
+export function notifyDuplicateCandidateAttempt(input: {
+  accountManagerId?: string | null;
+  accountManagerIds?: string[] | null;
+  partnerId: string;
+  partnerLabel: string;
+  jobTitle: string;
+  jobCode?: string | null;
+  candidateName: string;
+  existingStatus: string;
+  matchedCandidateId: string;
+}): void {
+  const label = input.jobCode?.trim() || input.jobTitle;
+  const description = `${input.partnerLabel} attempted to submit ${input.candidateName} for ${label}. Existing candidate status: ${input.existingStatus}. No duplicate was created.`;
+
+  const amIds = Array.from(
+    new Set(
+      [
+        ...(input.accountManagerIds ?? []),
+        input.accountManagerId ?? null,
+      ]
+        .map((id) => id?.trim())
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  for (const accountManagerId of amIds) {
+    safe(
+      findAccountManagerUserId(accountManagerId).then(async (userId) => {
+        if (!userId) {
+          return;
+        }
+        await publishNotification({
+          recipientUserId: userId,
+          title: "Duplicate candidate attempt",
+          description,
+          type: "candidate",
+          category: "candidates",
+          priority: "high",
+          entityType: "submission",
+          entityId: input.matchedCandidateId,
+          actionUrl: "/account-manager/candidates",
+        });
+      }),
+    );
+  }
+
+  safe(
+    notifyRole("admin", {
+      title: "Duplicate candidate attempt",
+      description,
+      type: "candidate",
+      category: "candidates",
+      priority: "medium",
+      entityType: "submission",
+      entityId: input.matchedCandidateId,
+      actionUrl: "/admin/candidates",
+    }),
+  );
+}

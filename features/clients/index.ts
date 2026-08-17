@@ -12,6 +12,7 @@ export {
   createClient,
   deleteClient,
   getClientById,
+  getClientsByIds,
   getClientWorkspaceStats,
   listClients,
   updateClient,

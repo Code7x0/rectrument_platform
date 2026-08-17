@@ -41,6 +41,7 @@ function allocationFromJobPartner(
   jobId: string,
   partnerId: string,
   assignedById: string | null = null,
+  jobMeta: { title?: string | null; jobCode?: string | null } = {},
 ): Allocation {
   const id = buildJobPartnerAllocationId(jobId, partnerId);
   return {
@@ -48,8 +49,8 @@ function allocationFromJobPartner(
     // Placeholder — withEnrichment sets JOBCODE-PARTNERCODE (never ALL-rec…).
     allocationCode: "",
     jobId,
-    jobTitle: null,
-    jobCode: null,
+    jobTitle: jobMeta.title ?? null,
+    jobCode: jobMeta.jobCode ?? null,
     partnerId,
     partnerCode: null,
     partnerName: null,
@@ -81,6 +82,7 @@ async function findAllocationsFromJobPartners(
     // Ignore allocation-table formulas; filter in memory below when possible.
     fields: [
       JOBS_TABLE_FIELDS.title,
+      JOBS_TABLE_FIELDS.jobId,
       JOBS_TABLE_FIELDS.partners,
       JOBS_TABLE_FIELDS.status,
       JOBS_TABLE_FIELDS.notes,
@@ -90,12 +92,21 @@ async function findAllocationsFromJobPartners(
   const allocations: Allocation[] = [];
   for (const job of jobRecords) {
     const fields = job.fields as AirtableFields;
+    const title =
+      typeof fields[JOBS_TABLE_FIELDS.title] === "string"
+        ? (fields[JOBS_TABLE_FIELDS.title] as string)
+        : null;
+    const jobCode =
+      typeof fields[JOBS_TABLE_FIELDS.jobId] === "string"
+        ? (fields[JOBS_TABLE_FIELDS.jobId] as string)
+        : null;
     for (const partnerId of jobPartnerIds(fields)) {
       allocations.push(
         allocationFromJobPartner(
           job.id,
           partnerId,
           assignedByFromJobFields(fields, partnerId),
+          { title, jobCode },
         ),
       );
     }

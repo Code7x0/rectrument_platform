@@ -44,6 +44,7 @@ export const AIRTABLE_ENV_KEYS = {
   jobsTable: "AIRTABLE_JOBS_TABLE",
   partnersTable: "AIRTABLE_PARTNERS_TABLE",
   candidatesTable: "AIRTABLE_CANDIDATES_TABLE",
+  jobClaimsTable: "AIRTABLE_JOB_CLAIMS_TABLE",
   submissionsTable: "AIRTABLE_SUBMISSIONS_TABLE",
   allocationsTable: "AIRTABLE_ALLOCATIONS_TABLE",
   documentsTable: "AIRTABLE_DOCUMENTS_TABLE",

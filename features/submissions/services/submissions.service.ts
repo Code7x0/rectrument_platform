@@ -167,6 +167,13 @@ export type SubmitCandidateResult =
       ok: false;
       reason: "duplicate";
       duplicates: Candidate[];
+    }
+  | {
+      ok: false;
+      reason: "duplicate_blocked";
+      message: string;
+      existingStatus: string | null;
+      duplicates: Candidate[];
     };
 
 /**
@@ -280,7 +287,7 @@ async function listPartnerLinkedCandidateIds(
   }
 }
 
-export async function listPartnerSubmissions(
+export const listPartnerSubmissions = cache(async function listPartnerSubmissions(
   partnerId: string,
 ): Promise<Submission[]> {
   if (!partnerId) {
@@ -317,7 +324,7 @@ export async function listPartnerSubmissions(
   return [...linked, ...extras].sort((a, b) =>
     (b.submissionDate ?? "").localeCompare(a.submissionDate ?? ""),
   );
-}
+});
 
 export async function getSubmissionById(
   submissionId: string,
@@ -493,6 +500,63 @@ export async function submitCandidateForAllocation(
     const prior = await listSubmissions({ partnerId: payload.partnerId });
     const ownedIds = new Set(prior.map((row) => row.candidateId));
     const ownedDuplicates = duplicates.filter((row) => ownedIds.has(row.id));
+    const foreignDuplicates = duplicates.filter(
+      (row) => !ownedIds.has(row.id),
+    );
+
+    // Other partners' candidates with same mobile — never create a duplicate.
+    if (foreignDuplicates.length > 0) {
+      const { evaluateDuplicateCandidatePolicy } = await import(
+        "@/features/submissions/lib/duplicate-candidate-policy"
+      );
+      const matchedIds = new Set(foreignDuplicates.map((row) => row.id));
+      const relatedSubs = (await listSubmissions({ enrich: false })).filter(
+        (row) =>
+          matchedIds.has(row.candidateId) || matchedIds.has(row.id),
+      );
+      const policy = evaluateDuplicateCandidatePolicy(relatedSubs);
+      if (policy.action !== "allow") {
+        if (policy.action === "block_alert_am") {
+          const job = await getJobById(payload.jobId);
+          const { getPartnerById } = await import(
+            "@/features/partners/services"
+          );
+          const { operationalPartnerLabel } = await import(
+            "@/features/partners/services/partner-privacy"
+          );
+          const { notifyDuplicateCandidateAttempt } = await import(
+            "@/features/notifications/services/notification-events"
+          );
+          const partner = await getPartnerById(payload.partnerId);
+          notifyDuplicateCandidateAttempt({
+            accountManagerId: job?.accountManagerId ?? null,
+            accountManagerIds: job?.accountManagerIds ?? null,
+            partnerId: payload.partnerId,
+            partnerLabel: partner
+              ? operationalPartnerLabel(partner)
+              : "Talent Partner",
+            jobTitle: job?.title ?? "Job",
+            jobCode: job?.jobCode,
+            candidateName: payload.form.fullName,
+            existingStatus: policy.existingStatus,
+            matchedCandidateId: foreignDuplicates[0]!.id,
+          });
+          console.info("[submissions] duplicate attempt blocked", {
+            partnerId: payload.partnerId,
+            jobId: payload.jobId,
+            matchedCandidateId: foreignDuplicates[0]!.id,
+            existingStatus: policy.existingStatus,
+          });
+        }
+        return {
+          ok: false,
+          reason: "duplicate_blocked",
+          message: policy.message,
+          existingStatus: policy.existingStatus,
+          duplicates: foreignDuplicates,
+        };
+      }
+    }
 
     if (ownedDuplicates.length > 0) {
       const ownedDupIds = new Set(ownedDuplicates.map((row) => row.id));

@@ -2,13 +2,25 @@ import { redirect } from "next/navigation";
 
 import { getAppSession, isAdmin, roleHasPermission } from "@/lib/auth";
 import { JobsPageClient } from "@/features/jobs/components";
-import { listJobs, getJobLocations } from "@/features/jobs/services";
+import { listJobs } from "@/features/jobs/services";
 import { listSubmissions } from "@/features/submissions/services";
 import {
   listAccountManagerOptions,
   listClientOptions,
   listPartnerOptions,
 } from "@/services/lookups";
+
+function locationsFromJobs(
+  jobs: Array<{ location?: string | null }>,
+): string[] {
+  const locations = new Set<string>();
+  for (const job of jobs) {
+    if (job.location) {
+      locations.add(job.location);
+    }
+  }
+  return Array.from(locations).sort((a, b) => a.localeCompare(b));
+}
 
 async function loadJobsPageData() {
   const session = await getAppSession();
@@ -28,15 +40,15 @@ async function loadJobsPageData() {
     "archive_allocations",
   );
 
-  const [jobs, clients, accountManagers, partners, locations, submissions] =
+  const [jobs, clients, accountManagers, partners, submissions] =
     await Promise.all([
       listJobs({ includeArchived: true }),
       listClientOptions(),
       listAccountManagerOptions(),
       listPartnerOptions("identity"),
-      getJobLocations(),
       listSubmissions({ enrich: false }),
     ]);
+  const locations = locationsFromJobs(jobs);
 
   const submittedByJobId: Record<string, number> = {};
   for (const row of submissions) {

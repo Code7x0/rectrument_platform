@@ -66,6 +66,8 @@ export function parseClaimMarkers(
       reviewedAt: match[6]?.trim() ? match[6].trim() : null,
       reviewedByUserId: match[7]?.trim() ? match[7].trim() : null,
       rejectionReason: dec(match[8]),
+      rejectedAt: null,
+      reclaimAvailableAt: null,
       allocationId: match[9]?.trim() ? match[9].trim() : null,
     });
   }
