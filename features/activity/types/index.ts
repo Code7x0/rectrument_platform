@@ -110,6 +110,7 @@ export const ACTIVITY_ENTITY_LABELS: Record<ActivityEntityType, string> = {
   partner_document: "Document",
   payout: "Payout",
   user: "User",
+  job: "Job",
 };
 
 export const ALL_ACTIVITY_ACTIONS = Object.keys(

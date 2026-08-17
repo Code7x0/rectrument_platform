@@ -4,7 +4,8 @@ export type ActivityEntityType =
   | "submission"
   | "partner_document"
   | "payout"
-  | "user";
+  | "user"
+  | "job";
 
 export type ActivityAction =
   | "status_change"

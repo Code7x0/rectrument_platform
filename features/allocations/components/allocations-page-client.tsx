@@ -30,6 +30,7 @@ interface AllocationsPageClientProps {
   viewerUserId?: string | null;
   viewerRole?: UserRole | null;
   breadcrumbs: Array<{ label: string; href?: string }>;
+  title?: string;
 }
 
 function applyClientFilters(
@@ -84,6 +85,7 @@ export function AllocationsPageClient({
   viewerUserId = null,
   viewerRole = null,
   breadcrumbs,
+  title = "Allocations",
 }: AllocationsPageClientProps) {
   const router = useRouter();
   const [filters, setFilters] = useState<AllocationListFilters>({
@@ -133,7 +135,7 @@ export function AllocationsPageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title="Allocations"
+        title={`${title} (${filtered.length})`}
         description="Inspect talent partner allocations. Account Managers allocate from Jobs; Admin has view-only access."
       />
 

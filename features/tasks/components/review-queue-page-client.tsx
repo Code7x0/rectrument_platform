@@ -538,10 +538,10 @@ export function ReviewQueuePageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title={
+        title={`${
           title ??
           (canTransition ? "Review Queue" : "Candidates")
-        }
+        } (${filteredRows.length})`}
         description={
           description ??
           (canTransition

@@ -146,7 +146,7 @@ export function ClientsPageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title="Clients"
+        title={`Clients (${filtered.length})`}
         description={
           isAmPath
             ? "Your assigned clients by Client ID. Open a workspace to manage jobs and talent partners."

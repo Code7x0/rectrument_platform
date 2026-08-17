@@ -6,7 +6,10 @@ import {
 } from "@/lib/airtable/client";
 import { getOptionalAirtableTableName } from "@/lib/airtable/tables";
 import { mapActivityRecord } from "@/features/workflows/services/activities.mapper";
-import { deriveActivitiesFromCandidates } from "@/features/workflows/services/activities.derived";
+import {
+  deriveActivitiesFromCandidates,
+  deriveActivitiesFromJobClaims,
+} from "@/features/workflows/services/activities.derived";
 import type { Activity } from "@/features/workflows/types";
 import { ACTIVITIES_TABLE_FIELDS } from "@/lib/airtable/fields";
 
@@ -24,8 +27,12 @@ export async function findActivities(
   const table = getTableName();
   if (!table) {
     try {
-      const derived = await deriveActivitiesFromCandidates(
-        options.maxRecords ?? 200,
+      const [derivedCandidates, derivedClaims] = await Promise.all([
+        deriveActivitiesFromCandidates(options.maxRecords ?? 200),
+        deriveActivitiesFromJobClaims(80),
+      ]);
+      const derived = [...derivedCandidates, ...derivedClaims].sort((a, b) =>
+        (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
       );
       const formula = options.filterByFormula ?? "";
       if (formula.includes("Entity ID")) {
@@ -34,7 +41,7 @@ export async function findActivities(
           return derived.filter((row) => row.entityId === idMatch[1]);
         }
       }
-      return derived;
+      return derived.slice(0, options.maxRecords ?? 200);
     } catch (error) {
       console.error("Failed to derive activities", error);
       return [];

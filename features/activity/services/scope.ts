@@ -56,6 +56,7 @@ export async function resolveEntityAccessKeys(
     case "job": {
       const submissions = await listSubmissions({ jobId: ref.id });
       const keys = new Set<string>();
+      keys.add(activityEntityKey("job", ref.id));
       for (const row of submissions) {
         keys.add(activityEntityKey("submission", row.id));
       }

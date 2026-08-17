@@ -22,6 +22,7 @@ const ENTITY_ICONS: Record<
   partner_document: FileText,
   payout: Wallet,
   user: Shield,
+  job: Briefcase,
 };
 
 const ACTION_ICONS: Partial<

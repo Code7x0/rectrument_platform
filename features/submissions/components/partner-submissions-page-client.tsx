@@ -243,7 +243,7 @@ export function PartnerSubmissionsPageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title="My Candidates"
+        title={`My Candidates (${filteredRows.length})`}
         description="Track status, interview stage, Screening Matrix, and Internal Feedback."
       />
 

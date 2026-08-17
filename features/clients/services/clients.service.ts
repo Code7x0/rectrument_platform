@@ -299,9 +299,27 @@ export async function getClientWorkspaceStats(
   );
 
   const visibleJobs = jobs.filter((j) => j.status !== "archived");
+  const jobIdList = visibleJobs.map((job) => job.id);
+  let partnerCount = 0;
+  if (jobIdList.length > 0) {
+    const { listAllocations } = await import(
+      "@/features/allocations/services"
+    );
+    const allocations = await listAllocations({
+      jobIds: jobIdList,
+      includePartnerIdentity: false,
+    });
+    partnerCount = new Set(
+      allocations
+        .filter((row) => row.status !== "archived")
+        .map((row) => row.partnerId)
+        .filter(Boolean),
+    ).size;
+  }
+
   return {
     jobCount: visibleJobs.length,
-    partnerCount: 0,
+    partnerCount,
     candidateCount: candidateIds.size,
     activeRoleCount: visibleJobs.filter(
       (job) => isAssignableJobStatus(job.status),

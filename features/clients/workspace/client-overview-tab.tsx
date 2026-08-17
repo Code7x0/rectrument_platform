@@ -40,12 +40,20 @@ interface ClientOverviewTabProps {
   stats: ClientWorkspaceStats;
   /** Account Managers see Client ID, not commercial name. */
   hideClientName?: boolean;
+  jobsHref?: string;
+  partnersHref?: string;
+  candidatesHref?: string;
+  activityHref?: string;
 }
 
 export function ClientOverviewTab({
   client,
   stats,
   hideClientName = false,
+  jobsHref,
+  partnersHref,
+  candidatesHref,
+  activityHref,
 }: ClientOverviewTabProps) {
   return (
     <div className="space-y-6">
@@ -61,21 +69,30 @@ export function ClientOverviewTab({
           label="Active Roles"
           value={stats.activeRoleCount ?? stats.jobCount}
           hint="Open / on-hold jobs"
+          href={jobsHref}
         />
         <WorkspaceMetricCard
           label="Jobs"
           value={stats.jobCount}
           hint="Calculated from Jobs"
+          href={jobsHref}
         />
         <WorkspaceMetricCard
-          label="Partners"
+          label="Talent Partners"
           value={stats.partnerCount}
-          hint="Coming with Partner Workspace"
+          hint="Allocated to this client's jobs"
+          href={partnersHref}
         />
         <WorkspaceMetricCard
           label="Candidates"
           value={stats.candidateCount}
-          hint="Via submissions on client jobs"
+          href={candidatesHref}
+        />
+        <WorkspaceMetricCard
+          label="Activity"
+          value="View"
+          hint="Workspace timeline"
+          href={activityHref}
         />
       </div>
 

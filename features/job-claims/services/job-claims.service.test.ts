@@ -114,6 +114,21 @@ test("claim store prevents duplicate pending claims", async () => {
   });
   assert.equal(first.status, "pending");
 
+  const secondJob = await repo.insertJobClaim({
+    partnerId: "partnerA",
+    jobId: "job2",
+    accountManagerId: "am1",
+  });
+  const thirdJob = await repo.insertJobClaim({
+    partnerId: "partnerA",
+    jobId: "job3",
+    accountManagerId: "am1",
+  });
+  assert.equal(secondJob.status, "pending");
+  assert.equal(thirdJob.status, "pending");
+  assert.notEqual(first.id, secondJob.id);
+  assert.notEqual(secondJob.id, thirdJob.id);
+
   await assert.rejects(
     () =>
       repo.insertJobClaim({

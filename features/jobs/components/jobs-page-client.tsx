@@ -175,7 +175,7 @@ export function JobsPageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title="Jobs"
+        title={`Jobs (${filteredJobs.length})`}
         description={
           canManage
             ? hideAccountManager

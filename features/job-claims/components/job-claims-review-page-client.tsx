@@ -6,6 +6,7 @@ import { ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,8 @@ function statusBadge(status: string) {
 
 export function JobClaimsReviewPageClient({
   items: initialItems,
+  title = "Job Claims",
+  description = "Review Partner requests to work on jobs. Approve to create an allocation.",
 }: JobClaimsReviewPageClientProps) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
@@ -97,6 +100,10 @@ export function JobClaimsReviewPageClient({
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        title={`${title} (${visible.length})`}
+        description={description}
+      />
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"

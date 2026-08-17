@@ -542,7 +542,7 @@ export async function getAccountManagerDashboardData(
     settledSource(
       "activities",
       listRecentActivities(10, {
-        entityTypes: ["submission", "payout"],
+        entityTypes: ["submission", "payout", "job"],
       }),
       [],
     ),
@@ -626,7 +626,8 @@ export async function getAccountManagerDashboardData(
   const submissionIds = new Set(mySubmissions.map((s) => s.id));
   const scopedActivity = activity.filter(
     (row) =>
-      row.entityType === "submission" && submissionIds.has(row.entityId),
+      (row.entityType === "submission" && submissionIds.has(row.entityId)) ||
+      (row.entityType === "job" && jobIdSet.has(row.entityId)),
   );
 
   return {
@@ -645,7 +646,7 @@ export async function getAccountManagerDashboardData(
       },
       {
         id: "submissions",
-        label: "Profiles Submitted",
+        label: "Candidates",
         value: mySubmissions.length,
         href: AM_CANDIDATES,
       },

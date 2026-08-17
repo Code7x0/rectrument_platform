@@ -645,12 +645,19 @@ export async function findAccountManagerUserId(
   if (byLink) {
     return byLink.id;
   }
+  const byId = users.find((u) => u.id === accountManagerId);
+  if (byId) {
+    return byId.id;
+  }
 
   try {
     const { getOptionalEnv } = await import("@/lib/api/env");
     const { getRecords } = await import("@/lib/airtable/client");
     const { ACCOUNT_MANAGERS_TABLE_FIELDS } = await import(
       "@/lib/airtable/fields"
+    );
+    const { isClientIdentityMode } = await import(
+      "@/lib/airtable/identity-mode"
     );
     const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
     const table =
@@ -662,12 +669,19 @@ export async function findAccountManagerUserId(
     const emailRaw = records[0]?.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.email];
     const email =
       typeof emailRaw === "string" ? emailRaw.trim().toLowerCase() : null;
-    if (!email) {
-      return null;
+    if (email) {
+      const byEmail = users.find(
+        (u) => u.email.trim().toLowerCase() === email,
+      );
+      if (byEmail) {
+        return byEmail.id;
+      }
     }
-    return (
-      users.find((u) => u.email.trim().toLowerCase() === email)?.id ?? null
-    );
+    // Client identity: AM record id is the session user id.
+    if (isClientIdentityMode() && records[0]?.id) {
+      return records[0].id;
+    }
+    return null;
   } catch (error) {
     console.error("[notifications] AM email fallback failed", error);
     return null;

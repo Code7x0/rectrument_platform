@@ -50,3 +50,43 @@ export async function deriveActivitiesFromCandidates(
   }
   return activities;
 }
+
+/**
+ * Job claim events recorded in the Job Claims table (not fabricated).
+ */
+export async function deriveActivitiesFromJobClaims(
+  maxRecords = 80,
+): Promise<Activity[]> {
+  const { listAllJobClaims } = await import(
+    "@/features/job-claims/repositories/job-claims.repository"
+  );
+  const claims = await listAllJobClaims();
+  const sorted = [...claims].sort((a, b) =>
+    (b.reviewedAt ?? b.requestedAt).localeCompare(
+      a.reviewedAt ?? a.requestedAt,
+    ),
+  );
+
+  return sorted.slice(0, maxRecords).map((claim) => {
+    const statusLabel =
+      claim.status === "pending"
+        ? "Claim requested"
+        : claim.status === "approved"
+          ? "Claim approved"
+          : "Claim rejected";
+    return {
+      id: `derived_act_claim_${claim.id}_${claim.status}`,
+      entityType: "job" as const,
+      entityId: claim.jobId,
+      action: "status_change" as const,
+      fromStatus: null,
+      toStatus: claim.status,
+      actorUserId: claim.reviewedByUserId,
+      note: statusLabel,
+      createdAt:
+        claim.status === "pending"
+          ? claim.requestedAt
+          : (claim.reviewedAt ?? claim.rejectedAt ?? claim.requestedAt),
+    };
+  });
+}

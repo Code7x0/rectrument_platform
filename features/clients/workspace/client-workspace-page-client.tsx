@@ -82,17 +82,24 @@ export function ClientWorkspacePageClient({
     { id: "overview", label: "Overview", href: `${basePath}/${client.id}` },
     {
       id: "jobs",
-      label: `Jobs (${stats.jobCount})`,
+      label: `Jobs (${jobs.filter((job) => job.status !== "archived").length})`,
       href: `${basePath}/${client.id}?tab=jobs`,
     },
     {
       id: "partners",
-      label: "Talent Partners",
+      label: `Talent Partners (${
+        new Set(
+          allocations
+            .filter((row) => row.status !== "archived")
+            .map((row) => row.partnerId)
+            .filter(Boolean),
+        ).size
+      })`,
       href: `${basePath}/${client.id}?tab=partners`,
     },
     {
       id: "candidates",
-      label: "Candidates",
+      label: `Candidates (${submissions.length})`,
       href: `${basePath}/${client.id}?tab=candidates`,
     },
     {
@@ -146,6 +153,10 @@ export function ClientWorkspacePageClient({
             client={client}
             stats={stats}
             hideClientName={isAmPath}
+            jobsHref={`${basePath}/${client.id}?tab=jobs`}
+            partnersHref={`${basePath}/${client.id}?tab=partners`}
+            candidatesHref={`${basePath}/${client.id}?tab=candidates`}
+            activityHref={`${basePath}/${client.id}?tab=activity`}
           />
         ) : null}
         {tab === "jobs" ? (

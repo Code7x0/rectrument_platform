@@ -72,6 +72,14 @@ export function resolveActivityHref(
           : null;
       }
       return viewerRole === "super_admin" ? "/super-admin/users" : null;
+    case "job":
+      if (viewerRole === "partner") {
+        return "/partner/available-jobs";
+      }
+      if (viewerRole === "account_manager") {
+        return "/account-manager/job-claims";
+      }
+      return "/admin/job-claims";
     default:
       return null;
   }

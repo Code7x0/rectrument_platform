@@ -49,6 +49,7 @@ export default async function AccountManagerAllocationsPage() {
         { label: "Account Manager", href: "/account-manager" },
         { label: "Allocations" },
       ]}
+      title="Talent Partners"
     />
   );
 }
