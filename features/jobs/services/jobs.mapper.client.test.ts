@@ -16,7 +16,10 @@ import {
   DOMAIN_JOB_STATUS_TO_AIRTABLE,
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
-import { JOB_STATUS_LABELS } from "@/features/shared/entities/job.entity";
+import {
+  JOB_PRIORITY_LABELS,
+  JOB_STATUS_LABELS,
+} from "@/features/shared/entities/job.entity";
 import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import type { Job } from "@/features/jobs/types";
 
@@ -137,9 +140,20 @@ test("Active / Inactive continue working", () => {
   assert.equal(DOMAIN_JOB_STATUS_TO_AIRTABLE.cancelled, "Inactive");
 });
 
-test("priority round-trip: Urgent ↔ Super High", () => {
+test("priority round-trip: Super High is the Airtable label, never Urgent", () => {
   assert.equal(AIRTABLE_JOB_PRIORITY["Super High"], "urgent");
   assert.equal(DOMAIN_JOB_PRIORITY_TO_AIRTABLE.urgent, "Super High");
+  assert.equal(JOB_PRIORITY_LABELS.urgent, "Super High");
+  assert.equal(JOB_PRIORITY_LABELS.high, "High");
+  assert.equal(JOB_PRIORITY_LABELS.medium, "Medium");
+  assert.equal(JOB_PRIORITY_LABELS.low, "Low");
+  for (const [key, label] of Object.entries(JOB_PRIORITY_LABELS)) {
+    assert.notEqual(label, "Urgent");
+    assert.equal(
+      label,
+      DOMAIN_JOB_PRIORITY_TO_AIRTABLE[key as keyof typeof DOMAIN_JOB_PRIORITY_TO_AIRTABLE],
+    );
+  }
 
   const mapped = mapJobRecord({
     id: "rec3",

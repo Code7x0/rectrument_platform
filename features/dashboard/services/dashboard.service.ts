@@ -17,7 +17,7 @@ import { listRecentActivities } from "@/features/workflows/services/activity.ser
 import { listUsers } from "@/services/users/users.service";
 import { getUsersSummary } from "@/features/users/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
-import { JOB_STATUS_LABELS } from "@/features/jobs/types";
+import { JOB_PRIORITY_LABELS, JOB_STATUS_LABELS } from "@/features/jobs/types";
 import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
 import {
   submissionStatusDisplayLabel,
@@ -903,9 +903,7 @@ export async function getPartnerDashboardData(
       id: task.id,
       title: task.jobTitle,
       subtitle: task.jobCode ?? "Job",
-      badge: task.priority
-        ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1)
-        : undefined,
+      badge: task.priority ? JOB_PRIORITY_LABELS[task.priority] : undefined,
       href: "/partner/jobs",
       meta: task.clientName ?? undefined,
     })),

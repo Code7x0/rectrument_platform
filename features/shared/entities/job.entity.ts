@@ -126,11 +126,11 @@ export function isClosedJobStatus(status: JobStatus): boolean {
   );
 }
 
+/** Exact Airtable Jobs.Priority choices — never display domain keys like "Urgent". */
 export const JOB_PRIORITY_LABELS: Record<JobPriority, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  /** Domain `urgent` displays as live Airtable "Super High". */
   urgent: "Super High",
 };
 

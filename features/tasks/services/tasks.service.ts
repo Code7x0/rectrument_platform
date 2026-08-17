@@ -43,7 +43,7 @@ function toPartnerWorkTask(
 }
 
 /**
- * Sort Assigned Jobs by Airtable priority (Super High/Urgent first), then job open date.
+ * Sort Assigned Jobs by Airtable priority (Super High first), then job open date.
  */
 export function sortPartnerWorkTasks(
   tasks: PartnerWorkTask[],
