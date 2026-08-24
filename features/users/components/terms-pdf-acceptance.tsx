@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { isScrolledToEnd } from "@/features/users/lib/agreement-scroll";
 import { cn } from "@/lib/utils";
 
 const AGREEMENT_PDF_PATH = "/docs/partner-agreement.pdf";
@@ -62,16 +62,8 @@ export function TermsPdfAcceptance({
         </Button>
       </div>
       <p className="text-xs text-[#64748B]">
-        Open the Talent Partner Agreement in a larger view and read through to
-        the last page. The agreement checkbox stays disabled until then.{" "}
-        <Link
-          href={AGREEMENT_PDF_PATH}
-          target="_blank"
-          rel="noreferrer"
-          className="font-medium text-[#0F766E] underline-offset-2 hover:underline"
-        >
-          Open PDF in a new tab
-        </Link>
+        Open the Talent Partner Agreement and scroll through to the last page.
+        The agreement checkbox stays disabled until then.
       </p>
 
       <Dialog
@@ -84,12 +76,12 @@ export function TermsPdfAcceptance({
           }
         }}
       >
-        <DialogContent className="flex h-[min(96dvh,100svh)] w-[min(76rem,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden p-0">
+        <DialogContent className="flex h-[min(96dvh,100svh)] w-[min(76rem,calc(100vw-1.5rem))] max-w-none flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 space-y-1.5 border-b border-[#E2E8F0] px-6 py-4 pr-12">
             <DialogTitle>Talent Partner Agreement</DialogTitle>
             <DialogDescription>
-              Read through to the last page. The agreement checkbox unlocks
-              after that.
+              Scroll through the preview to the last page. The agreement
+              checkbox unlocks after that.
               {pageCount > 0
                 ? ` Page ${currentPage} of ${pageCount}${
                     viewed
@@ -100,19 +92,38 @@ export function TermsPdfAcceptance({
             </DialogDescription>
           </DialogHeader>
           {open ? (
-            <AgreementDocument
-              viewed={viewed}
+            <AgreementPreview
               onPageCount={setPageCount}
               onCurrentPage={setCurrentPage}
               onReachedEnd={markLastPageReached}
             />
           ) : null}
+          <div className="shrink-0 border-t border-[#E2E8F0] bg-white px-6 py-4">
+            <label
+              className={cn(
+                "flex items-start gap-3 text-sm text-[#334155]",
+                !viewed || disabled ? "opacity-60" : null,
+              )}
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={accepted}
+                disabled={!viewed || disabled}
+                onChange={(event) => onAcceptedChange(event.target.checked)}
+              />
+              <span>
+                I have read terms and conditions till last page. I agree.
+              </span>
+            </label>
+          </div>
         </DialogContent>
       </Dialog>
 
       {!viewed ? (
         <p className="text-xs text-amber-700">
-          Open the agreement and continue to the last page to enable agreement.
+          Scroll to the last page of the Terms &amp; Conditions to enable
+          agreement.
         </p>
       ) : (
         <p className="text-xs text-emerald-700">
@@ -144,93 +155,197 @@ export function TermsPdfAcceptance({
   );
 }
 
-function AgreementDocument({
-  viewed,
+function AgreementPreview({
   onPageCount,
   onCurrentPage,
   onReachedEnd,
 }: {
-  viewed: boolean;
   onPageCount: (count: number) => void;
   onCurrentPage: (page: number) => void;
   onReachedEnd: () => void;
 }) {
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [countFailed, setCountFailed] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [pagesEl, setPagesEl] = useState<HTMLDivElement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+
+  const markViewedIfScrolled = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      return;
+    }
+    if (isScrolledToEnd(el)) {
+      onReachedEnd();
+    }
+  }, [onReachedEnd]);
 
   useEffect(() => {
+    if (!pagesEl) {
+      return;
+    }
+
     let cancelled = false;
+    const container = pagesEl;
+
     void (async () => {
       try {
+        setLoading(true);
+        setError(null);
+        setReady(false);
+
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
-        const pdf = await pdfjs.getDocument({ url: AGREEMENT_PDF_PATH }).promise;
+        const response = await fetch(AGREEMENT_PDF_PATH);
+        if (!response.ok) {
+          throw new Error("Unable to load the agreement");
+        }
+        const data = new Uint8Array(await response.arrayBuffer());
+        const pdf = await pdfjs.getDocument({ data: data.slice() }).promise;
         if (cancelled) {
           return;
         }
-        setTotal(pdf.numPages);
-        onPageCount(pdf.numPages);
-        onCurrentPage(1);
-      } catch {
+
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+        if (cancelled) {
+          return;
+        }
+
+        const targetWidth = Math.max(container.clientWidth, 560);
+        const firstViewport = (await pdf.getPage(1)).getViewport({ scale: 1 });
+        const scale = Math.min(
+          2.2,
+          Math.max(1.25, targetWidth / firstViewport.width),
+        );
+
+        container.replaceChildren();
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber);
+          if (cancelled) {
+            return;
+          }
+          const viewport = page.getViewport({ scale });
+          const outputScale = window.devicePixelRatio || 1;
+          const canvas = document.createElement("canvas");
+          canvas.dataset.page = String(pageNumber);
+          canvas.setAttribute(
+            "aria-label",
+            `Talent Partner Agreement page ${pageNumber} of ${pdf.numPages}`,
+          );
+          canvas.width = Math.floor(viewport.width * outputScale);
+          canvas.height = Math.floor(viewport.height * outputScale);
+          canvas.style.width = "100%";
+          canvas.style.height = "auto";
+          canvas.className = "rounded-md bg-white shadow-sm";
+          container.appendChild(canvas);
+          const context = canvas.getContext("2d");
+          if (!context) {
+            throw new Error("Unable to render the agreement PDF");
+          }
+          await page.render({
+            canvasContext: context,
+            viewport,
+            transform:
+              outputScale === 1
+                ? undefined
+                : [outputScale, 0, 0, outputScale, 0, 0],
+          }).promise;
+          if (pageNumber === 1 && !cancelled) {
+            setLoading(false);
+            onCurrentPage(1);
+          }
+        }
+
         if (!cancelled) {
-          setCountFailed(true);
-          onPageCount(0);
+          setReady(true);
+          onPageCount(pdf.numPages);
+        }
+      } catch (renderError) {
+        if (!cancelled) {
+          setLoading(false);
+          setError(
+            renderError instanceof Error
+              ? renderError.message
+              : "Unable to show the agreement preview",
+          );
         }
       }
     })();
+
     return () => {
       cancelled = true;
+      container.replaceChildren();
     };
-  }, [onCurrentPage, onPageCount]);
+  }, [onCurrentPage, onPageCount, pagesEl]);
 
   useEffect(() => {
-    if (total > 0 && page >= total) {
-      onReachedEnd();
+    if (!ready) {
+      return;
     }
-  }, [page, total, onReachedEnd]);
+    const root = scrollRef.current;
+    const last = pagesEl?.querySelector(
+      "canvas[data-page]:last-of-type",
+    );
+    if (!root || !(last instanceof HTMLElement)) {
+      return;
+    }
 
-  function goTo(next: number) {
-    const bounded = Math.min(Math.max(next, 1), total || next);
-    setPage(bounded);
-    onCurrentPage(bounded);
-  }
+    const endObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.2) {
+            onReachedEnd();
+          }
+        }
+      },
+      { root, threshold: [0.2, 0.4, 1] },
+    );
+    endObserver.observe(last);
+
+    const canvases = pagesEl.querySelectorAll("canvas[data-page]");
+    const pageObserver = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) =>
+            Number((entry.target as HTMLElement).dataset.page ?? "0"),
+          )
+          .filter((page) => page > 0);
+        if (visible.length > 0) {
+          onCurrentPage(Math.max(...visible));
+        }
+      },
+      { root, threshold: 0.35 },
+    );
+    canvases.forEach((canvas) => pageObserver.observe(canvas));
+
+    markViewedIfScrolled();
+
+    return () => {
+      endObserver.disconnect();
+      pageObserver.disconnect();
+    };
+  }, [markViewedIfScrolled, onCurrentPage, onReachedEnd, pagesEl, ready]);
 
   return (
-    <>
-      <iframe
-        title="Talent Partner Agreement"
-        src={`${AGREEMENT_PDF_PATH}#page=${page}&view=FitH&zoom=page-width`}
-        className="min-h-0 w-full flex-1 border-0 bg-white"
-      />
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#E2E8F0] bg-white px-4 py-3">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={page <= 1}
-          onClick={() => goTo(page - 1)}
-        >
-          Previous page
-        </Button>
-        <p className="text-sm text-[#334155]">
-          {total > 0 ? `Page ${page} of ${total}` : "Loading pages…"}
-        </p>
-        {countFailed && !viewed ? (
-          <Button type="button" size="sm" onClick={onReachedEnd}>
-            I&apos;ve read the last page
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            disabled={total > 0 && page >= total}
-            onClick={() => goTo(page + 1)}
-          >
-            Next page
-          </Button>
-        )}
-      </div>
-    </>
+    <div
+      ref={scrollRef}
+      onScroll={markViewedIfScrolled}
+      className="relative min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#E2E8F0]"
+    >
+      {loading ? (
+        <p className="px-6 py-4 text-sm text-[#64748B]">Loading agreement…</p>
+      ) : null}
+      {error ? (
+        <p className="px-6 py-4 text-sm text-[#B91C1C]">{error}</p>
+      ) : (
+        <div
+          ref={setPagesEl}
+          className="mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"
+        />
+      )}
+    </div>
   );
 }
