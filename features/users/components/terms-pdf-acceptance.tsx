@@ -4,6 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { isScrolledToEnd } from "@/features/users/lib/agreement-scroll";
 import { cn } from "@/lib/utils";
 
@@ -90,17 +97,24 @@ export function TermsPdfAcceptance({
         if (cancelled) {
           return;
         }
-        setPageCount(pdf.numPages);
         setCurrentPage(1);
         setRenderError(null);
+        setPageCount(0);
         container.replaceChildren();
+
+        const targetWidth = Math.max(container.clientWidth, 720);
+        const firstViewport = (await pdf.getPage(1)).getViewport({ scale: 1 });
+        const scale = Math.min(
+          2.4,
+          Math.max(1.35, targetWidth / firstViewport.width),
+        );
 
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           const page = await pdf.getPage(pageNumber);
           if (cancelled) {
             return;
           }
-          const viewport = page.getViewport({ scale: 1.2 });
+          const viewport = page.getViewport({ scale });
           const outputScale = window.devicePixelRatio || 1;
           const canvas = document.createElement("canvas");
           canvas.dataset.page = String(pageNumber);
@@ -126,6 +140,9 @@ export function TermsPdfAcceptance({
                 ? undefined
                 : [outputScale, 0, 0, outputScale, 0, 0],
           }).promise;
+        }
+        if (!cancelled) {
+          setPageCount(pdf.numPages);
         }
       } catch (error) {
         if (!cancelled) {
@@ -205,14 +222,14 @@ export function TermsPdfAcceptance({
           variant="outline"
           size="sm"
           disabled={disabled}
-          onClick={() => setOpen((current) => !current)}
+          onClick={() => setOpen(true)}
         >
-          {open ? "Hide agreement" : "View Terms & Conditions"}
+          View Terms &amp; Conditions
         </Button>
       </div>
       <p className="text-xs text-[#64748B]">
-        Open the Talent Partner Agreement PDF and read through to the last page.
-        The agreement checkbox stays disabled until then.{" "}
+        Open the Talent Partner Agreement in a larger view and read through to
+        the last page. The agreement checkbox stays disabled until then.{" "}
         <Link
           href={src}
           target="_blank"
@@ -223,39 +240,48 @@ export function TermsPdfAcceptance({
         </Link>
       </p>
 
-      {open ? (
-        <div className="space-y-2">
-          {pageCount > 0 && pdfAvailable === true && !renderError ? (
-            <p className="text-xs text-[#64748B]">
-              Page {currentPage} of {pageCount}
-              {viewed ? " — last page reached." : " — continue to the last page."}
-            </p>
-          ) : null}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent
+          className="flex h-[min(96dvh,100svh)] w-[min(76rem,calc(100vw-1rem))] max-w-none flex-col gap-0 overflow-hidden p-0"
+        >
+          <DialogHeader className="shrink-0 space-y-1.5 border-b border-[#E2E8F0] px-6 py-4 pr-12">
+            <DialogTitle>Talent Partner Agreement</DialogTitle>
+            <DialogDescription>
+              Read through to the last page. The agreement checkbox unlocks
+              after that.
+              {pageCount > 0 && pdfAvailable === true && !renderError
+                ? ` Page ${currentPage} of ${pageCount}${
+                    viewed
+                      ? " — last page reached."
+                      : " — continue to the last page."
+                  }`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
           <div
             ref={scrollRef}
             onScroll={markViewedIfScrolled}
-            className="h-[28rem] overflow-y-auto rounded-lg border border-[#E2E8F0] bg-[#E2E8F0]"
+            className="min-h-0 flex-1 overflow-y-auto bg-[#E2E8F0]"
           >
             {pdfAvailable === true && !renderError ? (
               <div
                 ref={pagesRef}
-                className="mx-auto flex max-w-3xl flex-col gap-3 p-3"
+                className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"
               />
             ) : (
               <iframe
                 title="Partner Agreement"
                 src={AGREEMENT_FALLBACK_PATH}
-                className="min-h-[960px] w-full border-0 bg-white"
+                className="h-full min-h-full w-full border-0 bg-white"
               />
             )}
           </div>
-        </div>
-      ) : null}
+        </DialogContent>
+      </Dialog>
 
       {!viewed ? (
         <p className="text-xs text-amber-700">
-          Scroll to the last page of the Terms &amp; Conditions to enable
-          agreement.
+          Open the agreement and continue to the last page to enable agreement.
         </p>
       ) : (
         <p className="text-xs text-emerald-700">
