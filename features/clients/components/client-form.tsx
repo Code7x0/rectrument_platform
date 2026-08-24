@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -8,12 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import {
   CLIENT_MODE_OF_WORK_OPTIONS,
   clientFormSchema,
   type ClientFormValues,
 } from "@/features/clients/schemas/client.schema";
 import type { Client } from "@/features/clients/types";
+import { PRESENTATION_ACCEPT } from "@/lib/files/document-types";
 import type { LookupOption } from "@/services/lookups";
 
 interface ClientFormProps {
@@ -24,7 +27,7 @@ interface ClientFormProps {
   lockAccountManager?: boolean;
   /** When true, hide commercial client name (Account Manager role). */
   hideClientName?: boolean;
-  onSubmit: (values: ClientFormValues) => Promise<void> | void;
+  onSubmit: (values: ClientFormValues, pptFile: File | null) => Promise<void> | void;
   onCancel?: () => void;
   onDelete?: () => void;
   submitLabel?: string;
@@ -44,6 +47,7 @@ function toDefaults(client?: Client | null): ClientFormValues {
       modeOfWork: "",
       workDaysInWeek: "",
       notes: "",
+      employeeSize: "",
     };
   }
 
@@ -66,6 +70,7 @@ function toDefaults(client?: Client | null): ClientFormValues {
     modeOfWork: client.modeOfWork ?? "",
     workDaysInWeek: client.workDaysInWeek ?? "",
     notes: client.notes ?? "",
+    employeeSize: client.employeeSize ?? "",
   };
 }
 
@@ -80,6 +85,8 @@ export function ClientForm({
   onDelete,
   submitLabel = "Save Client",
 }: ClientFormProps) {
+  const [pptFile, setPptFile] = useState<File | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -102,7 +109,10 @@ export function ClientForm({
   }
 
   return (
-    <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+    <form
+      className="space-y-4"
+      onSubmit={handleSubmit((values) => onSubmit(values, pptFile))}
+    >
       {hideClientName ? (
         <div className="space-y-2">
           <Label htmlFor="clientCodeDisplay">Client ID</Label>
@@ -135,10 +145,14 @@ export function ClientForm({
             <p className="text-xs text-destructive">{errors.industry.message}</p>
           ) : null}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="primaryContact">Primary Contact</Label>
-          <Input id="primaryContact" {...register("primaryContact")} />
-        </div>
+        {hideClientName ? (
+          <input type="hidden" {...register("primaryContact")} />
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="primaryContact">Primary Contact</Label>
+            <Input id="primaryContact" {...register("primaryContact")} />
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -221,6 +235,14 @@ export function ClientForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
+          <Label htmlFor="employeeSize">Employee Size</Label>
+          <Input
+            id="employeeSize"
+            placeholder="e.g. 200–500"
+            {...register("employeeSize")}
+          />
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="modeOfWork">Mode of Work</Label>
           <Select id="modeOfWork" {...register("modeOfWork")}>
             <option value="">Not set</option>
@@ -246,6 +268,36 @@ export function ClientForm({
             </p>
           ) : null}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="clientPpt">Recruiter / Client PPT</Label>
+        {(initialClient?.briefDeck?.length ?? 0) > 0 ? (
+          <ul className="space-y-1">
+            {initialClient!.briefDeck!.map((file) => (
+              <li key={`${file.filename}-${file.url}`}>
+                <FilePreviewLink
+                  url={file.url}
+                  filename={file.filename}
+                  title={file.filename}
+                  className="text-sm font-medium text-[#2563EB] underline-offset-2 hover:underline"
+                >
+                  {file.filename}
+                </FilePreviewLink>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <Input
+          id="clientPpt"
+          type="file"
+          accept={PRESENTATION_ACCEPT}
+          disabled={submitting}
+          onChange={(event) => setPptFile(event.target.files?.[0] ?? null)}
+        />
+        <p className="text-xs text-[#64748B]">
+          Upload the recruiter / client deck (PPT, PPTX, or PDF).
+        </p>
       </div>
 
       <div className="space-y-2">

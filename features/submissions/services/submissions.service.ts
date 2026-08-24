@@ -127,6 +127,8 @@ async function withEnrichment(
       resumeUrl: candidate?.resumeUrl ?? row.resumeUrl ?? null,
       resumeFilename: candidate?.resumeFilename ?? row.resumeFilename ?? null,
       linkedIn: candidate?.linkedIn ?? row.linkedIn ?? null,
+      email: candidate?.email ?? row.email ?? null,
+      phone: candidate?.phone ?? row.phone ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,
       clientId,
@@ -424,6 +426,13 @@ export async function submitCandidateForAllocation(
   const screeningNotes = buildScreeningMatrixNotes({
     experience: payload.form.experience,
     skillScreens: payload.form.skillScreens ?? [],
+    offerInHand: {
+      ctc: payload.form.offerInHandCtc,
+      location: payload.form.offerInHandLocation,
+      doj: payload.form.offerInHandDoj,
+      company: payload.form.offerInHandCompany,
+      reason: payload.form.offerInHandReason,
+    },
     remarks: payload.form.remarks,
   });
 
@@ -1081,6 +1090,13 @@ export async function updatePartnerSubmissionProfile(input: {
   const screeningNotes = buildScreeningMatrixNotes({
     experience: input.form.experience,
     skillScreens: input.form.skillScreens ?? [],
+    offerInHand: {
+      ctc: input.form.offerInHandCtc,
+      location: input.form.offerInHandLocation,
+      doj: input.form.offerInHandDoj,
+      company: input.form.offerInHandCompany,
+      reason: input.form.offerInHandReason,
+    },
     remarks: input.form.remarks,
   });
 

@@ -42,6 +42,7 @@ function formToInput(values: ClientFormValues) {
     notes: values.notes ?? "",
     primaryAddress: values.primaryAddress ?? "",
     modeOfWork: values.modeOfWork ?? "",
+    employeeSize: values.employeeSize ?? "",
     workDaysInWeek:
       values.workDaysInWeek === "" || values.workDaysInWeek === undefined
         ? null
@@ -184,6 +185,68 @@ export async function deleteClientAction(
     return {
       success: false,
       message: actionErrorMessage(error, "Unable to delete client"),
+    };
+  }
+}
+
+export async function uploadClientBriefDeckAction(
+  clientId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requirePermission("manage_clients");
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsClient, ScopeDeniedError } = await import(
+        "@/lib/auth/scope"
+      );
+      try {
+        await assertAccountManagerOwnsClient(session, clientId);
+      } catch (error) {
+        if (error instanceof ScopeDeniedError) {
+          return { success: false, message: error.message };
+        }
+        throw error;
+      }
+    }
+
+    const file = formData.get("ppt");
+    if (!file || !(file instanceof File) || file.size === 0) {
+      return { success: false, message: "Select a recruiter / client PPT" };
+    }
+
+    const {
+      normalizeUploadContentType,
+      validatePresentationUploadMeta,
+    } = await import("@/lib/files/document-types");
+    const metaError = validatePresentationUploadMeta({
+      filename: file.name || "client-brief.ppt",
+      contentType: file.type,
+      size: file.size,
+    });
+    if (metaError) {
+      return { success: false, message: metaError };
+    }
+
+    const { getUploadService } = await import("@/services/uploads");
+    const { attachClientBriefDeck } = await import(
+      "@/features/clients/services"
+    );
+    const upload = await getUploadService().upload({
+      filename: file.name || "client-brief.ppt",
+      contentType: normalizeUploadContentType(
+        file.name || "client-brief.ppt",
+        file.type,
+      ),
+      data: Buffer.from(await file.arrayBuffer()),
+      size: file.size,
+    });
+    await attachClientBriefDeck(clientId, upload);
+    revalidateClientPaths(clientId);
+    return { success: true, data: { id: clientId } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to upload client PPT"),
     };
   }
 }

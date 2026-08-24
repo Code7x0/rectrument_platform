@@ -8,7 +8,11 @@ import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { PartnerSubmitProfilePageClient } from "@/features/submissions/components";
 import { listPartnerWorkTasks } from "@/features/tasks/services";
 
-export default async function PartnerSubmitProfilePage() {
+export default async function PartnerSubmitProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ jobId?: string }>;
+}) {
   noStore();
 
   const session = await getAppSession();
@@ -33,6 +37,8 @@ export default async function PartnerSubmitProfilePage() {
   }
 
   const tasks = await listPartnerWorkTasks(session.partnerId);
+  const params = await searchParams;
+  const initialJobId = params.jobId?.trim() || null;
 
   return (
     <ContentContainer>
@@ -46,7 +52,10 @@ export default async function PartnerSubmitProfilePage() {
         title="Submit Profile"
         description="Pick an assigned job, then submit the candidate profile in one place."
       />
-      <PartnerSubmitProfilePageClient tasks={tasks} />
+      <PartnerSubmitProfilePageClient
+        tasks={tasks}
+        initialJobId={initialJobId}
+      />
     </ContentContainer>
   );
 }

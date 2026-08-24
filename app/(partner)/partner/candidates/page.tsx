@@ -14,6 +14,7 @@ export default async function PartnerCandidatesPage({
     jobId?: string;
     status?: string;
     statusGroup?: string;
+    submissionId?: string;
   }>;
 }) {
   noStore();
@@ -40,6 +41,7 @@ export default async function PartnerCandidatesPage({
   const jobId = params.jobId?.trim() || null;
   const status = params.status?.trim() || null;
   const statusGroup = params.statusGroup?.trim() || null;
+  const submissionId = params.submissionId?.trim() || null;
 
   const [allSubmissions, payoutMap] = await Promise.all([
     listPartnerSubmissions(session.partnerId),
@@ -72,6 +74,7 @@ export default async function PartnerCandidatesPage({
       submissions={submissions}
       payoutsBySubmission={payoutsBySubmission}
       filterJobId={jobId}
+      initialSubmissionId={submissionId}
       initialStatus={status}
       initialStatusGroup={statusGroup}
       filterJobLabel={
@@ -81,7 +84,6 @@ export default async function PartnerCandidatesPage({
       }
       breadcrumbs={[
         { label: "Partner", href: "/partner" },
-        { label: "Assigned Jobs", href: "/partner/jobs" },
         { label: "My Candidates" },
       ]}
     />

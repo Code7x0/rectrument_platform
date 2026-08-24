@@ -115,10 +115,12 @@ export async function updateNotificationPreferencesAction(
     revalidateNotificationPaths();
     return { success: true, data: prefs };
   } catch (error) {
+    const message = actionErrorMessage(error, "Unable to save preferences");
     return {
       success: false,
-      message:
-        actionErrorMessage(error, "Unable to save preferences"),
+      message: /not configured|Airtable/i.test(message)
+        ? "Notification preferences cannot be saved on this workspace yet."
+        : message,
     };
   }
 }

@@ -31,7 +31,7 @@ function applySearch(partners: Partner[], search?: string): Partner[] {
   const q = search.trim().toLowerCase();
   return partners.filter(
     (p) =>
-      p.companyName.toLowerCase().includes(q) ||
+      p.companyName?.toLowerCase().includes(q) ||
       (p.partnerCode?.toLowerCase().includes(q) ?? false) ||
       (p.contactName?.toLowerCase().includes(q) ?? false) ||
       (p.email?.toLowerCase().includes(q) ?? false) ||
@@ -125,7 +125,7 @@ export async function createPartner(
     "@/features/shared/services/business-ids.service"
   );
   const partnerCode = await allocatePartnerCodeForPerson({
-    fullName: input.contactName || input.companyName,
+    fullName: input.contactName || input.companyName || "Partner",
     phone: input.phone ?? null,
   });
 

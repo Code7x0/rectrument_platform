@@ -137,6 +137,9 @@ export function toAirtableCreateFields(
   if (input.workDaysInWeek != null) {
     fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] = input.workDaysInWeek;
   }
+  if (input.employeeSize) {
+    fields[CLIENTS_TABLE_FIELDS.employeeSize] = input.employeeSize;
+  }
 
   return fields;
 }
@@ -191,6 +194,9 @@ export function toAirtableUpdateFields(
     fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] = (
       input.workDaysInWeek === null ? null : input.workDaysInWeek
     ) as AirtableFields[string];
+  }
+  if (input.employeeSize !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.employeeSize] = input.employeeSize || "";
   }
 
   return fields;

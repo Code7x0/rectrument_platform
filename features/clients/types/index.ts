@@ -21,6 +21,7 @@ export interface CreateClientInput {
   primaryAddress?: string;
   modeOfWork?: string;
   workDaysInWeek?: number | null;
+  employeeSize?: string | null;
 }
 
 export type UpdateClientInput = Partial<CreateClientInput>;

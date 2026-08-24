@@ -17,7 +17,7 @@ import type {
 } from "@/features/shared/entities";
 
 export interface CreatePartnerInput {
-  companyName: string;
+  companyName?: string;
   /** Business Partner Code (HN_254). Written to Airtable Partner Code. */
   partnerCode?: string;
   contactName?: string;

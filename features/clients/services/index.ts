@@ -1,5 +1,6 @@
 export {
   archiveClient,
+  attachClientBriefDeck,
   clientOwnedByAccountManager,
   createClient,
   deleteClient,

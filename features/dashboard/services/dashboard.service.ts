@@ -124,7 +124,12 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
 
   const activeUsers = users.filter((u) => u.status === "active").length;
   const inactiveUsers = users.filter((u) => u.status !== "active").length;
-  const talentPartners = partners.filter((p) => p.status === "active").length;
+  const totalClients = clients.length;
+  const activeClients = clients.filter((c) => c.status === "active").length;
+  const totalPartners = partners.length;
+  const activePartners = partners.filter((p) => p.status === "active").length;
+  const totalJobs = jobs.length;
+  const activeJobs = jobs.filter((j) => isAssignableJobStatus(j.status)).length;
   // Same source of truth as Admin Candidates list.
   const candidateCount = submissions.length;
 
@@ -166,57 +171,49 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
   return {
     metrics: [
       {
-        id: "users",
-        label: "Users",
-        value: summary.totalUsers,
-        href: "/super-admin/users",
+        id: "clients-total",
+        label: "Total Clients",
+        value: totalClients,
+        href: "/admin/clients",
       },
       {
-        id: "pending-approvals",
-        label: "Pending Approvals",
-        value: summary.pendingApprovals,
-        href: "/admin/approvals",
-        tone: summary.pendingApprovals > 0 ? "attention" : "default",
-        hint: "Talent Partner registrations",
-      },
-      {
-        id: "ams-active",
-        label: "Active AMs",
-        value: amDirectory.summary.active,
-        href: "/admin/account-managers",
+        id: "clients-active",
+        label: "Active Clients",
+        value: activeClients,
+        href: "/admin/clients",
         tone: "positive",
       },
       {
-        id: "ams-inactive",
-        label: "Inactive AMs",
-        value: amDirectory.summary.inactive,
-        href: "/admin/account-managers",
-        tone: "muted",
-      },
-      {
-        id: "candidates",
-        label: "Candidates Submitted",
-        value: candidateCount,
-        href: "/admin/candidates",
-        hint: "Profiles in the hiring pipeline",
-      },
-      {
-        id: "partners",
-        label: "Talent Partners",
-        value: talentPartners,
+        id: "partners-total",
+        label: "Total Talent Partners",
+        value: totalPartners,
         href: "/admin/partners",
       },
       {
-        id: "jobs",
-        label: "Open Jobs",
-        value: jobs.filter((j) => j.status === "open").length,
+        id: "partners-active",
+        label: "Active Talent Partners",
+        value: activePartners,
+        href: "/admin/partners",
+        tone: "positive",
+      },
+      {
+        id: "jobs-total",
+        label: "Total Jobs",
+        value: totalJobs,
         href: "/admin/jobs",
       },
       {
-        id: "clients",
-        label: "Clients",
-        value: clients.length,
-        href: "/admin/clients",
+        id: "jobs-active",
+        label: "Active Jobs",
+        value: activeJobs,
+        href: "/admin/jobs",
+        hint: "Open or on hold",
+      },
+      {
+        id: "candidates",
+        label: "Total Candidates Submitted",
+        value: candidateCount,
+        href: "/admin/candidates",
       },
     ],
     companyHealth: [
@@ -904,7 +901,7 @@ export async function getPartnerDashboardData(
       title: task.jobTitle,
       subtitle: task.jobCode ?? "Job",
       badge: task.priority ? JOB_PRIORITY_LABELS[task.priority] : undefined,
-      href: "/partner/jobs",
+      href: `/partner/jobs/${encodeURIComponent(task.jobId)}`,
       meta: task.clientName ?? undefined,
     })),
     recentEarnings: payouts.slice(0, 6).map((payout) => ({
@@ -923,7 +920,7 @@ export async function getPartnerDashboardData(
       title: row.candidateName ?? "Candidate",
       subtitle: row.jobTitle ?? "Job",
       badge: submissionStatusDisplayLabel(row),
-      href: "/partner/candidates",
+      href: `${PARTNER_CANDIDATES}?submissionId=${encodeURIComponent(row.id)}`,
     })),
     // Own submissions only — never the global activity feed.
     recentActivity: submissions.slice(0, 8).map((row) => ({
@@ -931,7 +928,7 @@ export async function getPartnerDashboardData(
       title: row.candidateName ?? "Candidate",
       subtitle: `${row.jobTitle ?? "Job"} · ${submissionStatusDisplayLabel(row)}`,
       timestamp: row.submissionDate ?? new Date().toISOString(),
-      href: "/partner/candidates",
+      href: `${PARTNER_CANDIDATES}?submissionId=${encodeURIComponent(row.id)}`,
     })),
     quickActions: [
       {

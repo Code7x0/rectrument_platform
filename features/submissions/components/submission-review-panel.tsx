@@ -108,6 +108,21 @@ function NoteBlock({
 
 function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
   const parsed = parseScreeningMatrixNotes(text);
+  const offerInHandLines = [
+    parsed.offerInHand.ctc
+      ? `CTC: ${parsed.offerInHand.ctc}`
+      : null,
+    parsed.offerInHand.location
+      ? `Location: ${parsed.offerInHand.location}`
+      : null,
+    parsed.offerInHand.doj ? `DOJ: ${parsed.offerInHand.doj}` : null,
+    parsed.offerInHand.company
+      ? `Company: ${parsed.offerInHand.company}`
+      : null,
+    parsed.offerInHand.reason
+      ? `Reason: ${parsed.offerInHand.reason}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
   const skillLines = parsed.skillScreens
     .map((row) => {
       const skill = row.skill?.trim() ?? "";
@@ -133,10 +148,15 @@ function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
     .filter((line): line is string => Boolean(line));
 
   const raw = text?.trim() ?? "";
-  const showStructured = Boolean(parsed.experience || skillLines.length > 0);
+  const showStructured = Boolean(
+    parsed.experience || skillLines.length > 0 || offerInHandLines.length > 0,
+  );
   const structuredCopy = [
     parsed.experience ? `Total experience: ${parsed.experience}` : null,
     skillLines.length > 0 ? `Skills:\n${skillLines.map((line) => `• ${line}`).join("\n")}` : null,
+    offerInHandLines.length > 0
+      ? `Offer in hand:\n${offerInHandLines.map((line) => `• ${line}`).join("\n")}`
+      : null,
     parsed.remarks ? `Additional notes:\n${parsed.remarks}` : null,
   ]
     .filter(Boolean)
@@ -182,6 +202,21 @@ function ScreeningMatrixNotes({ text }: { text: string | null | undefined }) {
           </div>
           <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[#0F172A]">
             {skillLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {offerInHandLines.length > 0 ? (
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+              Offer in hand
+            </p>
+            <CopyButton text={offerInHandLines.join("\n")} label="Offer in hand" />
+          </div>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-[#0F172A]">
+            {offerInHandLines.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>

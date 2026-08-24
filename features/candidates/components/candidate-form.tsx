@@ -75,6 +75,11 @@ export function CandidateForm({
       noticePeriod: "",
       linkedIn: "",
       currentCompany: "",
+      offerInHandCtc: "",
+      offerInHandLocation: "",
+      offerInHandDoj: "",
+      offerInHandCompany: "",
+      offerInHandReason: "",
       experience: "",
       remarks: "",
       skills: "",
@@ -326,6 +331,75 @@ export function CandidateForm({
             ) : null}
           </div>
         </div>
+
+        <section className="space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4">
+          <div>
+            <h3 className="text-sm font-semibold text-[#0F172A]">
+              Offer in Hand (optional)
+            </h3>
+            <p className="mt-1 text-xs text-[#64748B]">
+              Capture any competing offer details the candidate has already
+              shared so the Account Manager can factor it into follow-up.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="offerInHandCtc">Offer CTC</Label>
+              <Input
+                id="offerInHandCtc"
+                placeholder="Optional"
+                disabled={submitting}
+                {...register("offerInHandCtc")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="offerInHandLocation">Offer Location</Label>
+              <Input
+                id="offerInHandLocation"
+                placeholder="Optional"
+                disabled={submitting}
+                {...register("offerInHandLocation")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="offerInHandDoj">
+                Possible DOJ for that offer
+              </Label>
+              <Input
+                id="offerInHandDoj"
+                placeholder="Optional"
+                disabled={submitting}
+                {...register("offerInHandDoj")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="offerInHandCompany">Offer Company</Label>
+              <Input
+                id="offerInHandCompany"
+                placeholder="Optional"
+                disabled={submitting}
+                {...register("offerInHandCompany")}
+              />
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="offerInHandReason">
+                Why the candidate may not take it
+              </Label>
+              <Textarea
+                id="offerInHandReason"
+                rows={3}
+                placeholder="Optional"
+                disabled={submitting}
+                {...register("offerInHandReason")}
+              />
+            </div>
+          </div>
+        </section>
 
         <section className="space-y-3 rounded-xl border border-[#DBEAFE] bg-[#F8FAFC] p-4">
           <div>

@@ -11,6 +11,9 @@ import {
 } from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { mapSubmissionRecord } from "@/features/submissions/services/submissions.mapper";
+import {
+  submissionStatusDisplayLabel,
+} from "@/features/shared/entities";
 import type { Notification } from "@/features/notifications/types";
 import { getDismissedNotificationIds } from "@/features/notifications/lib/read-state";
 
@@ -71,7 +74,7 @@ export async function deriveNotificationsForViewer(input: {
         notificationCode: null,
         recipientUserId: input.recipientUserId,
         title: `Candidate update: ${name}`,
-        description: `Status is now ${submission.status}`,
+        description: `Status is now ${submissionStatusDisplayLabel(submission)}`,
         type: "candidate",
         priority: "medium",
         category: "candidates",

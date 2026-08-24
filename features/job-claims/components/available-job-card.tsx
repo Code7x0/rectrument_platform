@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,14 +62,12 @@ function ClaimStateBadge({ state }: { state: PartnerJobClaimUiState }) {
 interface AvailableJobCardProps {
   job: PartnerAvailableJob;
   claiming: boolean;
-  onView: (job: PartnerAvailableJob) => void;
   onClaim: (job: PartnerAvailableJob) => void;
 }
 
 export function AvailableJobCard({
   job,
   claiming,
-  onView,
   onClaim,
 }: AvailableJobCardProps) {
   const canClaim =
@@ -143,8 +142,10 @@ export function AvailableJobCard({
       ) : null}
 
       <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-border/80 pt-4">
-        <Button type="button" variant="outline" onClick={() => onView(job)}>
-          View Job
+        <Button asChild type="button" variant="outline">
+          <Link href={`/partner/available-jobs/${encodeURIComponent(job.id)}`}>
+            View Job
+          </Link>
         </Button>
         {canClaim ? (
           <Button

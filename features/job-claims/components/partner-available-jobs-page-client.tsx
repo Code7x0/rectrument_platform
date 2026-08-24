@@ -5,14 +5,9 @@ import { useRouter } from "next/navigation";
 import { Briefcase, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 
-import { DetailDrawer } from "@/components/shared/detail-drawer";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
 import { claimJobAction } from "@/features/job-claims/actions/job-claims.actions";
-import {
-  AvailableJobCard,
-  AvailableJobDetailBody,
-} from "@/features/job-claims/components/available-job-card";
+import { AvailableJobCard } from "@/features/job-claims/components/available-job-card";
 import type { PartnerAvailableJob } from "@/features/job-claims/types";
 
 interface PartnerAvailableJobsPageClientProps {
@@ -24,7 +19,6 @@ export function PartnerAvailableJobsPageClient({
 }: PartnerAvailableJobsPageClientProps) {
   const router = useRouter();
   const [jobs, setJobs] = useState(initialJobs);
-  const [selected, setSelected] = useState<PartnerAvailableJob | null>(null);
   const [claimingId, setClaimingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,18 +64,6 @@ export function PartnerAvailableJobsPageClient({
             : row,
         ),
       );
-      setSelected((current) =>
-        current?.id === job.id
-          ? {
-              ...current,
-              claimState: "pending",
-              claimId: result.data.id,
-              claimRequestedAt: result.data.requestedAt,
-              claimRejectionReason: null,
-              claimReclaimAvailableAt: null,
-            }
-          : current,
-      );
       router.refresh();
     } finally {
       setClaimingId(null);
@@ -120,7 +102,6 @@ export function PartnerAvailableJobsPageClient({
                   key={job.id}
                   job={job}
                   claiming={claimingId === job.id}
-                  onView={setSelected}
                   onClaim={handleClaim}
                 />
               ))}
@@ -150,7 +131,6 @@ export function PartnerAvailableJobsPageClient({
                   key={job.id}
                   job={job}
                   claiming={claimingId === job.id}
-                  onView={setSelected}
                   onClaim={handleClaim}
                 />
               ))}
@@ -175,7 +155,6 @@ export function PartnerAvailableJobsPageClient({
                   key={job.id}
                   job={job}
                   claiming={claimingId === job.id}
-                  onView={setSelected}
                   onClaim={handleClaim}
                 />
               ))}
@@ -184,57 +163,6 @@ export function PartnerAvailableJobsPageClient({
         ) : null}
       </div>
 
-      <DetailDrawer
-        open={Boolean(selected)}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelected(null);
-          }
-        }}
-        title={selected?.title ?? "Job details"}
-        stickyFooter={
-          selected ? (
-            selected.claimState === "available" ||
-            selected.claimState === "rejected" ? (
-              <Button
-                type="button"
-                className="w-full"
-                disabled={claimingId === selected.id}
-                aria-busy={claimingId === selected.id}
-                onClick={() => void handleClaim(selected)}
-              >
-                {claimingId === selected.id
-                  ? "Submitting…"
-                  : selected.claimState === "rejected"
-                    ? "Claim Again"
-                    : "Claim Job"}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                className="w-full"
-                variant="secondary"
-                disabled
-              >
-                {selected.claimState === "pending"
-                  ? "Claim Pending"
-                  : selected.claimState === "cooling"
-                    ? "Waiting to reclaim"
-                    : "Assigned"}
-              </Button>
-            )
-          ) : null
-        }
-      >
-        {selected ? (
-          <AvailableJobDetailBody
-            job={selected}
-            claiming={claimingId === selected.id}
-            onClaim={handleClaim}
-            hideInlineClaim
-          />
-        ) : null}
-      </DetailDrawer>
     </>
   );
 }

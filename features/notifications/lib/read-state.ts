@@ -9,10 +9,15 @@ export const NOTIFICATION_READ_COOKIE = "rp_notif_read";
 const MAX_IDS = 120;
 
 export function isDerivedNotificationId(id: string): boolean {
+  const trimmed = id.trim();
+  if (!trimmed) {
+    return false;
+  }
   return (
-    id.startsWith("derived_notif_") ||
-    id.startsWith("derived_claim_") ||
-    id.startsWith("ephemeral_notif_")
+    trimmed.startsWith("derived_notif_") ||
+    trimmed.startsWith("derived_claim_") ||
+    trimmed.startsWith("ephemeral_notif_") ||
+    !trimmed.startsWith("rec")
   );
 }
 

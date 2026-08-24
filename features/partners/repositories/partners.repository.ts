@@ -23,6 +23,7 @@ export async function findPartners(
     mapPartnerRecord({
       id: record.id,
       fields: record.fields as AirtableFields,
+      createdTime: record._rawJson?.createdTime ?? null,
     }),
   );
 }
@@ -35,6 +36,7 @@ export async function findPartnerById(
     return mapPartnerRecord({
       id: record.id,
       fields: record.fields as AirtableFields,
+      createdTime: record._rawJson?.createdTime ?? null,
     });
   } catch {
     return null;
@@ -46,6 +48,7 @@ export async function insertPartner(fields: AirtableFields): Promise<Partner> {
   return mapPartnerRecord({
     id: record.id,
     fields: record.fields as AirtableFields,
+    createdTime: record._rawJson?.createdTime ?? null,
   });
 }
 
@@ -57,6 +60,7 @@ export async function patchPartner(
   return mapPartnerRecord({
     id: record.id,
     fields: record.fields as AirtableFields,
+    createdTime: record._rawJson?.createdTime ?? null,
   });
 }
 

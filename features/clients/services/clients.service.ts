@@ -216,6 +216,18 @@ export async function createClient(input: CreateClientInput): Promise<Client> {
   return client;
 }
 
+export async function attachClientBriefDeck(
+  clientId: string,
+  upload: import("@/services/uploads").UploadedFile,
+): Promise<void> {
+  const { getUploadService } = await import("@/services/uploads");
+  await getUploadService().bindToEntity(upload, {
+    entityId: clientId,
+    fieldName: CLIENTS_TABLE_FIELDS.briefDeck,
+    mode: "append",
+  });
+}
+
 export async function updateClient(
   clientId: string,
   input: UpdateClientInput,

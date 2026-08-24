@@ -56,6 +56,7 @@ export default async function AccountManagerJobClaimsPage() {
       ) : null}
       <JobClaimsReviewPageClient
         items={items}
+        jobsBasePath="/account-manager/jobs"
         description="Review Partner requests to work on your jobs. Approve to create an allocation."
       />
     </ContentContainer>

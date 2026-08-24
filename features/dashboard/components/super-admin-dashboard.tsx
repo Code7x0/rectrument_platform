@@ -18,12 +18,12 @@ export function SuperAdminDashboard({ data }: SuperAdminDashboardProps) {
       <div className="space-y-8">
         <DashboardHeader
           title="Command Center"
-          description="What needs your attention across users, invitations, and company access."
+          description="Platform health across clients, talent partners, jobs, and submitted candidates."
           breadcrumbs={[{ label: "Super Admin" }, { label: "Dashboard" }]}
         />
 
-        <DashboardSection title="Users & access">
-          <DashboardGrid columns={6}>
+        <DashboardSection title="Platform health">
+          <DashboardGrid columns={7}>
             {data.metrics.map((metric) => (
               <DashboardMetricCard key={metric.id} {...metric} />
             ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Building2, ExternalLink, FileText } from "lucide-react";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -130,18 +131,33 @@ export function PartnerClientsPageClient({
                 </p>
               </div>
 
-              {client.assignedJobTitles.length > 0 ? (
+              {(client.assignedJobs?.length ?? client.assignedJobTitles.length) >
+              0 ? (
                 <div className="mt-4">
                   <p className="text-xs uppercase tracking-wide text-[#94A3B8]">
                     Your assigned roles
                   </p>
                   <ul className="mt-2 flex flex-wrap gap-2">
-                    {client.assignedJobTitles.map((title) => (
-                      <li
-                        key={title}
-                        className="rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-xs text-[#334155]"
-                      >
-                        {title}
+                    {(client.assignedJobs?.length
+                      ? client.assignedJobs
+                      : client.assignedJobTitles.map((title) => ({
+                          id: "",
+                          title,
+                        }))
+                    ).map((row) => (
+                      <li key={row.id || row.title}>
+                        {row.id ? (
+                          <Link
+                            href={`/partner/jobs/${encodeURIComponent(row.id)}`}
+                            className="inline-block rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-xs font-medium text-[#2563EB] hover:underline"
+                          >
+                            {row.title}
+                          </Link>
+                        ) : (
+                          <span className="inline-block rounded-md border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-1 text-xs text-[#334155]">
+                            {row.title}
+                          </span>
+                        )}
                       </li>
                     ))}
                   </ul>

@@ -25,7 +25,8 @@ export type EmailTemplateId =
   | "document_verified"
   | "document_rejected"
   | "candidate_submitted"
-  | "candidate_status_changed";
+  | "candidate_status_changed"
+  | "feedback_submission";
 
 export interface SendEmailInput {
   to: string;

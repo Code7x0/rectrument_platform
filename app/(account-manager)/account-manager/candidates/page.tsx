@@ -136,6 +136,8 @@ export default async function AccountManagerReviewQueuePage({
       clientFilterOptions={clientFilterOptions}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
+      canAddCandidate={roleHasPermission(session.role, "review_candidates")}
+      jobsBasePath="/account-manager/jobs"
       hideClientName
       title="Candidates"
       description="All submissions on your assigned jobs. Update status as candidates move through the pipeline."

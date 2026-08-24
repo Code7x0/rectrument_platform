@@ -33,6 +33,7 @@ interface JobDrawerProps {
   workDaysInWeek?: number | null;
   /** AM view: hide own name. */
   hideAccountManager?: boolean;
+  hideHiringManager?: boolean;
 }
 
 function Detail({
@@ -69,6 +70,7 @@ export function JobDrawer({
   submittedProfiles = null,
   workDaysInWeek = null,
   hideAccountManager = false,
+  hideHiringManager = false,
 }: JobDrawerProps) {
   const descriptionText = job?.description?.trim() || null;
   const workMode = deriveJobWorkMode(job?.location, job?.workMode);
@@ -112,7 +114,7 @@ export function JobDrawer({
                 value={job.accountManagerName}
               />
             ) : null}
-            {!partnerView ? (
+            {!partnerView && !hideHiringManager ? (
               <Detail label="Hiring Manager" value={job.hiringManager} />
             ) : null}
             <Detail label="Location" value={job.location} />

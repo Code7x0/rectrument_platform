@@ -4,7 +4,11 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 
 import { revalidatePath } from "next/cache";
 
-import { requirePermission, requireRole } from "@/lib/auth";
+import {
+  requirePermission,
+  requireRole,
+  resolveAccountManagerScopeId,
+} from "@/lib/auth";
 import {
   assertAccountManagerOwnsSubmission,
   ScopeDeniedError,
@@ -313,14 +317,19 @@ export async function getOwnSubmissionForEditAction(
           candidate?.resumeFilename ?? submission.resumeFilename ?? null,
         form: {
           fullName: candidate?.fullName ?? submission.candidateName ?? "",
-          email: candidate?.email ?? "",
-          phone: candidate?.phone ?? "",
+          email: candidate?.email ?? submission.email ?? "",
+          phone: candidate?.phone ?? submission.phone ?? "",
           currentLocation: candidate?.currentLocation ?? "",
           currentCtc: candidate?.currentCtc ?? "",
           expectedCtc: candidate?.expectedCtc ?? "",
           noticePeriod: candidate?.noticePeriod ?? "",
           linkedIn: candidate?.linkedIn ?? submission.linkedIn ?? "",
           currentCompany: candidate?.currentCompany ?? "",
+          offerInHandCtc: parsedNotes.offerInHand.ctc,
+          offerInHandLocation: parsedNotes.offerInHand.location,
+          offerInHandDoj: parsedNotes.offerInHand.doj,
+          offerInHandCompany: parsedNotes.offerInHand.company,
+          offerInHandReason: parsedNotes.offerInHand.reason,
           experience: parsedNotes.experience || candidate?.experience || "",
           skillScreens: parsedNotes.skillScreens,
           remarks: parsedNotes.remarks,
@@ -486,6 +495,181 @@ export async function deleteSubmissionAction(
     return {
       success: false,
       message: actionErrorMessage(error, "Unable to delete candidate"),
+    };
+  }
+}
+
+export type StaffSubmitJobOption = {
+  jobId: string;
+  jobTitle: string;
+  jobCode: string | null;
+  allocations: Array<{
+    allocationId: string;
+    partnerId: string;
+    partnerLabel: string;
+  }>;
+};
+
+export async function listStaffSubmitJobsAction(): Promise<
+  ActionResult<StaffSubmitJobOption[]>
+> {
+  try {
+    const session = await requirePermission("review_candidates");
+    await requireRole(["account_manager", "admin", "super_admin"]);
+
+    const { listAllocations } = await import(
+      "@/features/allocations/services"
+    );
+    const { listJobs } = await import("@/features/jobs/services");
+    const { ACTIVE_ALLOCATION_STATUSES } = await import(
+      "@/features/shared/entities"
+    );
+
+    const amId =
+      session.role === "account_manager"
+        ? resolveAccountManagerScopeId(session)
+        : null;
+    if (session.role === "account_manager" && !amId) {
+      return { success: false, message: "Account Manager scope missing" };
+    }
+
+    const [allocations, jobs] = await Promise.all([
+      listAllocations({
+        includePartnerIdentity: session.role !== "account_manager",
+      }),
+      amId
+        ? listJobs({
+            accountManagerId: amId,
+            includeArchived: false,
+          })
+        : listJobs({ includeArchived: false }),
+    ]);
+
+    const jobById = new Map(jobs.map((job) => [job.id, job]));
+    const grouped = new Map<string, StaffSubmitJobOption>();
+
+    for (const row of allocations) {
+      if (!ACTIVE_ALLOCATION_STATUSES.includes(row.status)) {
+        continue;
+      }
+      const job = jobById.get(row.jobId);
+      if (!job) {
+        continue;
+      }
+      const existing = grouped.get(row.jobId) ?? {
+        jobId: job.id,
+        jobTitle: job.title,
+        jobCode: job.jobCode,
+        allocations: [],
+      };
+      existing.allocations.push({
+        allocationId: row.id,
+        partnerId: row.partnerId,
+        partnerLabel:
+          row.partnerCode?.trim() ||
+          row.partnerName?.trim() ||
+          "Talent Partner",
+      });
+      grouped.set(row.jobId, existing);
+    }
+
+    return {
+      success: true,
+      data: [...grouped.values()].sort((a, b) =>
+        a.jobTitle.localeCompare(b.jobTitle),
+      ),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to load jobs"),
+    };
+  }
+}
+
+export async function staffSubmitCandidateAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const session = await requirePermission("review_candidates");
+    await requireRole(["account_manager", "admin", "super_admin"]);
+
+    const parsed = candidateFormSchema.safeParse(
+      parseCandidateFormData(formData),
+    );
+    if (!parsed.success) {
+      return {
+        success: false,
+        message: "Validation failed",
+        errors: parsed.error.issues.map((issue) => issue.message),
+      };
+    }
+
+    const jobId = String(formData.get("jobId") ?? "").trim();
+    const allocationId = String(formData.get("allocationId") ?? "").trim();
+    if (!jobId || !allocationId) {
+      return {
+        success: false,
+        message: "Select a job and allocated Talent Partner",
+      };
+    }
+
+    const { getAllocationById } = await import(
+      "@/features/allocations/services"
+    );
+    const allocation = await getAllocationById(allocationId);
+    if (!allocation || allocation.jobId !== jobId) {
+      return { success: false, message: "Allocation not found for this job" };
+    }
+
+    if (session.role === "account_manager") {
+      const { assertAccountManagerOwnsJob } = await import("@/lib/auth/scope");
+      await assertAccountManagerOwnsJob(session, jobId);
+    }
+
+    const resumeUpload = await parseResumeFromFormData(formData);
+    const result = await submitCandidateForAllocation({
+      jobId,
+      allocationId,
+      partnerId: allocation.partnerId,
+      form: parsed.data,
+      resumeUpload,
+      resumeRequired: true,
+    });
+
+    if (!result.ok) {
+      if (result.reason === "duplicate_blocked") {
+        return {
+          success: false,
+          message: result.message,
+          duplicates: result.duplicates,
+          blocked: true,
+          existingStatus: result.existingStatus,
+        };
+      }
+      return {
+        success: false,
+        message:
+          "A matching candidate already exists. Review the existing profile instead of creating a duplicate.",
+        duplicates: result.duplicates,
+      };
+    }
+
+    revalidateSubmissionPaths();
+    return {
+      success: true,
+      data: {
+        submissionId: result.submission.id,
+        candidateId: result.candidate.id,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ScopeDeniedError) {
+      return { success: false, message: error.message };
+    }
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to add candidate"),
     };
   }
 }

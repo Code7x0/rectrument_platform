@@ -24,6 +24,7 @@ interface JobTableProps {
   canAllocate?: boolean;
   canViewPartners?: boolean;
   hideAccountManager?: boolean;
+  hideHiringManager?: boolean;
   submittedByJobId?: Record<string, number>;
   /** Base path for submitted-profile links (e.g. /account-manager/candidates). */
   submittedProfilesBasePath?: string;
@@ -51,6 +52,7 @@ export function JobTable({
   canAllocate = false,
   canViewPartners = false,
   hideAccountManager = false,
+  hideHiringManager = true,
   submittedByJobId = {},
   submittedProfilesBasePath,
   emptyAction,
@@ -67,41 +69,33 @@ export function JobTable({
         id: "jobCode",
         header: "Job ID",
         cell: (job) => (
-          <span className="font-medium text-[#0F172A]">
+          <button
+            type="button"
+            className="text-left font-medium text-[#2563EB] underline-offset-2 hover:underline"
+            onClick={(event) => {
+              event.stopPropagation();
+              onView(job);
+            }}
+          >
             {job.jobCode || "—"}
-          </span>
+          </button>
         ),
       },
       {
         id: "title",
         header: "Job Title",
-        cell: (job) => {
-          const jd = jobDescriptionDoc(job);
-          if (jd?.url) {
-            return (
-              <FilePreviewLink
-                url={jd.url}
-                filename={jd.filename}
-                title={`${job.title} — Job Description`}
-                className="text-left font-medium text-[#2563EB] underline-offset-2 hover:underline"
-              >
-                {job.title}
-              </FilePreviewLink>
-            );
-          }
-          return (
-            <button
-              type="button"
-              className="text-left font-medium text-[#2563EB] underline-offset-2 hover:underline"
-              onClick={(event) => {
-                event.stopPropagation();
-                onView(job);
-              }}
-            >
-              {job.title}
-            </button>
-          );
-        },
+        cell: (job) => (
+          <button
+            type="button"
+            className="text-left font-medium text-[#2563EB] underline-offset-2 hover:underline"
+            onClick={(event) => {
+              event.stopPropagation();
+              onView(job);
+            }}
+          >
+            {job.title}
+          </button>
+        ),
       },
       {
         id: "client",
@@ -119,12 +113,16 @@ export function JobTable({
               cell: (job: Job) => job.accountManagerName ?? "—",
             },
           ]),
-      {
-        id: "hiringManager",
-        header: "Hiring Manager",
-        className: "text-[#64748B]",
-        cell: (job) => job.hiringManager ?? "—",
-      },
+      ...(hideHiringManager
+        ? []
+        : [
+            {
+              id: "hiringManager",
+              header: "Hiring Manager",
+              className: "text-[#64748B]",
+              cell: (job: Job) => job.hiringManager ?? "—",
+            },
+          ]),
       {
         id: "location",
         header: "Location",
@@ -247,6 +245,7 @@ export function JobTable({
       canManage,
       canViewPartners,
       hideAccountManager,
+      hideHiringManager,
       onAllocate,
       onArchive,
       onAssignAm,

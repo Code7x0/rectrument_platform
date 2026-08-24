@@ -168,6 +168,7 @@ describe("partner privacy", () => {
     experience: "Fresher",
     bankDetails: null,
     notes: null,
+    profileSubmittedAt: null,
   } as Partner;
 
   it("hides private name in operational view", () => {

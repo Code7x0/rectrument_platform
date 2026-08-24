@@ -154,9 +154,10 @@ export async function approveJobClaimAction(
 
     if (session.role === "account_manager") {
       const amId = resolveAccountManagerScopeId(session);
-      if (claim.accountManagerId !== amId) {
-        await assertAccountManagerOwnsJob(session, claim.jobId);
+      if (!amId) {
+        return { success: false, message: "Account Manager scope missing" };
       }
+      await assertAccountManagerOwnsJob(session, claim.jobId);
     }
 
     const result = await approveJobClaim({
@@ -195,9 +196,10 @@ export async function rejectJobClaimAction(
 
     if (session.role === "account_manager") {
       const amId = resolveAccountManagerScopeId(session);
-      if (claim.accountManagerId !== amId) {
-        await assertAccountManagerOwnsJob(session, claim.jobId);
+      if (!amId) {
+        return { success: false, message: "Account Manager scope missing" };
       }
+      await assertAccountManagerOwnsJob(session, claim.jobId);
     }
 
     const result = await rejectJobClaim({

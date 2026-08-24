@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ interface JobClaimsReviewPageClientProps {
   items: JobClaimReviewItem[];
   title?: string;
   description?: string;
+  jobsBasePath?: string;
 }
 
 function statusBadge(status: string) {
@@ -36,6 +38,7 @@ export function JobClaimsReviewPageClient({
   items: initialItems,
   title = "Job Claims",
   description = "Review Partner requests to work on jobs. Approve to create an allocation.",
+  jobsBasePath,
 }: JobClaimsReviewPageClientProps) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
@@ -156,7 +159,20 @@ export function JobClaimsReviewPageClient({
                     Job
                   </p>
                   <p className="mt-0.5 text-sm text-[#0F172A]">
-                    {item.jobCode ? `${item.jobCode} — ${item.jobTitle}` : item.jobTitle}
+                    {jobsBasePath && item.claim.jobId ? (
+                      <Link
+                        href={`${jobsBasePath}?jobId=${encodeURIComponent(item.claim.jobId)}`}
+                        className="font-medium text-[#2563EB] hover:underline"
+                      >
+                        {item.jobCode
+                          ? `${item.jobCode} — ${item.jobTitle}`
+                          : item.jobTitle}
+                      </Link>
+                    ) : item.jobCode ? (
+                      `${item.jobCode} — ${item.jobTitle}`
+                    ) : (
+                      item.jobTitle
+                    )}
                   </p>
                 </div>
                 <div>

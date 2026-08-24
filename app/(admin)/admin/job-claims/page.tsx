@@ -50,6 +50,7 @@ export default async function AdminJobClaimsPage() {
       ) : null}
       <JobClaimsReviewPageClient
         items={items}
+        jobsBasePath="/admin/jobs"
         description="Review Partner job claim requests. Approval creates the standard Partner allocation."
       />
     </ContentContainer>

@@ -35,7 +35,7 @@ function formToInput(values: PartnerFormValues) {
       : undefined;
 
   return {
-    companyName: values.companyName,
+    companyName: values.companyName?.trim() || undefined,
     contactName: values.contactName || undefined,
     email: values.email || undefined,
     phone: values.phone || undefined,
@@ -176,7 +176,7 @@ export async function updateOwnPartnerProfileAction(
     }
 
     const partner = await updatePartner(session.partnerId, {
-      companyName: parsed.data.companyName,
+      companyName: parsed.data.companyName?.trim() || undefined,
       contactName: parsed.data.contactName || undefined,
       phone: parsed.data.phone || undefined,
       specialization: parsed.data.specialization || undefined,

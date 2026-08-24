@@ -22,7 +22,7 @@ export function DashboardCard({ children, className }: DashboardCardProps) {
 
 interface DashboardGridProps {
   children: ReactNode;
-  columns?: 2 | 3 | 4 | 6;
+  columns?: 2 | 3 | 4 | 6 | 7;
   className?: string;
 }
 
@@ -31,6 +31,7 @@ const COLUMN_CLASS = {
   3: "sm:grid-cols-2 lg:grid-cols-3",
   4: "sm:grid-cols-2 lg:grid-cols-4",
   6: "sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6",
+  7: "sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7",
 } as const;
 
 export function DashboardGrid({

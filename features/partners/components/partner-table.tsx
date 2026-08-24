@@ -10,6 +10,7 @@ import {
   PartnerVerificationBadge,
 } from "@/features/partners/components/partner-status-badge";
 import type { Partner } from "@/features/partners/types";
+import { formatDate } from "@/lib/utils";
 
 interface PartnerTableProps {
   partners: Partner[];
@@ -43,16 +44,23 @@ export function PartnerTable({
       },
       {
         id: "company",
-        header: "Company Name",
+        header: "Partner Name",
         cell: (row) => (
           <button
             type="button"
             className="text-left font-medium text-[#2563EB] hover:underline"
             onClick={() => onOpenWorkspace(row)}
           >
-            {row.companyName}
+            {row.companyName?.trim() || "—"}
           </button>
         ),
+      },
+      {
+        id: "submitted",
+        header: "Date of Profile Submission",
+        className: "text-[#64748B]",
+        cell: (row) =>
+          row.profileSubmittedAt ? formatDate(row.profileSubmittedAt) : "—",
       },
       {
         id: "contact",

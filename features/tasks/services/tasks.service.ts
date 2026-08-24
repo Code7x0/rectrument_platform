@@ -128,3 +128,11 @@ export const listPartnerWorkTasks = cache(async function listPartnerWorkTasks(
 
   return sortPartnerWorkTasks(tasks);
 });
+
+export async function getPartnerWorkTask(
+  partnerId: string,
+  jobId: string,
+): Promise<PartnerWorkTask | null> {
+  const tasks = await listPartnerWorkTasks(partnerId);
+  return tasks.find((task) => task.jobId === jobId) ?? null;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -39,10 +39,33 @@ interface JobsPageClientProps {
   submittedByJobId?: Record<string, number>;
   submittedProfilesBasePath?: string;
   breadcrumbs: Array<{ label: string; href?: string }>;
+  /** Deep-link from Candidates / Job Claims — open this job in the drawer. */
+  initialJobId?: string | null;
+}
+
+function jobOpenTimestamp(job: Job): number {
+  const raw = job.postedDate || job.startDate || job.createdAt;
+  return raw ? Date.parse(raw) : 0;
+}
+
+function jobStatusSortRank(status: Job["status"]): number {
+  switch (status) {
+    case "open":
+      return 0;
+    case "hold_by_us":
+    case "on_hold":
+      return 1;
+    case "hold_by_client":
+      return 2;
+    case "cancelled":
+      return 3;
+    default:
+      return 4;
+  }
 }
 
 function applyClientFilters(jobs: Job[], filters: JobListFilters): Job[] {
-  return jobs.filter((job) => {
+  const filtered = jobs.filter((job) => {
     if (filters.search?.trim()) {
       const q = filters.search.trim().toLowerCase();
       const matches =
@@ -102,6 +125,14 @@ function applyClientFilters(jobs: Job[], filters: JobListFilters): Job[] {
 
     return true;
   });
+
+  return [...filtered].sort((a, b) => {
+    const rank = jobStatusSortRank(a.status) - jobStatusSortRank(b.status);
+    if (rank !== 0) {
+      return rank;
+    }
+    return jobOpenTimestamp(b) - jobOpenTimestamp(a);
+  });
 }
 
 export function JobsPageClient({
@@ -118,6 +149,7 @@ export function JobsPageClient({
   submittedByJobId = {},
   submittedProfilesBasePath,
   breadcrumbs,
+  initialJobId = null,
 }: JobsPageClientProps) {
   const router = useRouter();
   const [filters, setFilters] = useState<JobListFilters>({
@@ -137,6 +169,17 @@ export function JobsPageClient({
   const [archiveTarget, setArchiveTarget] = useState<Job | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const id = initialJobId?.trim();
+    if (!id) {
+      return;
+    }
+    const match = initialJobs.find((job) => job.id === id);
+    if (match) {
+      setViewJob(match);
+    }
+  }, [initialJobId, initialJobs]);
 
   const filteredJobs = useMemo(
     () => applyClientFilters(initialJobs, filters),
@@ -286,6 +329,7 @@ export function JobsPageClient({
         job={viewJob}
         open={Boolean(viewJob)}
         hideAccountManager={hideAccountManager}
+        hideHiringManager={hideAccountManager}
         onOpenChange={(open) => {
           if (!open) {
             setViewJob(null);

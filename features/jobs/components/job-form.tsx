@@ -281,14 +281,18 @@ export function JobForm({
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="hiringManager">Hiring Manager</Label>
-          <Input
-            id="hiringManager"
-            {...register("hiringManager")}
-            disabled={submitting}
-          />
-        </div>
+        {lockAccountManager ? (
+          <input type="hidden" {...register("hiringManager")} />
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="hiringManager">Hiring Manager</Label>
+            <Input
+              id="hiringManager"
+              {...register("hiringManager")}
+              disabled={submitting}
+            />
+          </div>
+        )}
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="jd">Job Description (attachment)</Label>

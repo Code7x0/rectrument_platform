@@ -378,10 +378,7 @@ export async function listJobClaimsForAccountManager(
     listAllJobClaims(),
   ]);
   const owned = new Set(jobIds);
-  const scoped = allClaims.filter(
-    (claim) =>
-      owned.has(claim.jobId) || claim.accountManagerId === accountManagerId,
-  );
+  const scoped = allClaims.filter((claim) => owned.has(claim.jobId));
   return enrichClaimsForReview(scoped);
 }
 

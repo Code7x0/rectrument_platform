@@ -3,6 +3,7 @@ export {
   SubmissionStatusBadge,
 } from "./submission-status-badge";
 export { SubmitCandidateDialog } from "./submit-candidate-dialog";
+export { StaffAddCandidateDialog } from "./staff-add-candidate-dialog";
 export { EditCandidateDialog } from "./edit-candidate-dialog";
 export { PartnerJobMultiSelect } from "./partner-job-multi-select";
 export { PartnerSubmitProfilePageClient } from "./partner-submit-profile-page-client";

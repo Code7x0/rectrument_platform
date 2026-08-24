@@ -3,10 +3,24 @@ import type { SkillScreenRow } from "@/features/candidates/schemas/candidate.sch
 export function buildScreeningMatrixNotes(input: {
   experience?: string | null;
   skillScreens?: SkillScreenRow[] | null;
+  offerInHand?: {
+    ctc?: string | null;
+    location?: string | null;
+    doj?: string | null;
+    company?: string | null;
+    reason?: string | null;
+  } | null;
   remarks?: string | null;
 }): string {
   const experience = input.experience?.trim() ?? "";
   const extra = input.remarks?.trim() ?? "";
+  const offerInHand = {
+    ctc: input.offerInHand?.ctc?.trim() ?? "",
+    location: input.offerInHand?.location?.trim() ?? "",
+    doj: input.offerInHand?.doj?.trim() ?? "",
+    company: input.offerInHand?.company?.trim() ?? "",
+    reason: input.offerInHand?.reason?.trim() ?? "",
+  };
   const skillLines: string[] = [];
 
   for (const row of input.skillScreens ?? []) {
@@ -43,6 +57,28 @@ export function buildScreeningMatrixNotes(input: {
     }
     lines.push("Skill screen:", ...skillLines);
   }
+  const hasOfferInHand = Object.values(offerInHand).some(Boolean);
+  if (hasOfferInHand) {
+    if (lines.length > 0) {
+      lines.push("");
+    }
+    lines.push("Offer in hand:");
+    if (offerInHand.ctc) {
+      lines.push(`- CTC: ${offerInHand.ctc}`);
+    }
+    if (offerInHand.location) {
+      lines.push(`- Location: ${offerInHand.location}`);
+    }
+    if (offerInHand.doj) {
+      lines.push(`- DOJ: ${offerInHand.doj}`);
+    }
+    if (offerInHand.company) {
+      lines.push(`- Company: ${offerInHand.company}`);
+    }
+    if (offerInHand.reason) {
+      lines.push(`- Reason: ${offerInHand.reason}`);
+    }
+  }
   if (extra) {
     if (lines.length > 0) {
       lines.push("");
@@ -58,6 +94,13 @@ export function buildScreeningMatrixNotes(input: {
 export function parseScreeningMatrixNotes(notes: string | null | undefined): {
   experience: string;
   skillScreens: SkillScreenRow[];
+  offerInHand: {
+    ctc: string;
+    location: string;
+    doj: string;
+    company: string;
+    reason: string;
+  };
   remarks: string;
 } {
   const text = notes?.trim() ?? "";
@@ -65,6 +108,13 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
     return {
       experience: "",
       skillScreens: [{ skill: "", years: "", alternate: "" }],
+      offerInHand: {
+        ctc: "",
+        location: "",
+        doj: "",
+        company: "",
+        reason: "",
+      },
       remarks: "",
     };
   }
@@ -74,7 +124,9 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
 
   const skillScreens: SkillScreenRow[] = [];
   const skillBlockMatch =
-    /Skill screen:\n([\s\S]*?)(?:\n\nAdditional notes:|\s*$)/.exec(text);
+    /Skill screen:\n([\s\S]*?)(?:\n\nOffer in hand:|\n\nAdditional notes:|\s*$)/.exec(
+      text,
+    );
   const skillBlock = skillBlockMatch?.[1] ?? "";
   for (const line of skillBlock.split("\n")) {
     const trimmed = line.trim();
@@ -116,14 +168,56 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
     skillScreens.push({ skill: body, years: "", alternate: "" });
   }
 
+  const offerBlockMatch =
+    /Offer in hand:\n([\s\S]*?)(?:\n\nAdditional notes:|\s*$)/.exec(text);
+  const offerBlock = offerBlockMatch?.[1] ?? "";
+  const offerInHand = {
+    ctc: "",
+    location: "",
+    doj: "",
+    company: "",
+    reason: "",
+  };
+  for (const line of offerBlock.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("- ")) {
+      continue;
+    }
+    const body = trimmed.slice(2);
+    const [rawLabel, ...rest] = body.split(":");
+    const value = rest.join(":").trim();
+    switch ((rawLabel ?? "").trim().toLowerCase()) {
+      case "ctc":
+        offerInHand.ctc = value;
+        break;
+      case "location":
+        offerInHand.location = value;
+        break;
+      case "doj":
+        offerInHand.doj = value;
+        break;
+      case "company":
+        offerInHand.company = value;
+        break;
+      case "reason":
+        offerInHand.reason = value;
+        break;
+    }
+  }
+
   const additionalMatch = /Additional notes:\n([\s\S]*)$/.exec(text);
-  const structured = Boolean(experience || skillScreens.length > 0);
+  const structured = Boolean(
+    experience ||
+      skillScreens.length > 0 ||
+      Object.values(offerInHand).some(Boolean),
+  );
   const remarks = structured
     ? (additionalMatch?.[1]?.trim() ?? "")
     : text;
 
   return {
     experience,
+    offerInHand,
     skillScreens:
       skillScreens.length > 0
         ? skillScreens
@@ -158,4 +252,33 @@ export function formatSkillScreensForDisplay(
     }
   }
   return parts.length > 0 ? parts.join(", ") : null;
+}
+
+export function formatOfferInHandForDisplay(offer: {
+  ctc?: string | null;
+  location?: string | null;
+  doj?: string | null;
+  company?: string | null;
+  reason?: string | null;
+} | null | undefined): string | null {
+  if (!offer) {
+    return null;
+  }
+  const parts: string[] = [];
+  if (offer.ctc?.trim()) {
+    parts.push(`CTC ${offer.ctc.trim()}`);
+  }
+  if (offer.location?.trim()) {
+    parts.push(offer.location.trim());
+  }
+  if (offer.doj?.trim()) {
+    parts.push(`DOJ ${offer.doj.trim()}`);
+  }
+  if (offer.company?.trim()) {
+    parts.push(offer.company.trim());
+  }
+  if (offer.reason?.trim()) {
+    parts.push(offer.reason.trim());
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
 }

@@ -35,7 +35,7 @@ function applyFilters(
     if (filters.search?.trim()) {
       const q = filters.search.trim().toLowerCase();
       const matches =
-        partner.companyName.toLowerCase().includes(q) ||
+        partner.companyName?.toLowerCase().includes(q) ||
         (partner.partnerCode?.toLowerCase().includes(q) ?? false) ||
         (partner.contactName?.toLowerCase().includes(q) ?? false) ||
         (partner.specialization?.toLowerCase().includes(q) ?? false);

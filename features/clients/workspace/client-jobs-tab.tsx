@@ -135,7 +135,7 @@ export function ClientJobsTab({
         loading={pending}
         canManage={canManageJobs}
         canAllocate={canAllocate}
-        canViewPartners={canManagePartners || canAllocate}
+        hideAccountManager={lockAccountManager}
         onView={setViewJob}
         onEdit={setEditJob}
         onArchive={setArchiveTarget}
@@ -154,6 +154,7 @@ export function ClientJobsTab({
         job={viewJob}
         open={Boolean(viewJob)}
         hideAccountManager={lockAccountManager}
+        hideHiringManager={lockAccountManager}
         onOpenChange={(open) => {
           if (!open) {
             setViewJob(null);

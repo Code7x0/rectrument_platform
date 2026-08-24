@@ -36,11 +36,15 @@ import type { UserRole } from "@/types";
 interface RoleManagementPageClientProps {
   users: UserListItem[];
   breadcrumbs: Array<{ label: string; href?: string }>;
+  title?: string;
+  description?: string;
 }
 
 export function RoleManagementPageClient({
   users: initialUsers,
   breadcrumbs,
+  title = "Role Management",
+  description = "Invite staff, promote Talent Partners to Account Manager, deactivate users, and audit access.",
 }: RoleManagementPageClientProps) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
@@ -125,33 +129,13 @@ export function RoleManagementPageClient({
               triggerLabel="Activity"
             />
             {row.role === "partner" ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={pending}
-                  onClick={() => promote(row.id, "admin")}
-                >
-                  → Admin
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={pending}
-                  onClick={() => promote(row.id, "account_manager")}
-                >
-                  → AM
-                </Button>
-              </>
-            ) : null}
-            {row.role === "admin" || row.role === "account_manager" ? (
               <Button
                 size="sm"
                 variant="outline"
                 disabled={pending}
-                onClick={() => promote(row.id, "partner")}
+                onClick={() => promote(row.id, "account_manager")}
               >
-                Demote to Partner
+                → Account Manager
               </Button>
             ) : null}
             <Button
@@ -206,8 +190,8 @@ export function RoleManagementPageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
-        title="Role Management"
-        description="Invite staff, promote Talent Partners, deactivate users, and audit access."
+        title={title}
+        description={description}
         actions={
           <Button onClick={() => setInviteOpen(true)}>Invite staff</Button>
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -54,6 +54,7 @@ interface PartnerSubmissionsPageClientProps {
   filterJobLabel?: string | null;
   initialStatus?: string | null;
   initialStatusGroup?: string | null;
+  initialSubmissionId?: string | null;
 }
 
 const STATUS_GROUP_FILTER_OPTIONS: Array<{
@@ -127,6 +128,7 @@ export function PartnerSubmissionsPageClient({
   filterJobLabel = null,
   initialStatus = null,
   initialStatusGroup = null,
+  initialSubmissionId = null,
 }: PartnerSubmissionsPageClientProps) {
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
@@ -145,6 +147,7 @@ export function PartnerSubmissionsPageClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const openedDeepLink = useRef<string | null>(null);
 
   useEffect(() => {
     setRows(initialSubmissions);
@@ -169,6 +172,19 @@ export function PartnerSubmissionsPageClient({
     }
     setStatusFilter("all");
   }, [initialStatus, initialStatusGroup]);
+
+  useEffect(() => {
+    const targetId = initialSubmissionId?.trim();
+    if (!targetId || openedDeepLink.current === targetId) {
+      return;
+    }
+    const row = initialSubmissions.find((item) => item.id === targetId);
+    if (!row) {
+      return;
+    }
+    openedDeepLink.current = targetId;
+    setSelected(row);
+  }, [initialSubmissionId, initialSubmissions]);
 
   const statusSelectOptions = useMemo(() => {
     const base = [...STATUS_FILTER_OPTIONS];
@@ -359,6 +375,10 @@ export function PartnerSubmissionsPageClient({
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-[#94A3B8]">
                   <span>
+                    {[row.email, row.phone].filter(Boolean).join(" · ") ||
+                      "No email or mobile on file"}
+                  </span>
+                  <span>
                     Submitted{" "}
                     {row.submissionDate
                       ? formatDateTime(row.submissionDate)
@@ -430,6 +450,20 @@ export function PartnerSubmissionsPageClient({
       >
         {selected ? (
           <div className="space-y-4">
+            <div className="grid gap-2 text-sm text-[#0F172A] sm:grid-cols-2">
+              <p>
+                <span className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+                  Email
+                </span>
+                <span className="mt-1 block">{selected.email || "—"}</span>
+              </p>
+              <p>
+                <span className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+                  Mobile
+                </span>
+                <span className="mt-1 block">{selected.phone || "—"}</span>
+              </p>
+            </div>
             <SubmissionReviewPanel submission={selected} canEdit={false} />
             {isUnreviewedByStaff(selected) ? (
               <>

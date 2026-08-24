@@ -14,7 +14,7 @@ export const partnerVerificationSchema = z.enum([
 ]);
 
 export const partnerFormSchema = z.object({
-  companyName: z.string().trim().min(2, "Company name is required"),
+  companyName: z.string().trim().max(160).optional().or(z.literal("")),
   contactName: z.string().trim().optional(),
   email: z
     .string()

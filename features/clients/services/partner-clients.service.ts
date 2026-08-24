@@ -22,40 +22,44 @@ export async function listPartnerAssignedClients(
   ];
   const jobs = await listJobsByIds(jobIds);
 
-  const titlesByClient = new Map<string, string[]>();
+  const jobsByClient = new Map<string, Array<{ id: string; title: string }>>();
   for (const job of jobs) {
     if (!job.clientId) {
       continue;
     }
-    const titles = titlesByClient.get(job.clientId) ?? [];
-    if (job.title && !titles.includes(job.title)) {
-      titles.push(job.title);
+    const rows = jobsByClient.get(job.clientId) ?? [];
+    if (!rows.some((row) => row.id === job.id)) {
+      rows.push({ id: job.id, title: job.title });
     }
-    titlesByClient.set(job.clientId, titles);
+    jobsByClient.set(job.clientId, rows);
   }
 
-  const clientIds = [...titlesByClient.keys()];
+  const clientIds = [...jobsByClient.keys()];
   const clients = await getClientsByIds(clientIds);
   const clientMap = new Map(clients.map((client) => [client.id, client]));
 
   return clientIds
     .map((clientId) => clientMap.get(clientId))
     .filter((client): client is NonNullable<typeof client> => Boolean(client))
-    .map((client) => ({
-      id: client.id,
-      clientCode: client.clientCode,
-      name: client.name,
-      industry: client.industry,
-      website: client.website,
-      status: client.status,
-      primaryAddress: client.primaryAddress ?? null,
-      addresses: client.addresses ?? null,
-      employeeSize: client.employeeSize ?? null,
-      modeOfWork: client.modeOfWork ?? null,
-      workDaysInWeek: client.workDaysInWeek ?? null,
-      notes: client.notes ?? null,
-      briefDeck: client.briefDeck ?? [],
-      assignedJobTitles: titlesByClient.get(client.id) ?? [],
-    }))
+    .map((client) => {
+      const assignedJobs = jobsByClient.get(client.id) ?? [];
+      return {
+        id: client.id,
+        clientCode: client.clientCode,
+        name: client.name,
+        industry: client.industry,
+        website: client.website,
+        status: client.status,
+        primaryAddress: client.primaryAddress ?? null,
+        addresses: client.addresses ?? null,
+        employeeSize: client.employeeSize ?? null,
+        modeOfWork: client.modeOfWork ?? null,
+        workDaysInWeek: client.workDaysInWeek ?? null,
+        notes: client.notes ?? null,
+        briefDeck: client.briefDeck ?? [],
+        assignedJobs,
+        assignedJobTitles: assignedJobs.map((row) => row.title),
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }

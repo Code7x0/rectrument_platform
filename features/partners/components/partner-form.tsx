@@ -73,14 +73,34 @@ export function PartnerForm({
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
       <div className="space-y-2">
-        <Label htmlFor="companyName">Company Name</Label>
+        <Label htmlFor="companyName">Partner Name (optional)</Label>
         <Input id="companyName" {...register("companyName")} />
+        <p className="text-xs text-[#64748B]">
+          Partner Code is the identifier. Partner Name is optional.
+        </p>
         {errors.companyName ? (
           <p className="text-xs text-destructive">
             {errors.companyName.message}
           </p>
         ) : null}
       </div>
+
+      {initialPartner?.profileSubmittedAt ? (
+        <div className="space-y-2">
+          <Label htmlFor="profileSubmittedAt">Date of Profile Submission</Label>
+          <Input
+            id="profileSubmittedAt"
+            value={initialPartner.profileSubmittedAt.slice(0, 10)}
+            readOnly
+            disabled
+          />
+        </div>
+      ) : (
+        <p className="text-xs text-[#64748B]">
+          Date of Profile Submission is set automatically when the partner
+          record is created.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">

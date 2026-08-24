@@ -647,6 +647,16 @@ export async function changeUserRole(
   if (user.role === toRole) {
     return user;
   }
+  if (toRole === "partner") {
+    throw new Error(
+      "Accounts cannot be demoted to Talent Partner. Promote Talent Partners to Account Manager only.",
+    );
+  }
+  if (user.role === "partner" && toRole !== "account_manager") {
+    throw new Error(
+      "Talent Partners can only be promoted to Account Manager.",
+    );
+  }
 
   const updated = await updateUserRecord(userId, { role: toRole });
 

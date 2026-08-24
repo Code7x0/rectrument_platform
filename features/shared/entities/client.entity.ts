@@ -52,6 +52,7 @@ export interface PartnerClientView {
   briefDeck: ClientAttachment[];
   /** Jobs currently assigned to this partner under this client. */
   assignedJobTitles: string[];
+  assignedJobs: Array<{ id: string; title: string }>;
 }
 
 export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {

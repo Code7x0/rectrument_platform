@@ -11,6 +11,7 @@ import type {
   PartnerPerformanceStats,
 } from "@/features/partners/types";
 import { displayBusinessId } from "@/lib/business-ids";
+import { formatDate } from "@/lib/utils";
 
 function Detail({
   label,
@@ -85,7 +86,15 @@ export function PartnerOverviewTab({
           />
           {showIdentity ? (
             <>
-              <Detail label="Company" value={partner.companyName} />
+              <Detail label="Partner Name" value={partner.companyName} />
+              <Detail
+                label="Date of Profile Submission"
+                value={
+                  partner.profileSubmittedAt
+                    ? formatDate(partner.profileSubmittedAt)
+                    : null
+                }
+              />
               <Detail label="Contact Person" value={partner.contactName} />
               <Detail label="Email" value={partner.email} />
               <Detail label="Phone" value={partner.phone} />

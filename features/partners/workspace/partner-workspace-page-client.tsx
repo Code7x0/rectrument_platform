@@ -109,7 +109,7 @@ export function PartnerWorkspacePageClient({
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <WorkspaceShell
-        title={partner.companyName}
+        title={partner.companyName?.trim() || partner.partnerCode || "Talent Partner"}
         subtitle={partner.contactName}
         tabs={tabs}
         activeTab={tab}

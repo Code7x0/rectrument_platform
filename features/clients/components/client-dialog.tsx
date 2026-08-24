@@ -9,6 +9,7 @@ import {
   createClientAction,
   deleteClientAction,
   updateClientAction,
+  uploadClientBriefDeckAction,
 } from "@/features/clients/actions/clients.actions";
 import { ClientForm } from "@/features/clients/components/client-form";
 import type { ClientFormValues } from "@/features/clients/schemas/client.schema";
@@ -43,7 +44,7 @@ export function ClientDialog({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  async function handleSubmit(values: ClientFormValues) {
+  async function handleSubmit(values: ClientFormValues, pptFile: File | null) {
     setSubmitting(true);
     try {
       const result =
@@ -54,6 +55,20 @@ export function ClientDialog({
       if (!result.success) {
         toast.error(result.message);
         return;
+      }
+
+      const clientId =
+        mode === "create"
+          ? (result.data as { id?: string } | undefined)?.id
+          : client?.id;
+      if (pptFile && clientId) {
+        const formData = new FormData();
+        formData.set("ppt", pptFile);
+        const upload = await uploadClientBriefDeckAction(clientId, formData);
+        if (!upload.success) {
+          toast.error(upload.message);
+          return;
+        }
       }
 
       toast.success(mode === "create" ? "Client created" : "Client updated");

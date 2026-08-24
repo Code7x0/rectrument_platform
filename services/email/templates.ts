@@ -23,6 +23,7 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
   document_rejected: "Document rejected – TalentSocio",
   candidate_submitted: "New candidate submitted – TalentSocio",
   candidate_status_changed: "Candidate status update – TalentSocio",
+  feedback_submission: "Platform feedback submission – TalentSocio",
 };
 
 /**
@@ -277,6 +278,20 @@ export function renderBody(
         data.candidatesUrl ? `View candidates: ${data.candidatesUrl}` : "",
         "",
         "TalentSocio Team",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "feedback_submission":
+      return [
+        "Hello,",
+        "",
+        `${data.roleLabel ?? "A user"} submitted feedback on the platform.`,
+        data.submitterName ? `Name: ${data.submitterName}` : "",
+        data.submitterEmail ? `Email: ${data.submitterEmail}` : "",
+        data.feedbackType ? `Type: ${data.feedbackType}` : "",
+        "",
+        "Message:",
+        data.message ?? "—",
       ]
         .filter(Boolean)
         .join("\n");

@@ -97,8 +97,11 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
 
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
-          <Label htmlFor="companyName">Company Name</Label>
+          <Label htmlFor="companyName">Partner Name (optional)</Label>
           <Input id="companyName" {...register("companyName")} />
+          <p className="text-xs text-[#64748B]">
+            Your Partner Code is the identifier. Name is optional.
+          </p>
           {errors.companyName ? (
             <p className="text-xs text-destructive">
               {errors.companyName.message}

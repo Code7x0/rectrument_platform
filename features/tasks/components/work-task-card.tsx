@@ -11,7 +11,6 @@ import type { PartnerWorkTask } from "@/features/tasks/types";
 
 interface WorkTaskCardProps {
   task: PartnerWorkTask;
-  onOpenJob: (task: PartnerWorkTask) => void;
 }
 
 function Meta({
@@ -36,7 +35,7 @@ function formatDaysOfWorking(days: number | null | undefined): string | null {
   return `${days} day${days === 1 ? "" : "s"}`;
 }
 
-export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
+export function WorkTaskCard({ task }: WorkTaskCardProps) {
   const salary = task.job.salary?.trim() || null;
   const workMode = deriveJobWorkMode(task.location, task.job.workMode);
   const daysOfWorking = formatDaysOfWorking(task.workDaysInWeek);
@@ -115,8 +114,17 @@ export function WorkTaskCard({ task, onOpenJob }: WorkTaskCardProps) {
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-border/80 pt-4">
-        <Button type="button" variant="outline" onClick={() => onOpenJob(task)}>
-          Open Job
+        <Button asChild type="button" variant="outline">
+          <Link href={`/partner/jobs/${encodeURIComponent(task.jobId)}`}>
+            Open Job
+          </Link>
+        </Button>
+        <Button asChild type="button">
+          <Link
+            href={`/partner/submit?jobId=${encodeURIComponent(task.jobId)}`}
+          >
+            Submit Candidate
+          </Link>
         </Button>
       </div>
     </article>

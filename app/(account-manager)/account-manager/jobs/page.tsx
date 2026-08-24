@@ -23,7 +23,11 @@ function locationsFromJobs(
   return Array.from(locations).sort((a, b) => a.localeCompare(b));
 }
 
-export default async function AccountManagerJobsPage() {
+export default async function AccountManagerJobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ jobId?: string }>;
+}) {
   const session = await getAppSession();
 
   if (!session) {
@@ -44,6 +48,8 @@ export default async function AccountManagerJobsPage() {
     session.role,
     "archive_allocations",
   );
+  const { jobId: jobIdParam } = await searchParams;
+  const initialJobId = jobIdParam?.trim() || null;
 
   const [jobs, assignedClients, accountManagers, partners, submissions] =
     await Promise.all([
@@ -102,6 +108,7 @@ export default async function AccountManagerJobsPage() {
       hideAccountManager
       submittedByJobId={submittedByJobId}
       submittedProfilesBasePath="/account-manager/candidates"
+      initialJobId={initialJobId}
       breadcrumbs={[
         { label: "Account Manager", href: "/account-manager" },
         { label: "Jobs" },

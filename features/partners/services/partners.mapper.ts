@@ -74,6 +74,7 @@ function mapIdentityVisibility(value: unknown): IdentityVisibility {
 export function mapPartnerRecord(record: {
   id: string;
   fields: AirtableFields;
+  createdTime?: string | null;
 }): Partner {
   const fields = record.fields;
   const rawCode = asString(fields[PARTNERS_TABLE_FIELDS.partnerId]);
@@ -89,7 +90,7 @@ export function mapPartnerRecord(record: {
       : rawCode,
     companyName:
       asString(fields[PARTNERS_TABLE_FIELDS.companyName]) ??
-      "Untitled Partner",
+      "",
     contactName: asString(fields[PARTNERS_TABLE_FIELDS.name]),
     email: asString(fields[PARTNERS_TABLE_FIELDS.email]),
     phone: asString(fields[PARTNERS_TABLE_FIELDS.phone]),
@@ -116,6 +117,7 @@ export function mapPartnerRecord(record: {
       asString(fields[PARTNERS_TABLE_FIELDS.bankDetails]) ??
       notesMeta.bankDetails,
     notes,
+    profileSubmittedAt: record.createdTime ?? null,
   };
 }
 
@@ -127,7 +129,11 @@ export function toAirtableCreateFields(
   const clientMode = isClientCompatMode();
 
   const fields: AirtableFields = {
-    [PARTNERS_TABLE_FIELDS.companyName]: input.companyName,
+    [PARTNERS_TABLE_FIELDS.companyName]:
+      input.companyName?.trim() ||
+      input.contactName?.trim() ||
+      input.partnerCode?.trim() ||
+      "Talent Partner",
     [PARTNERS_TABLE_FIELDS.status]: DOMAIN_PARTNER_STATUS_TO_AIRTABLE[status],
   };
 

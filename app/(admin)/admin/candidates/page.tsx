@@ -52,6 +52,8 @@ export default async function AdminCandidatesPage({
       initialStatusGroup={statusGroup}
       canTransition={roleHasPermission(session.role, "review_candidates")}
       canDelete={roleHasPermission(session.role, "delete_candidates")}
+      canAddCandidate={roleHasPermission(session.role, "review_candidates")}
+      jobsBasePath="/admin/jobs"
       title="Candidates"
       description="All partner submissions across clients and jobs. Update status as interviews progress."
       emptyTitle="No candidates found"

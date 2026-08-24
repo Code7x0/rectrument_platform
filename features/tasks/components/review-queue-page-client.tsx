@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -25,6 +26,7 @@ import { SubmissionReviewPanel } from "@/features/submissions/components/submiss
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
 import type { Submission } from "@/features/submissions/types";
 import { deleteSubmissionAction } from "@/features/submissions/actions/submissions.actions";
+import { StaffAddCandidateDialog } from "@/features/submissions/components/staff-add-candidate-dialog";
 import { getReviewDetailAction } from "@/features/workflows/actions/review.actions";
 import { signalLiveDataChange } from "@/lib/live-sync";
 import {
@@ -39,6 +41,7 @@ import {
   type SubmissionStatusGroupId,
 } from "@/features/submissions/lib/submission-status-buckets";
 import {
+  formatOfferInHandForDisplay,
   formatSkillScreensForDisplay,
   parseScreeningMatrixNotes,
 } from "@/features/submissions/lib/build-screening-matrix-notes";
@@ -48,6 +51,7 @@ interface ReviewQueuePageClientProps {
   initialSubmissions: Submission[];
   canTransition: boolean;
   canDelete?: boolean;
+  canAddCandidate?: boolean;
   hideClientName?: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
   emptyTitle?: string;
@@ -67,6 +71,8 @@ interface ReviewQueuePageClientProps {
    * have submissions in the current list.
    */
   clientFilterOptions?: Array<{ id: string; label: string }>;
+  /** Open the related job from Job ID (Account Manager / Admin jobs list). */
+  jobsBasePath?: string | null;
 }
 
 function Detail({
@@ -154,16 +160,28 @@ function isAirtableRecordId(value: string | null | undefined): boolean {
 }
 
 /** Prefer human labels; never surface raw Airtable record ids. */
-function displayClientLabel(row: Submission): string {
-  const name = row.clientName?.trim() || "";
+function displayClientLabel(
+  row: Submission,
+  hideClientName = false,
+): string {
   const code = row.clientCode?.trim() || "";
+  const fromJobCode = row.jobCode?.split("_")[0]?.trim() || "";
+  if (hideClientName) {
+    if (code && !isAirtableRecordId(code)) {
+      return code;
+    }
+    if (fromJobCode && !isAirtableRecordId(fromJobCode)) {
+      return fromJobCode;
+    }
+    return "—";
+  }
+  const name = row.clientName?.trim() || "";
   if (name && !isAirtableRecordId(name)) {
     return name;
   }
   if (code && !isAirtableRecordId(code)) {
     return code;
   }
-  const fromJobCode = row.jobCode?.split("_")[0]?.trim() || "";
   if (fromJobCode && !isAirtableRecordId(fromJobCode)) {
     return fromJobCode;
   }
@@ -198,6 +216,7 @@ export function ReviewQueuePageClient({
   initialSubmissions,
   canTransition,
   canDelete = false,
+  canAddCandidate = false,
   hideClientName = false,
   breadcrumbs,
   emptyTitle = "No submissions to review",
@@ -209,6 +228,7 @@ export function ReviewQueuePageClient({
   initialStatus = null,
   initialStatusGroup = null,
   clientFilterOptions = [],
+  jobsBasePath = null,
 }: ReviewQueuePageClientProps) {
   const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
@@ -218,6 +238,7 @@ export function ReviewQueuePageClient({
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Submission | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>(() => {
     if (initialStatusGroup && isSubmissionStatusGroupId(initialStatusGroup)) {
       return `group:${initialStatusGroup}`;
@@ -277,14 +298,14 @@ export function ReviewQueuePageClient({
       if (!row.clientId) {
         continue;
       }
-      const label = displayClientLabel(row);
+      const label = displayClientLabel(row, hideClientName);
       if (label === "—" || map.has(row.clientId)) {
         continue;
       }
       map.set(row.clientId, label);
     }
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [rows, clientFilterOptions]);
+  }, [rows, clientFilterOptions, hideClientName]);
 
   const partnerOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -336,7 +357,11 @@ export function ReviewQueuePageClient({
 
   const selectedScreen = useMemo(() => {
     if (!selected) {
-      return { experience: null as string | null, skills: null as string | null };
+      return {
+        experience: null as string | null,
+        skills: null as string | null,
+        offerInHand: null as string | null,
+      };
     }
     const parsed = parseScreeningMatrixNotes(selected.remarks);
     return {
@@ -348,6 +373,7 @@ export function ReviewQueuePageClient({
         parsed.remarks ||
         selected.remarks ||
         null,
+      offerInHand: formatOfferInHandForDisplay(parsed.offerInHand),
     };
   }, [selected, candidate]);
 
@@ -429,6 +455,9 @@ export function ReviewQueuePageClient({
             <span className="font-medium text-[#0F172A]">
               {row.candidateName ?? "—"}
             </span>
+            <span className="block text-xs text-[#64748B]">
+              {[row.email, row.phone].filter(Boolean).join(" · ") || "—"}
+            </span>
             {row.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
           </div>
         ),
@@ -448,7 +477,20 @@ export function ReviewQueuePageClient({
         id: "jobCode",
         header: "Job ID",
         className: "text-[#64748B]",
-        cell: (row) => row.jobCode || "—",
+        cell: (row) => {
+          const label = row.jobCode || "—";
+          if (!jobsBasePath || !row.jobId) {
+            return label;
+          }
+          return (
+            <Link
+              href={`${jobsBasePath}?jobId=${encodeURIComponent(row.jobId)}`}
+              className="font-medium text-[#2563EB] hover:underline"
+            >
+              {label}
+            </Link>
+          );
+        },
       },
       {
         id: "job",
@@ -460,7 +502,7 @@ export function ReviewQueuePageClient({
         id: "client",
         header: "Client",
         className: "text-[#64748B]",
-        cell: (row) => displayClientLabel(row),
+        cell: (row) => displayClientLabel(row, hideClientName),
       },
       {
         id: "partnerCode",
@@ -531,7 +573,7 @@ export function ReviewQueuePageClient({
         ),
       },
     ],
-    [canDelete, hideClientName],
+    [canDelete, hideClientName, jobsBasePath],
   );
 
   return (
@@ -547,6 +589,14 @@ export function ReviewQueuePageClient({
           (canTransition
             ? "Candidates waiting for your review. Update status as interviews progress."
             : "All candidate submissions across the pipeline.")
+        }
+        actions={
+          canAddCandidate ? (
+            <Button type="button" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add Candidate
+            </Button>
+          ) : undefined
         }
       />
 
@@ -637,8 +687,14 @@ export function ReviewQueuePageClient({
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Detail label="Name" value={candidate?.fullName} />
-                    <Detail label="Email" value={candidate?.email} />
-                    <Detail label="Phone" value={candidate?.phone} />
+                    <Detail
+                      label="Email"
+                      value={candidate?.email || selected.email}
+                    />
+                    <Detail
+                      label="Phone"
+                      value={candidate?.phone || selected.phone}
+                    />
                     <Detail label="Experience" value={selectedScreen.experience} />
                     <Detail
                       label="Current Company"
@@ -661,6 +717,12 @@ export function ReviewQueuePageClient({
                       label="Screening Matrix"
                       value={selectedScreen.skills}
                     />
+                    {selectedScreen.offerInHand ? (
+                      <Detail
+                        label="Offer in Hand"
+                        value={selectedScreen.offerInHand}
+                      />
+                    ) : null}
                   </div>
                   {(candidate?.resumeUrl || selected?.resumeUrl) ? (
                     <FilePreviewLink
@@ -717,10 +779,12 @@ export function ReviewQueuePageClient({
                     <Detail
                       label="Client"
                       value={
-                        job?.clientName ||
-                        selected.clientName ||
-                        selected.clientCode ||
-                        job?.clientCode
+                        hideClientName
+                          ? displayClientLabel(selected, true)
+                          : job?.clientName ||
+                            selected.clientName ||
+                            selected.clientCode ||
+                            job?.clientCode
                       }
                     />
                     <Detail label="Location" value={job?.location} />
@@ -762,6 +826,14 @@ export function ReviewQueuePageClient({
           </div>
         ) : null}
       </DetailDrawer>
+
+      {canAddCandidate ? (
+        <StaffAddCandidateDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          onCompleted={() => router.refresh()}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

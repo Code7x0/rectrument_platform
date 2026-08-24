@@ -31,11 +31,12 @@ export const partnerRegistrationSchema = z.object({
   bankDetails: z.string().trim().max(500).optional().or(z.literal("")),
   identityVisibility: identityVisibilitySchema,
   agreementAccepted: z.boolean().refine((value) => value === true, {
-    message: "You must accept the partner agreement",
+    message: "You must agree after reading the terms to the last page",
   }),
-  /** Client must confirm the agreement was viewed/scrolled before accept. */
+  /** Client must reach the last page of the agreement PDF before accept. */
   agreementViewed: z.boolean().refine((value) => value === true, {
-    message: "Please review the Terms & Conditions before accepting",
+    message:
+      "Please read the Terms & Conditions through to the last page before agreeing",
   }),
 });
 
@@ -61,7 +62,7 @@ export type RejectPartnerValues = z.infer<typeof rejectPartnerSchema>;
 
 export const changeRoleSchema = z.object({
   userId: z.string().min(1),
-  toRole: z.enum(["admin", "account_manager", "partner"]),
+  toRole: z.enum(["admin", "account_manager"]),
 });
 
 export type ChangeRoleValues = z.infer<typeof changeRoleSchema>;

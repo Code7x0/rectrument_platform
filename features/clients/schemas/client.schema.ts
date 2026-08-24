@@ -28,6 +28,7 @@ export const clientFormSchema = z.object({
     z.literal(""),
   ]).optional(),
   notes: z.string().trim().optional(),
+  employeeSize: z.string().trim().optional(),
 });
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>;

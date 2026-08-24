@@ -489,6 +489,31 @@ export async function getNotificationForUser(
   return row;
 }
 
+function dismissedNotificationStub(
+  notificationId: string,
+  userId: string,
+): Notification {
+  return {
+    id: notificationId,
+    notificationCode: null,
+    recipientUserId: userId,
+    title: "Notification",
+    description: null,
+    type: "system",
+    priority: "medium",
+    category: "system",
+    entityType: null,
+    entityId: null,
+    actionUrl: null,
+    readStatus: "read",
+    createdAt: null,
+    readAt: new Date().toISOString(),
+    archived: false,
+    metadata: null,
+    activityId: null,
+  };
+}
+
 export async function markNotificationRead(
   notificationId: string,
   userId: string,
@@ -511,30 +536,14 @@ export async function markNotificationRead(
     if (row) {
       return { ...row, readStatus: "read", readAt: new Date().toISOString() };
     }
-    return {
-      id: notificationId,
-      notificationCode: null,
-      recipientUserId: userId,
-      title: "Notification",
-      description: null,
-      type: "system",
-      priority: "medium",
-      category: "system",
-      entityType: null,
-      entityId: null,
-      actionUrl: null,
-      readStatus: "read",
-      createdAt: null,
-      readAt: new Date().toISOString(),
-      archived: false,
-      metadata: null,
-      activityId: null,
-    };
+    return dismissedNotificationStub(notificationId, userId);
   }
 
   const row = await getNotificationForUser(notificationId, userId);
   if (!row) {
-    throw new Error("Notification not found");
+    // Claim approval / derived ids must never surface a false error toast.
+    await dismissNotificationIds([notificationId]);
+    return dismissedNotificationStub(notificationId, userId);
   }
   if (row.readStatus === "read") {
     return row;
@@ -545,9 +554,8 @@ export async function markNotificationRead(
     [NOTIFICATIONS_TABLE_FIELDS.readAt]: new Date().toISOString(),
   });
   if (!updated) {
-    throw new Error(
-      "Notifications storage is not configured on this Airtable base.",
-    );
+    await dismissNotificationIds([notificationId]);
+    return { ...row, readStatus: "read", readAt: new Date().toISOString() };
   }
   return updated;
 }
@@ -598,17 +606,27 @@ export async function archiveNotification(
   notificationId: string,
   userId: string,
 ): Promise<Notification> {
+  const {
+    dismissNotificationIds,
+    isDerivedNotificationId,
+  } = await import("@/features/notifications/lib/read-state");
+
+  if (isDerivedNotificationId(notificationId)) {
+    await dismissNotificationIds([notificationId]);
+    return dismissedNotificationStub(notificationId, userId);
+  }
+
   const row = await getNotificationForUser(notificationId, userId);
   if (!row) {
-    throw new Error("Notification not found");
+    await dismissNotificationIds([notificationId]);
+    return dismissedNotificationStub(notificationId, userId);
   }
   const updated = await patchNotification(notificationId, {
     [NOTIFICATIONS_TABLE_FIELDS.archived]: true,
   });
   if (!updated) {
-    throw new Error(
-      "Notifications storage is not configured on this Airtable base.",
-    );
+    await dismissNotificationIds([notificationId]);
+    return { ...row, archived: true };
   }
   return updated;
 }

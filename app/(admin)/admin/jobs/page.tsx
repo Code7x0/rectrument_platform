@@ -70,7 +70,11 @@ async function loadJobsPageData() {
   };
 }
 
-export default async function AdminJobsPage() {
+export default async function AdminJobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ jobId?: string }>;
+}) {
   const {
     session,
     jobs,
@@ -84,6 +88,8 @@ export default async function AdminJobsPage() {
     canDelete,
     submittedByJobId,
   } = await loadJobsPageData();
+  const { jobId: jobIdParam } = await searchParams;
+  const initialJobId = jobIdParam?.trim() || null;
 
   const homeLabel = session.role === "super_admin" ? "Super Admin" : "Admin";
   const homeHref = session.role === "super_admin" ? "/super-admin" : "/admin";
@@ -101,6 +107,7 @@ export default async function AdminJobsPage() {
       canDelete={canDelete}
       submittedByJobId={submittedByJobId}
       submittedProfilesBasePath="/admin/candidates"
+      initialJobId={initialJobId}
       breadcrumbs={[
         { label: homeLabel, href: homeHref },
         { label: "Jobs" },

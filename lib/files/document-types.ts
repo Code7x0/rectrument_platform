@@ -23,6 +23,9 @@ const EXT_TO_MIME: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".ppt": "application/vnd.ms-powerpoint",
+  ".pptx":
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 /** MIME aliases browsers may report for allowed files. */
@@ -62,6 +65,11 @@ const MIME_ALIASES: Record<string, string> = {
   "image/jpg": "image/jpeg",
   "image/pjpeg": "image/jpeg",
   "image/x-png": "image/png",
+  "application/vnd.ms-powerpoint": "application/vnd.ms-powerpoint",
+  "application/mspowerpoint": "application/vnd.ms-powerpoint",
+  "application/powerpoint": "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 function extensionOf(filename: string): string | null {
@@ -156,6 +164,36 @@ export const RESUME_ACCEPT =
 /** Job Description / general document uploads (PDF, Word, PNG, JPG). */
 export const DOCUMENT_ACCEPT =
   ".pdf,.doc,.docx,.png,.jpg,.jpeg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg";
+
+export const PRESENTATION_EXTENSIONS = [
+  ".pdf",
+  ".ppt",
+  ".pptx",
+  ".doc",
+  ".docx",
+] as const;
+
+export const PRESENTATION_ACCEPT =
+  ".pdf,.ppt,.pptx,.doc,.docx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+export function validatePresentationUploadMeta(input: {
+  filename: string;
+  contentType?: string | null;
+  size: number;
+  maxBytes?: number;
+}): string | null {
+  const max = input.maxBytes ?? 20 * 1024 * 1024;
+  if (input.size <= 0) {
+    return "File is required";
+  }
+  if (input.size > max) {
+    return "File must be 20 MB or smaller";
+  }
+  if (!hasAllowedExtension(input.filename, PRESENTATION_EXTENSIONS)) {
+    return "Upload a PPT, PPTX, PDF, or Word document";
+  }
+  return null;
+}
 
 export function validateDocumentUploadMeta(input: {
   filename: string;

@@ -13,6 +13,11 @@ export function appendCandidateFormFields(
   formData.set("noticePeriod", values.noticePeriod ?? "");
   formData.set("linkedIn", values.linkedIn ?? "");
   formData.set("currentCompany", values.currentCompany ?? "");
+  formData.set("offerInHandCtc", values.offerInHandCtc ?? "");
+  formData.set("offerInHandLocation", values.offerInHandLocation ?? "");
+  formData.set("offerInHandDoj", values.offerInHandDoj ?? "");
+  formData.set("offerInHandCompany", values.offerInHandCompany ?? "");
+  formData.set("offerInHandReason", values.offerInHandReason ?? "");
   formData.set("experience", values.experience ?? "");
   formData.set("skills", values.skillScreens.map((row) => row.skill).join(", "));
   formData.set("remarks", values.remarks ?? "");
@@ -46,6 +51,11 @@ export function parseCandidateFormData(formData: FormData) {
     noticePeriod: String(formData.get("noticePeriod") ?? ""),
     linkedIn: String(formData.get("linkedIn") ?? ""),
     skills: String(formData.get("skills") ?? ""),
+    offerInHandCtc: String(formData.get("offerInHandCtc") ?? ""),
+    offerInHandLocation: String(formData.get("offerInHandLocation") ?? ""),
+    offerInHandDoj: String(formData.get("offerInHandDoj") ?? ""),
+    offerInHandCompany: String(formData.get("offerInHandCompany") ?? ""),
+    offerInHandReason: String(formData.get("offerInHandReason") ?? ""),
     remarks: String(formData.get("remarks") ?? ""),
     skillScreens,
   };

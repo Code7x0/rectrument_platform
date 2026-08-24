@@ -42,6 +42,7 @@ export function ClientTable({
         {
           id: "code",
           header: "Client ID",
+          sticky: hideClientName ? "left" : undefined,
           cell: (row) =>
             hideClientName ? (
               <button
@@ -63,6 +64,9 @@ export function ClientTable({
         cols.push({
           id: "name",
           header: "Client Name",
+          sticky: "left",
+          className: "min-w-[10rem]",
+          headerClassName: "min-w-[10rem]",
           cell: (row) => (
             <button
               type="button"
@@ -137,6 +141,9 @@ export function ClientTable({
           id: "actions",
           header: "Actions",
           align: "right",
+          sticky: "right",
+          className: "whitespace-nowrap",
+          headerClassName: "whitespace-nowrap",
           cell: (row) => (
             <div className="flex items-center justify-end gap-1">
               <Button

@@ -30,6 +30,8 @@ export interface PartnerEntity {
   experience: string | null;
   bankDetails: string | null;
   notes: string | null;
+  /** Airtable createdTime — Date of Profile Submission. */
+  profileSubmittedAt: string | null;
 }
 
 export const PARTNER_STATUS_LABELS: Record<PartnerStatus, string> = {

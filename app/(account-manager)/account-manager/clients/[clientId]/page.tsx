@@ -104,11 +104,20 @@ export default async function AccountManagerClientWorkspacePage({
     ),
   ]);
 
+  const jobsForAm = jobs.map((job) => ({
+    ...job,
+    clientName:
+      client.clientCode?.trim() ||
+      job.clientCode?.trim() ||
+      job.jobCode?.split("_")[0] ||
+      null,
+  }));
+
   return (
     <ClientWorkspacePageClient
       client={client}
       stats={stats}
-      jobs={jobs}
+      jobs={jobsForAm}
       allocations={allocations}
       submissions={submissions}
       tab={tab}

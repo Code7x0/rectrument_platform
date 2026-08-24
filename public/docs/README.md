@@ -1,6 +1,6 @@
 # Partner Agreement PDF
 
-Place the **official** Talent Partner Agreement PDF at:
+Official TalentSocio Talent Partner Network Agreement:
 
 ```
 public/docs/partner-agreement.pdf
@@ -8,5 +8,7 @@ public/docs/partner-agreement.pdf
 
 Served at `/docs/partner-agreement.pdf`.
 
-Until that file exists, registration opens the in-app generic agreement at
-`/partner-agreement` (scroll-to-accept still applies).
+Partner onboarding (`/register`) embeds this PDF and requires the applicant to
+scroll to the last page before they can tick:
+
+“I have read terms and conditions till last page. I agree.”

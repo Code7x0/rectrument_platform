@@ -23,14 +23,23 @@ import { signalLiveDataChange } from "@/lib/live-sync";
 
 interface PartnerSubmitProfilePageClientProps {
   tasks: PartnerWorkTask[];
+  initialJobId?: string | null;
 }
 
 export function PartnerSubmitProfilePageClient({
   tasks,
+  initialJobId = null,
 }: PartnerSubmitProfilePageClientProps) {
   const router = useRouter();
   const submittingLock = useRef(false);
-  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(() => {
+    if (!initialJobId) {
+      return [];
+    }
+    return tasks
+      .filter((task) => task.jobId === initialJobId)
+      .map((task) => task.id);
+  });
   const [submitting, setSubmitting] = useState(false);
   const [pendingValues, setPendingValues] =
     useState<CandidateFormValues | null>(null);
