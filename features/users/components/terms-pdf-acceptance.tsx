@@ -281,13 +281,11 @@ function AgreementPreview({
   }, [onCurrentPage, onPageCount, pagesEl]);
 
   useEffect(() => {
-    if (!ready) {
+    if (!ready || !pagesEl) {
       return;
     }
     const root = scrollRef.current;
-    const last = pagesEl?.querySelector(
-      "canvas[data-page]:last-of-type",
-    );
+    const last = pagesEl.querySelector("canvas[data-page]:last-of-type");
     if (!root || !(last instanceof HTMLElement)) {
       return;
     }
