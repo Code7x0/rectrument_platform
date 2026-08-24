@@ -4,7 +4,7 @@ import {
   updateRecord,
   type AirtableFields,
 } from "@/lib/airtable/client";
-import { asString } from "@/lib/airtable/compat";
+import { asLinkedId, asString } from "@/lib/airtable/compat";
 import {
   AIRTABLE_JOB_CLAIM_STATUS,
   DOMAIN_JOB_CLAIM_STATUS_TO_AIRTABLE,
@@ -55,8 +55,13 @@ function mapClaimRecord(
   fields: AirtableFields,
 ): JobClaim | null {
   const id = asString(fields[JOB_CLAIMS_TABLE_FIELDS.claimId]);
-  const partnerId = asString(fields[JOB_CLAIMS_TABLE_FIELDS.partner]);
-  const jobId = asString(fields[JOB_CLAIMS_TABLE_FIELDS.job]);
+  // Job Claims linked fields arrive as arrays from Airtable; fall back to text.
+  const partnerId =
+    asLinkedId(fields[JOB_CLAIMS_TABLE_FIELDS.partner]) ??
+    asString(fields[JOB_CLAIMS_TABLE_FIELDS.partner]);
+  const jobId =
+    asLinkedId(fields[JOB_CLAIMS_TABLE_FIELDS.job]) ??
+    asString(fields[JOB_CLAIMS_TABLE_FIELDS.job]);
   if (!id || !partnerId || !jobId) {
     return null;
   }
@@ -66,13 +71,16 @@ function mapClaimRecord(
     partnerId,
     jobId,
     accountManagerId:
-      asString(fields[JOB_CLAIMS_TABLE_FIELDS.accountManager]) || null,
+      (asLinkedId(fields[JOB_CLAIMS_TABLE_FIELDS.accountManager]) ??
+        asString(fields[JOB_CLAIMS_TABLE_FIELDS.accountManager])) || null,
     status: mapStatus(fields[JOB_CLAIMS_TABLE_FIELDS.status]),
     requestedAt:
       asString(fields[JOB_CLAIMS_TABLE_FIELDS.requestedAt]) ??
       new Date(0).toISOString(),
     reviewedAt: asString(fields[JOB_CLAIMS_TABLE_FIELDS.reviewedAt]),
-    reviewedByUserId: asString(fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy]),
+    reviewedByUserId:
+      asLinkedId(fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy]) ??
+      asString(fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy]),
     rejectionReason: asString(fields[JOB_CLAIMS_TABLE_FIELDS.rejectionReason]),
     rejectedAt: asString(fields[JOB_CLAIMS_TABLE_FIELDS.rejectedAt]),
     reclaimAvailableAt: asString(
@@ -85,14 +93,15 @@ function mapClaimRecord(
 function toCreateFields(claim: JobClaim): AirtableFields {
   const fields: AirtableFields = {
     [JOB_CLAIMS_TABLE_FIELDS.claimId]: claim.id,
-    [JOB_CLAIMS_TABLE_FIELDS.job]: claim.jobId,
-    [JOB_CLAIMS_TABLE_FIELDS.partner]: claim.partnerId,
+    // Linked record fields require an array of record IDs.
+    [JOB_CLAIMS_TABLE_FIELDS.job]: [claim.jobId],
+    [JOB_CLAIMS_TABLE_FIELDS.partner]: [claim.partnerId],
     [JOB_CLAIMS_TABLE_FIELDS.status]:
       DOMAIN_JOB_CLAIM_STATUS_TO_AIRTABLE[claim.status],
     [JOB_CLAIMS_TABLE_FIELDS.requestedAt]: claim.requestedAt,
   };
   if (claim.accountManagerId) {
-    fields[JOB_CLAIMS_TABLE_FIELDS.accountManager] = claim.accountManagerId;
+    fields[JOB_CLAIMS_TABLE_FIELDS.accountManager] = [claim.accountManagerId];
   }
   if (claim.reviewedAt) {
     fields[JOB_CLAIMS_TABLE_FIELDS.reviewedAt] = claim.reviewedAt;
@@ -125,7 +134,7 @@ function toUpdateFields(claim: JobClaim): AirtableFields {
     fields[JOB_CLAIMS_TABLE_FIELDS.reviewedAt] = claim.reviewedAt;
   }
   if (claim.reviewedByUserId) {
-    fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy] = claim.reviewedByUserId;
+    fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy] = [claim.reviewedByUserId];
   }
   if (claim.rejectionReason) {
     fields[JOB_CLAIMS_TABLE_FIELDS.rejectionReason] = claim.rejectionReason;
@@ -186,7 +195,8 @@ export async function listJobClaimsForPartner(
   }
 
   const records = await getRecords(getTableName(), {
-    filterByFormula: `{${JOB_CLAIMS_TABLE_FIELDS.partner}} = '${escapeFormulaValue(partnerId)}'`,
+    // Linked record fields need FIND-based lookup, not simple equality.
+    filterByFormula: `FIND('${escapeFormulaValue(partnerId)}', ARRAYJOIN({${JOB_CLAIMS_TABLE_FIELDS.partner}}))`,
     sort: [
       { field: JOB_CLAIMS_TABLE_FIELDS.requestedAt, direction: "desc" },
     ],
