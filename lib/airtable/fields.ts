@@ -205,6 +205,48 @@ export const DOMAIN_JOB_CLAIM_STATUS_TO_AIRTABLE = {
   rejected: "Rejected",
 } as const;
 
+/**
+ * Partner Queries table (tblDBNlgsqH8Tpm81).
+ * Text FKs for Partner / Account Manager so CRM schemas stay unchanged.
+ */
+export const PARTNER_QUERIES_TABLE_FIELDS = {
+  queryId: "Query ID",
+  partner: "Partner",
+  partnerCode: "Partner Code",
+  accountManager: "Account Manager",
+  queryType: "Query Type",
+  message: "Message",
+  status: "Status",
+  amComments: "AM Comments",
+  submittedAt: "Submitted At",
+  answeredAt: "Answered At",
+  answeredBy: "Answered By",
+} as const;
+
+export const AIRTABLE_PARTNER_QUERY_TYPE = {
+  "Account question": "account_question",
+  Feedback: "feedback",
+  Suggestion: "suggestion",
+} as const;
+
+export const DOMAIN_PARTNER_QUERY_TYPE_TO_AIRTABLE = {
+  account_question: "Account question",
+  feedback: "Feedback",
+  suggestion: "Suggestion",
+} as const;
+
+export const AIRTABLE_PARTNER_QUERY_STATUS = {
+  Open: "open",
+  Answered: "answered",
+  Closed: "closed",
+} as const;
+
+export const DOMAIN_PARTNER_QUERY_STATUS_TO_AIRTABLE = {
+  open: "Open",
+  answered: "Answered",
+  closed: "Closed",
+} as const;
+
 export const AIRTABLE_ROLE_MAP = {
   "Super Admin": "super_admin",
   Admin: "admin",

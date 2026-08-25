@@ -272,12 +272,14 @@ export async function ensurePayoutForSubmission(
 }
 
 /**
- * Business milestone: Joined → Eligible for Payout.
- * Idempotent — safe to call from the workflow transition.
+ * Business milestone: Joined → ensure payout track exists.
+ * Does NOT auto-approve eligibility — Account Manager sets consultant salary,
+ * then Admin/Super Admin must move the payout to Eligible before Partners see amount.
  */
 export async function markPayoutEligibleOnJoined(
   submission: Submission,
-  actorUserId: string,
+  _actorUserId: string,
+  options?: { consultantSalary?: number | null },
 ): Promise<Payout | null> {
   if (submission.status !== "joined") {
     return null;
@@ -289,18 +291,26 @@ export async function markPayoutEligibleOnJoined(
       return null;
     }
 
-    if (payout.payoutStatus !== "not_eligible") {
-      return payout;
+    const salary = options?.consultantSalary;
+    if (
+      salary != null &&
+      Number.isFinite(salary) &&
+      salary > 0 &&
+      (payout.amount == null || payout.amount <= 0)
+    ) {
+      const updated = await patchPayout(
+        payout.id,
+        toAirtableUpdateFields({
+          amount: salary,
+          notes:
+            "Consultant salary captured on Joined — awaiting Admin approval before Partner payout amount is visible.",
+        }),
+      );
+      const [enriched] = await withEnrichment([updated], false);
+      return enriched ?? updated;
     }
 
-    return await updatePayoutStatus({
-      payoutId: payout.id,
-      toStatus: "eligible",
-      actorUserId,
-      role: "admin",
-      eligibleDate: new Date().toISOString().slice(0, 10),
-      notes: "Auto-eligible: candidate marked Joined",
-    });
+    return payout;
   } catch (error) {
     console.error("markPayoutEligibleOnJoined skipped", error);
     return null;

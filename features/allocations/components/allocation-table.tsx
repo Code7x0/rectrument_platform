@@ -57,7 +57,27 @@ export function AllocationTable({
         id: "partner",
         header: "Talent Partner",
         className: "text-[#64748B]",
-        cell: (row) => row.partnerName ?? row.partnerCode ?? "—",
+        cell: (row) => {
+          const code = row.partnerCode?.trim();
+          const name = row.partnerName?.trim();
+          if (code && name && name !== code) {
+            return (
+              <div>
+                <p className="text-[#0F172A]">{code}</p>
+                <p className="text-xs text-[#64748B]">{name}</p>
+              </div>
+            );
+          }
+          if (code) {
+            return <span className="font-medium text-[#0F172A]">{code}</span>;
+          }
+          if (name) {
+            return name;
+          }
+          // Last resort — show short record id so multi-partner rows stay distinct.
+          const shortId = row.partnerId?.slice(-6) || "—";
+          return <span className="font-mono text-xs text-[#64748B]">{shortId}</span>;
+        },
       },
       {
         id: "submitted",
@@ -67,12 +87,12 @@ export function AllocationTable({
       },
       {
         id: "status",
-        header: "Status",
+        header: "On job",
         cell: (row) => <AllocationStatusBadge status={row.status} />,
       },
       {
         id: "assignedDate",
-        header: "Assigned",
+        header: "Since",
         className: "text-[#64748B]",
         cell: (row) =>
           row.assignedDate ? formatDate(row.assignedDate) : "—",

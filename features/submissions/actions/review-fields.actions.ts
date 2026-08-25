@@ -54,6 +54,7 @@ export async function updateSubmissionReviewFieldsAction(
         airtableStatus: input.airtableStatus,
         interviewStage: input.interviewStage,
         internalFeedback: input.internalFeedback,
+        consultantSalary: input.consultantSalary,
       },
       session.userId,
     );

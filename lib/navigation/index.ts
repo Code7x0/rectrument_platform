@@ -108,7 +108,7 @@ const PARTNER_NAV: AppNavItem[] = [
     href: "/partner/available-jobs",
     icon: Briefcase,
   },
-  { title: "Assigned Jobs", href: "/partner/jobs", icon: FolderKanban },
+  { title: "My Jobs", href: "/partner/jobs", icon: FolderKanban },
   { title: "Submit Profile", href: "/partner/submit", icon: UserPlus },
   { title: "Clients", href: "/partner/clients", icon: Building2 },
   {

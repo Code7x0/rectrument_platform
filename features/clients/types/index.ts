@@ -19,6 +19,7 @@ export interface CreateClientInput {
   status?: import("@/features/shared/entities").ClientStatus;
   notes?: string;
   primaryAddress?: string;
+  addresses?: string;
   modeOfWork?: string;
   workDaysInWeek?: number | null;
   employeeSize?: string | null;

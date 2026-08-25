@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+import {
+  INDIAN_MOBILE_ERROR,
+  isValidIndianMobile,
+  normalizeIndianMobileInput,
+} from "@/lib/india/mobile";
+
 export const skillScreenSchema = z.object({
   skill: z.string().trim().optional().or(z.literal("")),
   years: z.string().trim().optional().or(z.literal("")),
@@ -16,7 +22,13 @@ export type SkillScreenRow = z.infer<typeof skillScreenSchema>;
 export const candidateFormSchema = z.object({
   fullName: z.string().trim().min(2, "Candidate name is required"),
   email: z.string().trim().email("Valid email is required"),
-  phone: z.string().trim().min(7, "Phone number is required"),
+  phone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => isValidIndianMobile(normalizeIndianMobileInput(value)),
+      INDIAN_MOBILE_ERROR,
+    ),
   currentLocation: z.string().trim().min(2, "Current location is required"),
   currentCtc: z.string().trim().optional().or(z.literal("")),
   expectedCtc: z.string().trim().optional().or(z.literal("")),

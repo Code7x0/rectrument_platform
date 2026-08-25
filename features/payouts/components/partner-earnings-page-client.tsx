@@ -86,9 +86,11 @@ export function PartnerEarningsPageClient({
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-[#0F172A]">
-                      {row.amount != null && row.amount > 0
-                        ? formatCurrency(row.amount, row.currency)
-                        : "—"}
+                      {row.payoutStatus === "not_eligible"
+                        ? "Pending approval"
+                        : row.amount != null && row.amount > 0
+                          ? formatCurrency(row.amount, row.currency)
+                          : "—"}
                     </p>
                     <p className="text-xs text-[#94A3B8]">{row.payoutCode}</p>
                   </div>
@@ -116,6 +118,12 @@ export function PartnerEarningsPageClient({
                   ) : null}
                 </div>
 
+                {row.payoutStatus === "not_eligible" &&
+                row.recruitmentStatus === "joined" ? (
+                  <p className="mt-3 text-xs text-[#64748B]">
+                    Joined — payout amount appears after Admin approval.
+                  </p>
+                ) : null}
                 {row.payoutStatus === "not_eligible" &&
                 row.recruitmentStatus === "rejected" ? (
                   <p className="mt-3 text-xs text-[#64748B]">

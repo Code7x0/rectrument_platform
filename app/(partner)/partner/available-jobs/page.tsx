@@ -45,7 +45,7 @@ export default async function PartnerAvailableJobsPage() {
         ]}
       />
       <PageHeader
-        title="Available Jobs"
+        title={`Available Jobs (${jobs.length})`}
         description="Browse open jobs and request to work on them. Pending claims stay highlighted until approval, then move to Assigned Jobs. Client details unlock only after approval."
       />
       {loadError ? (

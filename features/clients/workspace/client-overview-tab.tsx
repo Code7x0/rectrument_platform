@@ -96,6 +96,40 @@ export function ClientOverviewTab({
         />
       </div>
 
+      <WorkspaceSection title="Recruiter briefing kit">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Detail label="Website" value={client.website} />
+          {!hideClientName ? (
+            <Detail label="Client Name" value={client.name} />
+          ) : null}
+          <Detail label="Client Code" value={client.clientCode} />
+          <Detail label="Employee Size" value={client.employeeSize} />
+        </div>
+        <div className="mt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+            Recruiter Kit
+          </p>
+          {(client.briefDeck?.length ?? 0) > 0 ? (
+            <ul className="mt-2 space-y-2">
+              {client.briefDeck!.map((file) => (
+                <li key={`${file.filename}-${file.url}`}>
+                  <FilePreviewLink
+                    url={file.url}
+                    filename={file.filename}
+                    title={file.filename}
+                    className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
+                  >
+                    {file.filename}
+                  </FilePreviewLink>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-[#64748B]">No kit uploaded yet.</p>
+          )}
+        </div>
+      </WorkspaceSection>
+
       <WorkspaceSection title="Client Details">
         <div className="grid gap-4 sm:grid-cols-2">
           <Detail label="Client ID" value={client.clientCode} />
@@ -103,10 +137,8 @@ export function ClientOverviewTab({
             <Detail label="Client Name" value={client.name} />
           ) : null}
           <Detail label="Industry" value={client.industry} />
-          <Detail
-            label="Primary address of work"
-            value={client.primaryAddress || client.addresses}
-          />
+          <Detail label="Office address" value={client.primaryAddress} />
+          <Detail label="Work address" value={client.addresses} />
           <Detail label="Employee Size" value={client.employeeSize} />
           <Detail
             label="No of days WFO/WFH"
@@ -127,27 +159,6 @@ export function ClientOverviewTab({
         <p className="whitespace-pre-wrap text-sm text-[#0F172A]">
           {client.notes?.trim() || "—"}
         </p>
-      </WorkspaceSection>
-
-      <WorkspaceSection title="Client Information Kit">
-        {(client.briefDeck?.length ?? 0) > 0 ? (
-          <ul className="space-y-2">
-            {client.briefDeck!.map((file) => (
-              <li key={`${file.filename}-${file.url}`}>
-                <FilePreviewLink
-                  url={file.url}
-                  filename={file.filename}
-                  title={file.filename}
-                  className="text-sm font-medium text-[#0F766E] underline-offset-2 hover:underline"
-                >
-                  {file.filename}
-                </FilePreviewLink>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-[#64748B]">No kit uploaded yet.</p>
-        )}
       </WorkspaceSection>
     </div>
   );

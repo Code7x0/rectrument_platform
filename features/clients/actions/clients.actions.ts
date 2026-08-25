@@ -41,6 +41,7 @@ function formToInput(values: ClientFormValues) {
     status: values.status === "archived" ? ("active" as const) : values.status,
     notes: values.notes ?? "",
     primaryAddress: values.primaryAddress ?? "",
+    addresses: values.addresses ?? "",
     modeOfWork: values.modeOfWork ?? "",
     employeeSize: values.employeeSize ?? "",
     workDaysInWeek:

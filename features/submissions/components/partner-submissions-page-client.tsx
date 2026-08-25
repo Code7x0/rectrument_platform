@@ -330,8 +330,11 @@ export function PartnerSubmissionsPageClient({
                     <h3 className="font-semibold text-[#0F172A]">
                       {row.candidateName ?? "Candidate"}
                     </h3>
+                    <p className="text-xs font-medium text-[#0F172A]">
+                      Candidate ID: {row.submissionCode?.trim() || "—"}
+                    </p>
                     <p className="text-sm text-[#64748B]">
-                      {row.jobCode ? `${row.jobCode} · ` : ""}
+                      {row.jobCode ? `Job ID: ${row.jobCode} · ` : "Job ID: — · "}
                       {row.jobTitle ?? "Job"}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs">

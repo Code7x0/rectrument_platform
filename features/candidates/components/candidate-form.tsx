@@ -20,6 +20,7 @@ import {
   RESUME_ACCEPT,
   validateResumeFileMeta,
 } from "@/lib/files/document-types";
+import { normalizeIndianMobileInput } from "@/lib/india/mobile";
 
 interface CandidateFormProps {
   defaultValues?: Partial<CandidateFormValues>;
@@ -154,9 +155,18 @@ export function CandidateForm({
             <Label htmlFor="phone">Phone Number *</Label>
             <Input
               id="phone"
-              autoComplete="tel"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              maxLength={10}
+              placeholder="10-digit Indian mobile"
               disabled={submitting}
-              {...register("phone")}
+              {...register("phone", {
+                onChange: (event) => {
+                  event.target.value = normalizeIndianMobileInput(
+                    event.target.value,
+                  );
+                },
+              })}
             />
             {errors.phone ? (
               <p className="text-xs text-destructive">{errors.phone.message}</p>

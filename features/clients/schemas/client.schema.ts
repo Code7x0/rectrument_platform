@@ -22,6 +22,8 @@ export const clientFormSchema = z.object({
   accountManagerIds: z.array(z.string()).optional().default([]),
   status: clientStatusSchema.default("active"),
   primaryAddress: z.string().trim().optional(),
+  /** Work-from / office location employees work from (Airtable Addresses). */
+  addresses: z.string().trim().optional(),
   modeOfWork: z.string().optional(),
   workDaysInWeek: z.union([
     z.coerce.number().int().min(0).max(7),

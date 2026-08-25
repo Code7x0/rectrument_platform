@@ -286,7 +286,12 @@ export function renderBody(
         "Hello,",
         "",
         `${data.roleLabel ?? "A user"} submitted feedback on the platform.`,
-        data.submitterName ? `Name: ${data.submitterName}` : "",
+        data.partnerCode ? `Partner ID: ${data.partnerCode}` : "",
+        data.roleLabel === "Talent Partner"
+          ? ""
+          : data.submitterName
+            ? `Name: ${data.submitterName}`
+            : "",
         data.submitterEmail ? `Email: ${data.submitterEmail}` : "",
         data.feedbackType ? `Type: ${data.feedbackType}` : "",
         "",

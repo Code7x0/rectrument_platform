@@ -127,6 +127,23 @@ function applyClientFilters(jobs: Job[], filters: JobListFilters): Job[] {
   });
 
   return [...filtered].sort((a, b) => {
+    const clientA = (a.clientCode || a.clientName || a.clientId || "").toLowerCase();
+    const clientB = (b.clientCode || b.clientName || b.clientId || "").toLowerCase();
+    if (clientA !== clientB) {
+      return clientA.localeCompare(clientB);
+    }
+    const codeA = (a.jobCode || "").toUpperCase();
+    const codeB = (b.jobCode || "").toUpperCase();
+    if (codeA && codeB && codeA !== codeB) {
+      // Newest job ID sequence first within an account (highest → lowest).
+      return codeB.localeCompare(codeA, undefined, { numeric: true });
+    }
+    const titleCmp = a.title.localeCompare(b.title, undefined, {
+      sensitivity: "base",
+    });
+    if (titleCmp !== 0) {
+      return titleCmp;
+    }
     const rank = jobStatusSortRank(a.status) - jobStatusSortRank(b.status);
     if (rank !== 0) {
       return rank;

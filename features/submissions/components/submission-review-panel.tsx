@@ -341,10 +341,34 @@ export function SubmissionReviewPanel({
     ) {
       return;
     }
+
+    let consultantSalary: number | null | undefined;
+    const mapsToJoined =
+      resolvedNext.trim() === "Joined" ||
+      resolvedNext.toLowerCase().includes("joined");
+    if (mapsToJoined) {
+      const raw = window.prompt(
+        "Salary for Consultant payout (INR). Admin must approve before the Partner sees the amount.",
+        "",
+      );
+      if (raw == null) {
+        setAirtableStatus(previous);
+        return;
+      }
+      const parsed = Number(String(raw).replace(/,/g, "").trim());
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setAirtableStatus(previous);
+        toast.error("Enter a valid consultant salary greater than zero");
+        return;
+      }
+      consultantSalary = parsed;
+    }
+
     setSavingField("status");
     try {
       const result = await updateSubmissionReviewFieldsAction(submission.id, {
         airtableStatus: resolvedNext,
+        ...(consultantSalary != null ? { consultantSalary } : {}),
       });
       if (!result.success) {
         setAirtableStatus(previous);
@@ -355,7 +379,11 @@ export function SubmissionReviewPanel({
         resolveAirtableSubmissionStatusOption(result.data.airtableStatus) ??
         resolvedNext;
       setAirtableStatus(saved);
-      toast.success("Submission status updated");
+      toast.success(
+        mapsToJoined
+          ? "Marked Joined — consultant salary saved; Admin must approve payout"
+          : "Submission status updated",
+      );
       onUpdated?.(result.data);
       signalLiveDataChange();
     } catch (error) {

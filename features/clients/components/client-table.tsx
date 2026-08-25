@@ -90,7 +90,14 @@ export function ClientTable({
           id: "address",
           header: "Primary address of work",
           className: "text-[#64748B]",
-          cell: (row) => row.primaryAddress || row.addresses || "—",
+          cell: (row) => (
+            <div>
+              <p className="text-[#0F172A]">{row.primaryAddress || "—"}</p>
+              {row.addresses ? (
+                <p className="text-xs text-[#64748B]">Work: {row.addresses}</p>
+              ) : null}
+            </div>
+          ),
         },
         {
           id: "employeeSize",

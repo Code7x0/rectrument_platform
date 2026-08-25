@@ -44,6 +44,7 @@ function toDefaults(client?: Client | null): ClientFormValues {
       accountManagerIds: [],
       status: "active",
       primaryAddress: "",
+      addresses: "",
       modeOfWork: "",
       workDaysInWeek: "",
       notes: "",
@@ -67,6 +68,7 @@ function toDefaults(client?: Client | null): ClientFormValues {
     accountManagerIds,
     status: client.status === "archived" ? "active" : client.status,
     primaryAddress: client.primaryAddress ?? "",
+    addresses: client.addresses ?? "",
     modeOfWork: client.modeOfWork ?? "",
     workDaysInWeek: client.workDaysInWeek ?? "",
     notes: client.notes ?? "",
@@ -225,11 +227,22 @@ export function ClientForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="primaryAddress">Primary address of work</Label>
+        <Label htmlFor="primaryAddress">Office address</Label>
         <Textarea
           id="primaryAddress"
           rows={2}
+          placeholder="Registered / office address"
           {...register("primaryAddress")}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="addresses">Work address</Label>
+        <Textarea
+          id="addresses"
+          rows={2}
+          placeholder="Office from which people will work"
+          {...register("addresses")}
         />
       </div>
 

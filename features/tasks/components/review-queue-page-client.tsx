@@ -455,12 +455,21 @@ export function ReviewQueuePageClient({
             <span className="font-medium text-[#0F172A]">
               {row.candidateName ?? "—"}
             </span>
+            <span className="block text-xs font-medium text-[#0F172A]">
+              ID: {row.submissionCode?.trim() || "—"}
+            </span>
             <span className="block text-xs text-[#64748B]">
               {[row.email, row.phone].filter(Boolean).join(" · ") || "—"}
             </span>
             {row.wantsSecondLevelReview ? <SecondLevelReviewBadge /> : null}
           </div>
         ),
+      },
+      {
+        id: "candidateId",
+        header: "Candidate ID",
+        className: "text-[#64748B]",
+        cell: (row) => row.submissionCode?.trim() || "—",
       },
       {
         id: "status",
@@ -478,7 +487,7 @@ export function ReviewQueuePageClient({
         header: "Job ID",
         className: "text-[#64748B]",
         cell: (row) => {
-          const label = row.jobCode || "—";
+          const label = row.jobCode?.trim() || "—";
           if (!jobsBasePath || !row.jobId) {
             return label;
           }
@@ -764,6 +773,10 @@ export function ReviewQueuePageClient({
                     Job Details
                   </h3>
                   <div className="grid gap-3 sm:grid-cols-2">
+                    <Detail
+                      label="Candidate ID"
+                      value={selected.submissionCode}
+                    />
                     <Detail
                       label="Job ID"
                       value={job?.jobCode || selected.jobCode}

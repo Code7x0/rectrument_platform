@@ -42,6 +42,11 @@ export function WorkTaskCard({ task }: WorkTaskCardProps) {
   const sampleProfile = task.job.documents.find(
     (doc) => doc.label === "Sample Profiling",
   );
+  const isOnHold =
+    task.job.status === "hold_by_us" ||
+    task.job.status === "hold_by_client" ||
+    task.job.status === "on_hold";
+  const holdComments = task.job.description?.trim() || null;
 
   return (
     <article className="partner-job-card">
@@ -112,6 +117,17 @@ export function WorkTaskCard({ task }: WorkTaskCardProps) {
           }
         />
       </div>
+
+      {isOnHold && holdComments ? (
+        <div className="mt-4 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#92400E]">
+            On Hold — comments
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">
+            {holdComments}
+          </p>
+        </div>
+      ) : null}
 
       <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-border/80 pt-4">
         <Button asChild type="button" variant="outline">

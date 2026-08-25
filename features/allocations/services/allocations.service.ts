@@ -140,13 +140,19 @@ async function withEnrichment(
     const job = jobMap.get(allocation.jobId);
     const meta = partnerMeta.get(allocation.partnerId);
     const partnerCode =
-      meta?.partnerCode ?? displayBusinessId(null);
+      meta?.partnerCode?.trim() ||
+      (allocation.partnerCode?.trim() &&
+      allocation.partnerCode !== "—"
+        ? allocation.partnerCode.trim()
+        : null) ||
+      displayBusinessId(null);
     const showIdentity =
       includePartnerIdentity || meta?.identityVisibility === "public";
     const partnerName = showIdentity
       ? (meta?.identityLabel ?? null)
       : null;
-    const jobCode = job?.jobCode ?? allocation.jobCode ?? null;
+    const jobCode =
+      (job?.jobCode?.trim() || allocation.jobCode?.trim() || null) ?? null;
     const jobTitle = job?.title ?? allocation.jobTitle ?? null;
     const allocationCode = formatAllocationDisplayCode(jobCode, partnerCode, {
       jobTitle,

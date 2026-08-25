@@ -791,6 +791,8 @@ export interface UpdateSubmissionReviewFieldsInput {
   interviewStage?: string | null;
   remarks?: string | null;
   internalFeedback?: string | null;
+  /** Salary for consultant payout when moving to Joined (AM captures; Admin approves). */
+  consultantSalary?: number | null;
 }
 
 function mapAirtableStatusToDomain(raw: string): SubmissionStatus {
@@ -979,6 +981,7 @@ export async function updateSubmissionReviewFields(
       await markPayoutEligibleOnJoined(
         enriched,
         actorUserId?.trim() || "system",
+        { consultantSalary: input.consultantSalary },
       );
     } catch (error) {
       console.error("Failed to mark payout eligible on joined", error);

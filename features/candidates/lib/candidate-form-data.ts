@@ -1,4 +1,5 @@
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
+import { normalizeIndianMobileInput } from "@/lib/india/mobile";
 
 export function appendCandidateFormFields(
   formData: FormData,
@@ -6,7 +7,7 @@ export function appendCandidateFormFields(
 ) {
   formData.set("fullName", values.fullName);
   formData.set("email", values.email);
-  formData.set("phone", values.phone);
+  formData.set("phone", normalizeIndianMobileInput(values.phone));
   formData.set("currentLocation", values.currentLocation ?? "");
   formData.set("currentCtc", values.currentCtc ?? "");
   formData.set("expectedCtc", values.expectedCtc ?? "");
@@ -42,7 +43,7 @@ export function parseCandidateFormData(formData: FormData) {
   return {
     fullName: String(formData.get("fullName") ?? ""),
     email: String(formData.get("email") ?? ""),
-    phone: String(formData.get("phone") ?? ""),
+    phone: normalizeIndianMobileInput(String(formData.get("phone") ?? "")),
     currentCompany: String(formData.get("currentCompany") ?? ""),
     currentLocation: String(formData.get("currentLocation") ?? ""),
     experience: String(formData.get("experience") ?? ""),

@@ -16,6 +16,8 @@ import {
   JOBS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import {
+  isValidJobCode,
+  parseJobIdMarker,
   parsePartnerAssignedByMap,
   removePartnerAssignedByMarker,
   upsertPartnerAssignedByMarker,
@@ -96,10 +98,18 @@ async function findAllocationsFromJobPartners(
       typeof fields[JOBS_TABLE_FIELDS.title] === "string"
         ? (fields[JOBS_TABLE_FIELDS.title] as string)
         : null;
-    const jobCode =
+    const rawJobId =
       typeof fields[JOBS_TABLE_FIELDS.jobId] === "string"
         ? (fields[JOBS_TABLE_FIELDS.jobId] as string)
         : null;
+    const fromMarker = parseJobIdMarker(
+      typeof fields[JOBS_TABLE_FIELDS.notes] === "string"
+        ? (fields[JOBS_TABLE_FIELDS.notes] as string)
+        : null,
+    );
+    const jobCode = isValidJobCode(rawJobId)
+      ? rawJobId!.trim().toUpperCase()
+      : fromMarker;
     for (const partnerId of jobPartnerIds(fields)) {
       allocations.push(
         allocationFromJobPartner(

@@ -248,6 +248,23 @@ export function JobForm({
           ) : null}
         </div>
 
+        {lockAccountManager ? (
+          <div className="space-y-2 sm:col-span-2">
+            <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-xs text-[#64748B]">
+              New jobs default to <strong className="text-[#0F172A]">Active</strong>.
+              Partners can claim them from Available Jobs from day zero — no
+              separate partner allocation is required to make the role visible.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 sm:col-span-2">
+            <p className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-xs text-[#64748B]">
+              Select every Account Manager who should own this role. Active jobs
+              appear on Available Jobs so partners can claim from day zero.
+            </p>
+          </div>
+        )}
+
         {lockAccountManager ? null : (
           <div className="space-y-2">
             <Label>Assigned Account Managers</Label>

@@ -86,7 +86,7 @@ export function toAirtableCreateFields(
   };
 
   if (input.phone) {
-    fields[CANDIDATES_TABLE_FIELDS.phone] = input.phone;
+    fields[CANDIDATES_TABLE_FIELDS.phone] = normalizePhone(input.phone) || input.phone;
   }
   if (input.currentLocation) {
     fields[CANDIDATES_TABLE_FIELDS.currentLocation] = input.currentLocation;
@@ -127,7 +127,8 @@ export function toAirtableUpdateFields(
   const fields = toAirtableCreateFields(input);
   fields[CANDIDATES_TABLE_FIELDS.fullName] = input.fullName;
   fields[CANDIDATES_TABLE_FIELDS.email] = input.email;
-  fields[CANDIDATES_TABLE_FIELDS.phone] = input.phone ?? "";
+  fields[CANDIDATES_TABLE_FIELDS.phone] =
+    (input.phone ? normalizePhone(input.phone) : "") || input.phone || "";
   fields[CANDIDATES_TABLE_FIELDS.currentLocation] = input.currentLocation ?? "";
   fields[CANDIDATES_TABLE_FIELDS.currentCtc] = input.currentCtc ?? "";
   fields[CANDIDATES_TABLE_FIELDS.expectedCtc] = input.expectedCtc ?? "";
@@ -145,8 +146,51 @@ export function escapeFormulaValue(value: string): string {
   return value.replace(/'/g, "\\'");
 }
 
+/**
+ * Canonical phone digits for duplicate matching.
+ * Strips punctuation and keeps the last 10 digits when a country/trunk prefix is present.
+ */
 export function normalizePhone(phone: string): string {
-  return phone.replace(/[^\d+]/g, "");
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) {
+    return "";
+  }
+  if (digits.length > 10) {
+    return digits.slice(-10);
+  }
+  return digits;
+}
+
+/** Common Airtable storage shapes for the same mobile number. */
+export function phoneLookupVariants(phone: string): string[] {
+  const raw = phone.trim();
+  const digits = normalizePhone(phone);
+  const variants = new Set<string>();
+  if (raw) {
+    variants.add(raw);
+  }
+  if (!digits) {
+    return [...variants];
+  }
+  variants.add(digits);
+  if (digits.length === 10) {
+    variants.add(`+91${digits}`);
+    variants.add(`91${digits}`);
+    variants.add(`0${digits}`);
+    variants.add(
+      `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`,
+    );
+    variants.add(
+      `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`,
+    );
+    variants.add(
+      `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`,
+    );
+    variants.add(
+      `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`,
+    );
+  }
+  return [...variants];
 }
 
 export function buildCandidateLookupFormula(input: {
@@ -162,8 +206,15 @@ export function buildCandidateLookupFormula(input: {
   }
 
   if (input.phone?.trim()) {
-    const phone = escapeFormulaValue(input.phone.trim());
-    clauses.push(`{${CANDIDATES_TABLE_FIELDS.phone}} = '${phone}'`);
+    const phoneClauses = phoneLookupVariants(input.phone).map(
+      (variant) =>
+        `{${CANDIDATES_TABLE_FIELDS.phone}} = '${escapeFormulaValue(variant)}'`,
+    );
+    if (phoneClauses.length === 1) {
+      clauses.push(phoneClauses[0] ?? "");
+    } else if (phoneClauses.length > 1) {
+      clauses.push(`OR(${phoneClauses.join(",")})`);
+    }
   }
 
   if (clauses.length === 0) {

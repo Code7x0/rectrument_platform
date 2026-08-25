@@ -496,6 +496,7 @@ async function searchSubmissionsAndCandidates(
     .map((row) => {
       const match = matchScore(query, [
         { value: row.candidateName, field: "candidate" },
+        { value: row.submissionCode, field: "candidateId" },
         { value: row.jobTitle, field: "job" },
         { value: row.jobCode, field: "jobCode" },
         { value: row.partnerCode, field: "partnerCode" },
@@ -504,7 +505,10 @@ async function searchSubmissionsAndCandidates(
       return makeResult({
         id: row.id,
         title: row.candidateName ?? "Submission",
-        subtitle: [row.jobCode, row.jobTitle].filter(Boolean).join(" · ") || "Job",
+        subtitle:
+          [row.submissionCode, row.jobCode, row.jobTitle]
+            .filter(Boolean)
+            .join(" · ") || "Job",
         entityType: "submission",
         status: row.status,
         score: match.score,
@@ -522,6 +526,7 @@ async function searchSubmissionsAndCandidates(
     }
     const match = matchScore(query, [
       { value: row.candidateName, field: "name" },
+      { value: row.submissionCode, field: "candidateId" },
     ]);
     if (match.score <= 0) {
       continue;
@@ -529,7 +534,10 @@ async function searchSubmissionsAndCandidates(
     const result = makeResult({
       id: row.candidateId,
       title: row.candidateName ?? "Candidate",
-      subtitle: row.jobTitle,
+      subtitle:
+        [row.submissionCode, row.jobCode, row.jobTitle]
+          .filter(Boolean)
+          .join(" · ") || row.jobTitle,
       entityType: "candidate",
       status: row.status,
       score: match.score,

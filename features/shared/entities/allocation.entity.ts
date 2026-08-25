@@ -34,7 +34,7 @@ export interface AllocationEntity {
 }
 
 export const ALLOCATION_STATUS_LABELS: Record<AllocationStatus, string> = {
-  assigned: "Assigned",
+  assigned: "Active",
   working: "Working",
   completed: "Completed",
   cancelled: "Cancelled",

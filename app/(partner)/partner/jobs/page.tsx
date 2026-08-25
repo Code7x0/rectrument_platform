@@ -36,12 +36,12 @@ export default async function PartnerJobsPage() {
       <Breadcrumb
         items={[
           { label: "Partner", href: "/partner" },
-          { label: "Assigned Jobs" },
+          { label: "My Jobs" },
         ]}
       />
       <PageHeader
-        title="Assigned Jobs"
-        description="Browse job details here. For a faster path, use Submit Profile to pick a JD and submit in one step."
+        title={`My Jobs (${tasks.length})`}
+        description="Active and On Hold jobs allocated to you. Open a job for details and comments. Use Submit Profile to pick a JD and submit in one step."
       />
       <PartnerWorkQueue tasks={tasks} />
     </ContentContainer>

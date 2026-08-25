@@ -89,7 +89,7 @@ export function PartnerAvailableJobsPageClient({
               <Clock3 className="h-4 w-4 text-[#C2410C]" />
               <div>
                 <h2 className="text-sm font-semibold text-[#0F172A]">
-                  Pending claims
+                  Pending claims ({pendingJobs.length})
                 </h2>
                 <p className="text-xs text-[#64748B]">
                   Waiting for Account Manager / Admin review.
@@ -112,7 +112,7 @@ export function PartnerAvailableJobsPageClient({
         <section className="space-y-3">
           <div>
             <h2 className="text-sm font-semibold text-[#0F172A]">
-              Open jobs to claim
+              Open jobs to claim ({openJobs.length})
             </h2>
             <p className="text-xs text-[#64748B]">
               Request access here. Approved jobs move to Assigned Jobs.
@@ -142,7 +142,7 @@ export function PartnerAvailableJobsPageClient({
           <section className="space-y-3">
             <div>
               <h2 className="text-sm font-semibold text-[#0F172A]">
-                Rejected claims
+                Rejected claims ({rejectedJobs.length})
               </h2>
               <p className="text-xs text-[#64748B]">
                 Historical rejections. Claim Again creates a new claim after the

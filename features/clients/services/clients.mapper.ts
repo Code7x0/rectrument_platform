@@ -131,6 +131,9 @@ export function toAirtableCreateFields(
   if (input.primaryAddress) {
     fields[CLIENTS_TABLE_FIELDS.primaryAddress] = input.primaryAddress;
   }
+  if (input.addresses) {
+    fields[CLIENTS_TABLE_FIELDS.addresses] = input.addresses;
+  }
   if (input.modeOfWork) {
     fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork;
   }
@@ -185,6 +188,9 @@ export function toAirtableUpdateFields(
   }
   if (input.primaryAddress !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.primaryAddress] = input.primaryAddress || "";
+  }
+  if (input.addresses !== undefined) {
+    fields[CLIENTS_TABLE_FIELDS.addresses] = input.addresses || "";
   }
   if (input.modeOfWork !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork || "";

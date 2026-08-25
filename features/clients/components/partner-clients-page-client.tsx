@@ -98,10 +98,18 @@ export function PartnerClientsPageClient({
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wide text-[#94A3B8]">
-                    Primary address of work
+                    Office address
                   </dt>
                   <dd className="mt-1 whitespace-pre-wrap text-[#0F172A]">
-                    {client.primaryAddress || client.addresses || "—"}
+                    {client.primaryAddress || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-[#94A3B8]">
+                    Work address
+                  </dt>
+                  <dd className="mt-1 whitespace-pre-wrap text-[#0F172A]">
+                    {client.addresses || "—"}
                   </dd>
                 </div>
                 <div>
