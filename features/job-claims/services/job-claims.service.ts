@@ -285,18 +285,22 @@ export async function createPartnerJobClaim(input: {
     accountManagerId,
   });
 
-  const partner = await getPartnerById(input.partnerId);
-  notifyJobClaimRequested({
-    accountManagerId,
-    accountManagerIds,
-    partnerId: input.partnerId,
-    partnerLabel: partner
-      ? operationalPartnerLabel(partner)
-      : "Talent Partner",
-    jobTitle: job.title,
-    jobCode: job.jobCode,
-    claimId: claim.id,
-  });
+  try {
+    const partner = await getPartnerById(input.partnerId);
+    notifyJobClaimRequested({
+      accountManagerId,
+      accountManagerIds,
+      partnerId: input.partnerId,
+      partnerLabel: partner
+        ? operationalPartnerLabel(partner)
+        : "Talent Partner",
+      jobTitle: job.title,
+      jobCode: job.jobCode,
+      claimId: claim.id,
+    });
+  } catch (error) {
+    console.error("[job-claims] claim notification skipped", error);
+  }
 
   return claim;
 }

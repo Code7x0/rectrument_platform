@@ -37,9 +37,6 @@ export function actionErrorMessage(
         error.message,
       ))
   ) {
-    if (fallback.toLowerCase().includes("job")) {
-      return "Unable to save job. Please check the job details and try again.";
-    }
     if (friendly !== "Something went wrong loading data. Please try again.") {
       return friendly;
     }

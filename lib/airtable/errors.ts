@@ -60,8 +60,21 @@ export function toUserFacingAirtableMessage(error: unknown): string {
     return "This feature is not available on the connected Airtable base. Contact an administrator.";
   }
   if (error instanceof AirtableOperationError) {
-    if (looksLikeUnknownField(error.message) || error.fieldName) {
+    const table = (error.tableName ?? "").toLowerCase();
+    if (table.includes("job claim")) {
+      return "Unable to submit your claim right now. Please try again.";
+    }
+    if (table.includes("partner quer")) {
+      return "Unable to save your question right now. Please try again.";
+    }
+    if (
+      table === "jobs" &&
+      (looksLikeUnknownField(error.message) || error.fieldName)
+    ) {
       return "Unable to save job. Please check the job details and try again.";
+    }
+    if (looksLikeUnknownField(error.message) || error.fieldName) {
+      return "Unable to save or load data right now. Please try again.";
     }
     return "Unable to save or load data right now. Please try again.";
   }

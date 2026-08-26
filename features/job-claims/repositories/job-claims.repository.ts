@@ -90,18 +90,21 @@ function mapClaimRecord(
   };
 }
 
-function toCreateFields(claim: JobClaim): AirtableFields {
+/**
+ * Job Claims stores FKs as single-line text (rec…), not linked records.
+ * Arrays are rejected by Airtable and surface as a generic "Unable to save job".
+ */
+export function toJobClaimCreateFields(claim: JobClaim): AirtableFields {
   const fields: AirtableFields = {
     [JOB_CLAIMS_TABLE_FIELDS.claimId]: claim.id,
-    // Linked record fields require an array of record IDs.
-    [JOB_CLAIMS_TABLE_FIELDS.job]: [claim.jobId],
-    [JOB_CLAIMS_TABLE_FIELDS.partner]: [claim.partnerId],
+    [JOB_CLAIMS_TABLE_FIELDS.job]: claim.jobId,
+    [JOB_CLAIMS_TABLE_FIELDS.partner]: claim.partnerId,
     [JOB_CLAIMS_TABLE_FIELDS.status]:
       DOMAIN_JOB_CLAIM_STATUS_TO_AIRTABLE[claim.status],
     [JOB_CLAIMS_TABLE_FIELDS.requestedAt]: claim.requestedAt,
   };
   if (claim.accountManagerId) {
-    fields[JOB_CLAIMS_TABLE_FIELDS.accountManager] = [claim.accountManagerId];
+    fields[JOB_CLAIMS_TABLE_FIELDS.accountManager] = claim.accountManagerId;
   }
   if (claim.reviewedAt) {
     fields[JOB_CLAIMS_TABLE_FIELDS.reviewedAt] = claim.reviewedAt;
@@ -125,7 +128,7 @@ function toCreateFields(claim: JobClaim): AirtableFields {
   return fields;
 }
 
-function toUpdateFields(claim: JobClaim): AirtableFields {
+export function toJobClaimUpdateFields(claim: JobClaim): AirtableFields {
   const fields: AirtableFields = {
     [JOB_CLAIMS_TABLE_FIELDS.status]:
       DOMAIN_JOB_CLAIM_STATUS_TO_AIRTABLE[claim.status],
@@ -134,7 +137,7 @@ function toUpdateFields(claim: JobClaim): AirtableFields {
     fields[JOB_CLAIMS_TABLE_FIELDS.reviewedAt] = claim.reviewedAt;
   }
   if (claim.reviewedByUserId) {
-    fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy] = [claim.reviewedByUserId];
+    fields[JOB_CLAIMS_TABLE_FIELDS.reviewedBy] = claim.reviewedByUserId;
   }
   if (claim.rejectionReason) {
     fields[JOB_CLAIMS_TABLE_FIELDS.rejectionReason] = claim.rejectionReason;
@@ -195,8 +198,7 @@ export async function listJobClaimsForPartner(
   }
 
   const records = await getRecords(getTableName(), {
-    // Linked record fields need FIND-based lookup, not simple equality.
-    filterByFormula: `FIND('${escapeFormulaValue(partnerId)}', ARRAYJOIN({${JOB_CLAIMS_TABLE_FIELDS.partner}}))`,
+    filterByFormula: `{${JOB_CLAIMS_TABLE_FIELDS.partner}} = '${escapeFormulaValue(partnerId)}'`,
     sort: [
       { field: JOB_CLAIMS_TABLE_FIELDS.requestedAt, direction: "desc" },
     ],
@@ -335,7 +337,7 @@ export async function insertJobClaim(input: {
     allocationId: null,
   };
 
-  const created = await createRecord(getTableName(), toCreateFields(claim));
+  const created = await createRecord(getTableName(), toJobClaimCreateFields(claim));
   return {
     ...claim,
     recordId: created.id,
@@ -422,6 +424,10 @@ export async function updateJobClaimStatus(
         : null,
   };
 
-  await updateRecord(getTableName(), current.recordId, toUpdateFields(next));
+  await updateRecord(
+    getTableName(),
+    current.recordId,
+    toJobClaimUpdateFields(next),
+  );
   return next;
 }
