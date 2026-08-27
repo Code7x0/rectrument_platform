@@ -21,6 +21,7 @@ import {
   getSubmissionById,
   stageResumeFile,
   submitCandidateForAllocation,
+  submitCandidateForStaff,
   updatePartnerSubmissionProfile,
 } from "@/features/submissions/services";
 import { parseScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
@@ -548,6 +549,17 @@ export async function listStaffSubmitJobsAction(): Promise<
     const jobById = new Map(jobs.map((job) => [job.id, job]));
     const grouped = new Map<string, StaffSubmitJobOption>();
 
+    if (session.role === "admin" || session.role === "super_admin") {
+      for (const job of jobs) {
+        grouped.set(job.id, {
+          jobId: job.id,
+          jobTitle: job.title,
+          jobCode: job.jobCode,
+          allocations: [],
+        });
+      }
+    }
+
     for (const row of allocations) {
       if (!ACTIVE_ALLOCATION_STATUSES.includes(row.status)) {
         continue;
@@ -607,10 +619,68 @@ export async function staffSubmitCandidateAction(
 
     const jobId = String(formData.get("jobId") ?? "").trim();
     const allocationId = String(formData.get("allocationId") ?? "").trim();
-    if (!jobId || !allocationId) {
+    if (!jobId) {
+      return { success: false, message: "Select a job" };
+    }
+
+    const { isInternalSourceSelection } = await import(
+      "@/features/submissions/lib/internal-sourcing"
+    );
+    const internalSource = isInternalSourceSelection(allocationId);
+
+    if (
+      internalSource &&
+      session.role !== "admin" &&
+      session.role !== "super_admin"
+    ) {
       return {
         success: false,
-        message: "Select a job and allocated Talent Partner",
+        message: "Select an allocated Talent Partner for this job",
+      };
+    }
+
+    const resumeUpload = await parseResumeFromFormData(formData);
+    if (!resumeUpload) {
+      return { success: false, message: "Resume is required" };
+    }
+
+    if (internalSource) {
+      const result = await submitCandidateForStaff({
+        jobId,
+        form: parsed.data,
+        resumeUpload,
+      });
+      if (!result.ok) {
+        if (result.reason === "duplicate_blocked") {
+          return {
+            success: false,
+            message: result.message,
+            duplicates: result.duplicates,
+            blocked: true,
+            existingStatus: result.existingStatus,
+          };
+        }
+        return {
+          success: false,
+          message:
+            "A matching candidate already exists. Review the existing profile instead of creating a duplicate.",
+          duplicates: result.duplicates,
+        };
+      }
+      revalidateSubmissionPaths();
+      return {
+        success: true,
+        data: {
+          submissionId: result.submission.id,
+          candidateId: result.candidate.id,
+        },
+      };
+    }
+
+    if (!allocationId) {
+      return {
+        success: false,
+        message: "Select an allocated Talent Partner",
       };
     }
 
@@ -627,7 +697,6 @@ export async function staffSubmitCandidateAction(
       await assertAccountManagerOwnsJob(session, jobId);
     }
 
-    const resumeUpload = await parseResumeFromFormData(formData);
     const result = await submitCandidateForAllocation({
       jobId,
       allocationId,

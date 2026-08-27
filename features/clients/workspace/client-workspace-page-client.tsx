@@ -170,6 +170,7 @@ export function ClientWorkspacePageClient({
             canAllocate={canAllocate}
             canManagePartners={canManagePartners}
             lockAccountManager={isAmPath}
+            optionalAmAssignment={isAmPath}
           />
         ) : null}
         {tab === "partners" ? (
@@ -209,6 +210,7 @@ export function ClientWorkspacePageClient({
         clients={clients}
         accountManagers={accountManagers}
         lockAccountManager={isAmPath}
+        optionalAmAssignment={isAmPath}
         defaultClientId={client.id}
         lockClient
         onOpenChange={setCreateJobOpen}

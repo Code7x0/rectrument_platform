@@ -30,7 +30,9 @@ interface ClientJobsTabProps {
   canAllocate: boolean;
   /** View + unassign partners on owned jobs. */
   canManagePartners?: boolean;
+  /** When true (Account Manager), hiring manager hidden and optional AM assignment. */
   lockAccountManager?: boolean;
+  optionalAmAssignment?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function ClientJobsTab({
   canAllocate,
   canManagePartners = false,
   lockAccountManager = false,
+  optionalAmAssignment = false,
 }: ClientJobsTabProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -88,6 +91,7 @@ export function ClientJobsTab({
       clients={clients}
       accountManagers={accountManagers}
       lockAccountManager={lockAccountManager}
+      optionalAmAssignment={optionalAmAssignment}
       defaultClientId={clientId}
       lockClient
       onOpenChange={setCreateOpen}
@@ -171,6 +175,7 @@ export function ClientJobsTab({
         clients={clients}
         accountManagers={accountManagers}
         lockAccountManager={lockAccountManager}
+        optionalAmAssignment={optionalAmAssignment}
         onOpenChange={(open) => {
           if (!open) {
             setEditJob(null);

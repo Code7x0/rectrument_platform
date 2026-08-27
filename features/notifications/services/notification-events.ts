@@ -982,3 +982,141 @@ export function notifyDuplicateCandidateAttempt(input: {
     }),
   );
 }
+
+export async function notifyJobDetailsUpdated(input: {
+  jobId: string;
+  jobTitle: string;
+  jobCode?: string | null;
+  accountManagerIds?: string[];
+  changedSummary?: string;
+}): Promise<void> {
+  const label = input.jobCode?.trim() || input.jobTitle;
+  const description =
+    input.changedSummary?.trim() ||
+    `${label} was updated. Review the latest job details.`;
+
+  const { listAllocations } = await import("@/features/allocations/services");
+  const allocations = await listAllocations({
+    jobId: input.jobId,
+    includePartnerIdentity: false,
+  });
+  const partnerIds = new Set(
+    allocations
+      .filter((row) => row.status !== "archived" && row.status !== "cancelled")
+      .map((row) => row.partnerId)
+      .filter(Boolean),
+  );
+
+  for (const partnerId of partnerIds) {
+    const partnerUserId = await findPartnerUserId(partnerId);
+    if (!partnerUserId) {
+      continue;
+    }
+    await publishNotification({
+      recipientUserId: partnerUserId,
+      title: "Job updated",
+      description,
+      type: "job",
+      category: "jobs",
+      priority: "medium",
+      entityType: "job",
+      entityId: input.jobId,
+      actionUrl: "/partner/jobs",
+    });
+  }
+
+  const amIds = Array.from(
+    new Set((input.accountManagerIds ?? []).filter(Boolean)),
+  );
+  for (const accountManagerId of amIds) {
+    const userId = await findAccountManagerUserId(accountManagerId);
+    if (!userId) {
+      continue;
+    }
+    await publishNotification({
+      recipientUserId: userId,
+      title: "Job updated",
+      description,
+      type: "job",
+      category: "jobs",
+      priority: "medium",
+      entityType: "job",
+      entityId: input.jobId,
+      actionUrl: `/account-manager/jobs?jobId=${encodeURIComponent(input.jobId)}`,
+    });
+  }
+}
+
+export async function notifyClientDetailsUpdated(input: {
+  clientId: string;
+  clientName: string;
+  clientCode?: string | null;
+  accountManagerIds?: string[];
+  changedSummary?: string;
+}): Promise<void> {
+  const label = input.clientCode?.trim() || input.clientName;
+  const description =
+    input.changedSummary?.trim() ||
+    `Client ${label} was updated. Review the latest client details.`;
+
+  const amIds = Array.from(
+    new Set((input.accountManagerIds ?? []).filter(Boolean)),
+  );
+  for (const accountManagerId of amIds) {
+    const userId = await findAccountManagerUserId(accountManagerId);
+    if (!userId) {
+      continue;
+    }
+    await publishNotification({
+      recipientUserId: userId,
+      title: "Client updated",
+      description,
+      type: "system",
+      category: "system",
+      priority: "medium",
+      entityType: "client",
+      entityId: input.clientId,
+      actionUrl: `/account-manager/clients/${input.clientId}`,
+    });
+  }
+
+  const { listJobs } = await import("@/features/jobs/services");
+  const { listAllocations } = await import("@/features/allocations/services");
+  const jobs = await listJobs({
+    clientId: input.clientId,
+    includeArchived: false,
+  });
+  const jobIds = jobs.map((job) => job.id);
+  if (jobIds.length === 0) {
+    return;
+  }
+
+  const allocations = await listAllocations({
+    jobIds,
+    includePartnerIdentity: false,
+  });
+  const partnerIds = new Set(
+    allocations
+      .filter((row) => row.status !== "archived" && row.status !== "cancelled")
+      .map((row) => row.partnerId)
+      .filter(Boolean),
+  );
+
+  for (const partnerId of partnerIds) {
+    const partnerUserId = await findPartnerUserId(partnerId);
+    if (!partnerUserId) {
+      continue;
+    }
+    await publishNotification({
+      recipientUserId: partnerUserId,
+      title: "Client briefing updated",
+      description: `Details for a client you support (${label}) were updated.`,
+      type: "system",
+      category: "jobs",
+      priority: "medium",
+      entityType: "client",
+      entityId: input.clientId,
+      actionUrl: "/partner/clients",
+    });
+  }
+}

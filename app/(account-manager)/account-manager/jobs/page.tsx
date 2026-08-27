@@ -9,7 +9,7 @@ import { JobsPageClient } from "@/features/jobs/components";
 import { listJobs } from "@/features/jobs/services";
 import { listClients } from "@/features/clients/services";
 import { listSubmissions } from "@/features/submissions/services";
-import { listPartnerOptions } from "@/services/lookups";
+import { listPartnerOptions, listAccountManagerOptions } from "@/services/lookups";
 
 function locationsFromJobs(
   jobs: Array<{ location?: string | null }>,
@@ -51,18 +51,31 @@ export default async function AccountManagerJobsPage({
   const { jobId: jobIdParam } = await searchParams;
   const initialJobId = jobIdParam?.trim() || null;
 
-  const [jobs, assignedClients, accountManagers, partners, submissions] =
+  const [jobs, assignedClients, allAccountManagers, partners, submissions] =
     await Promise.all([
       listJobs({
         includeArchived: true,
         accountManagerId,
       }),
       listClients({ includeArchived: true, accountManagerId }),
-      Promise.resolve([{ id: accountManagerId, label: "You" }]),
+      listAccountManagerOptions(),
       listPartnerOptions("operational"),
       listSubmissions({ enrich: false }),
     ]);
   const locations = locationsFromJobs(jobs);
+
+  const coOwnerIds = new Set<string>();
+  for (const client of assignedClients) {
+    for (const id of client.accountManagerIds ?? []) {
+      coOwnerIds.add(id);
+    }
+    if (client.accountManagerId) {
+      coOwnerIds.add(client.accountManagerId);
+    }
+  }
+  const accountManagers = allAccountManagers.filter((am) =>
+    coOwnerIds.has(am.id),
+  );
 
   const codeByClientId = new Map(
     assignedClients.map((client) => [
@@ -75,6 +88,12 @@ export default async function AccountManagerJobsPage({
     id: client.id,
     label: client.clientCode?.trim() || client.id,
     accountManagerId: client.accountManagerId,
+    accountManagerIds:
+      client.accountManagerIds?.length > 0
+        ? client.accountManagerIds
+        : client.accountManagerId
+          ? [client.accountManagerId]
+          : [],
   }));
 
   // AM surfaces use Client ID only — never commercial client names.
@@ -106,6 +125,7 @@ export default async function AccountManagerJobsPage({
       canAllocate={canAllocate}
       canManagePartners={canManagePartners}
       hideAccountManager
+      optionalAmAssignment
       submittedByJobId={submittedByJobId}
       submittedProfilesBasePath="/account-manager/candidates"
       initialJobId={initialJobId}

@@ -36,6 +36,8 @@ interface JobsPageClientProps {
   canManagePartners?: boolean;
   canDelete?: boolean;
   hideAccountManager?: boolean;
+  /** Optional AM assignment on create/edit (Account Manager flow). */
+  optionalAmAssignment?: boolean;
   submittedByJobId?: Record<string, number>;
   submittedProfilesBasePath?: string;
   breadcrumbs: Array<{ label: string; href?: string }>;
@@ -163,6 +165,7 @@ export function JobsPageClient({
   canManagePartners = false,
   canDelete = false,
   hideAccountManager = false,
+  optionalAmAssignment = false,
   submittedByJobId = {},
   submittedProfilesBasePath,
   breadcrumbs,
@@ -322,6 +325,7 @@ export function JobsPageClient({
         clients={clients}
         accountManagers={accountManagers}
         lockAccountManager={hideAccountManager}
+        optionalAmAssignment={optionalAmAssignment}
         onOpenChange={setCreateOpen}
         onCompleted={refresh}
       />
@@ -334,6 +338,7 @@ export function JobsPageClient({
         accountManagers={accountManagers}
         canDelete={canDelete}
         lockAccountManager={hideAccountManager}
+        optionalAmAssignment={optionalAmAssignment}
         onOpenChange={(open) => {
           if (!open) {
             setEditJob(null);

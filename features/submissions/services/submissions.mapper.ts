@@ -236,9 +236,10 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
   skills?: string[];
   remarks?: string;
   jobId: string;
-  partnerId: string;
+  partnerId?: string;
   candidateCode?: string;
   stampAnonymous?: boolean;
+  createdByLabel?: string;
   status?: SubmissionStatus;
   submissionDate?: string;
 }): AirtableFields {
@@ -246,17 +247,21 @@ export function toAirtableCandidateSubmissionCreateFields(input: {
     [SUBMISSIONS_TABLE_FIELDS.candidateName]: input.fullName,
     [SUBMISSIONS_TABLE_FIELDS.email]: input.email,
     [SUBMISSIONS_TABLE_FIELDS.role]: [input.jobId],
-    [SUBMISSIONS_TABLE_FIELDS.partner]: [input.partnerId],
     [SUBMISSIONS_TABLE_FIELDS.submissionDate]:
       input.submissionDate ?? new Date().toISOString(),
     [SUBMISSIONS_TABLE_FIELDS.status]:
       DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[input.status ?? "submitted"],
   };
+  if (input.partnerId?.trim()) {
+    fields[SUBMISSIONS_TABLE_FIELDS.partner] = [input.partnerId.trim()];
+  }
   if (input.candidateCode?.trim()) {
     fields[CANDIDATES_TABLE_FIELDS.candidateId] =
       input.candidateCode.trim().toLowerCase();
   }
-  if (input.stampAnonymous !== false) {
+  if (input.createdByLabel?.trim()) {
+    fields[CANDIDATES_TABLE_FIELDS.createdBy] = input.createdByLabel.trim();
+  } else if (input.stampAnonymous !== false) {
     fields[CANDIDATES_TABLE_FIELDS.createdBy] = "Anonymous";
   }
 

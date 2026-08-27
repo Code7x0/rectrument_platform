@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -22,13 +22,20 @@ import type { Job, JobDocument } from "@/features/jobs/types";
 import { DOCUMENT_ACCEPT } from "@/lib/files/document-types";
 import type { LookupOption } from "@/services/lookups";
 
+export type JobFormClientOption = LookupOption & {
+  accountManagerId?: string;
+  accountManagerIds?: string[];
+};
+
 interface JobFormProps {
-  clients: LookupOption[];
+  clients: JobFormClientOption[];
   accountManagers: LookupOption[];
   initialJob?: Job | null;
   submitting?: boolean;
   /** Account Managers own the job — AM field is locked to themselves. */
   lockAccountManager?: boolean;
+  /** Optional AM assignment when lockAccountManager (Account Manager create/edit). */
+  optionalAmAssignment?: boolean;
   defaultClientId?: string;
   lockClient?: boolean;
   onSubmit: (
@@ -120,6 +127,7 @@ export function JobForm({
   initialJob,
   submitting = false,
   lockAccountManager = false,
+  optionalAmAssignment = false,
   defaultClientId,
   lockClient = false,
   onSubmit,
@@ -147,9 +155,10 @@ export function JobForm({
   );
   const [removingKey, setRemovingKey] = useState<string | null>(null);
   const [pendingRemove, startRemove] = useTransition();
-  const defaultAccountManagerId = lockAccountManager
-    ? (initialJob?.accountManagerId || accountManagers[0]?.id || "")
-    : undefined;
+  const defaultAccountManagerId =
+    lockAccountManager && !optionalAmAssignment
+      ? (initialJob?.accountManagerId || accountManagers[0]?.id || "")
+      : undefined;
   const {
     register,
     handleSubmit,
@@ -166,7 +175,24 @@ export function JobForm({
 
   const existingJdCount = jdDocs.length;
   const existingSampleResumeCount = sampleDocs.length;
+  const clientId = watch("clientId");
   const selectedAmIds = watch("accountManagerIds") ?? [];
+  const eligibleAccountManagers = useMemo(() => {
+    if (!optionalAmAssignment) {
+      return accountManagers;
+    }
+    const client = clients.find((row) => row.id === clientId);
+    const ownerIds = new Set(
+      [
+        ...(client?.accountManagerIds ?? []),
+        client?.accountManagerId,
+      ].filter((id): id is string => Boolean(id)),
+    );
+    if (ownerIds.size === 0) {
+      return accountManagers;
+    }
+    return accountManagers.filter((am) => ownerIds.has(am.id));
+  }, [optionalAmAssignment, accountManagers, clients, clientId]);
 
   function toggleAccountManager(id: string, checked: boolean) {
     const next = checked
@@ -217,7 +243,7 @@ export function JobForm({
         await onSubmit(values, jdFile, sampleResumeFile, commentAttachmentFile);
       })}
     >
-      {lockAccountManager ? (
+      {lockAccountManager && !optionalAmAssignment ? (
         <input type="hidden" {...register("accountManagerId")} />
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -254,6 +280,13 @@ export function JobForm({
               New jobs default to <strong className="text-[#0F172A]">Active</strong>.
               Partners can claim them from Available Jobs from day zero — no
               separate partner allocation is required to make the role visible.
+              {optionalAmAssignment ? (
+                <>
+                  {" "}
+                  Optionally assign an Account Manager below; if left unassigned,
+                  any Talent Partner can still claim the job.
+                </>
+              ) : null}
             </p>
           </div>
         ) : (
@@ -265,14 +298,28 @@ export function JobForm({
           </div>
         )}
 
-        {lockAccountManager ? null : (
+        {!lockAccountManager || optionalAmAssignment ? (
           <div className="space-y-2">
-            <Label>Assigned Account Managers</Label>
+            <Label>
+              {optionalAmAssignment
+                ? "Assign Account Manager (optional)"
+                : "Assigned Account Managers"}
+            </Label>
+            {optionalAmAssignment ? (
+              <p className="text-xs text-[#64748B]">
+                Leave unchecked to keep the job unassigned at the AM level. Any
+                Talent Partner can still claim it from Available Jobs.
+              </p>
+            ) : null}
             <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-[#E2E8F0] p-3">
-              {accountManagers.length === 0 ? (
-                <p className="text-xs text-[#64748B]">No account managers</p>
+              {eligibleAccountManagers.length === 0 ? (
+                <p className="text-xs text-[#64748B]">
+                  {optionalAmAssignment && clientId
+                    ? "No account managers on this client"
+                    : "No account managers"}
+                </p>
               ) : (
-                accountManagers.map((am) => {
+                eligibleAccountManagers.map((am) => {
                   const checked = selectedAmIds.includes(am.id);
                   return (
                     <label
@@ -296,7 +343,7 @@ export function JobForm({
             </div>
             <input type="hidden" {...register("accountManagerId")} />
           </div>
-        )}
+        ) : null}
 
         {lockAccountManager ? (
           <input type="hidden" {...register("hiringManager")} />

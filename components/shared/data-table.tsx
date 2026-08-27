@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { EmptyState } from "@/components/shared/empty-state";
 import { LoadingSkeleton } from "@/components/shared/loading-skeleton";
@@ -15,6 +15,8 @@ export interface DataTableColumn<T> {
   align?: "left" | "right" | "center";
   /** Pin column while the table scrolls horizontally. */
   sticky?: "left" | "right";
+  /** Horizontal offset for stacked left-sticky columns (e.g. "2.5rem"). */
+  stickyOffset?: string;
 }
 
 export interface DataTableProps<T> {
@@ -27,6 +29,10 @@ export interface DataTableProps<T> {
   emptyAction?: ReactNode;
   className?: string;
   onRowClick?: (row: T) => void;
+  /** Max height for the scroll body — keeps the header visible while scrolling down. */
+  maxBodyHeight?: string;
+  isSubRowExpanded?: (row: T) => boolean;
+  renderSubRow?: (row: T) => ReactNode;
 }
 
 function alignClass(align?: "left" | "right" | "center") {
@@ -39,13 +45,25 @@ function alignClass(align?: "left" | "right" | "center") {
   return "text-left";
 }
 
+function stickyStyle(
+  sticky?: "left" | "right",
+  stickyOffset?: string,
+): { left?: string; right?: string } | undefined {
+  if (!sticky) {
+    return undefined;
+  }
+  if (sticky === "left") {
+    return { left: stickyOffset ?? "0" };
+  }
+  return { right: stickyOffset ?? "0" };
+}
+
 function stickyClass(sticky?: "left" | "right", isHeader = false) {
   if (!sticky) {
     return undefined;
   }
   return cn(
     "sticky z-20",
-    sticky === "left" ? "left-0" : "right-0",
     // Opaque backgrounds only — translucent hover lets scrolled cells bleed
     // through sticky Actions (salary text / “strange shadow”).
     isHeader
@@ -71,6 +89,9 @@ export function DataTable<T>({
   emptyAction,
   className,
   onRowClick,
+  maxBodyHeight,
+  isSubRowExpanded,
+  renderSubRow,
 }: DataTableProps<T>) {
   if (loading) {
     return <LoadingSkeleton rows={6} />;
@@ -93,7 +114,13 @@ export function DataTable<T>({
         className,
       )}
     >
-      <div className="overflow-x-auto">
+      <div
+        className={cn(
+          "overflow-x-auto",
+          maxBodyHeight && "overflow-y-auto",
+        )}
+        style={maxBodyHeight ? { maxHeight: maxBodyHeight } : undefined}
+      >
         <table className="min-w-full text-left text-sm">
           <thead className="sticky top-0 z-30 border-b border-border bg-muted/70 text-xs font-medium uppercase tracking-wide text-muted-foreground backdrop-blur">
             <tr>
@@ -106,6 +133,7 @@ export function DataTable<T>({
                     stickyClass(column.sticky, true),
                     column.headerClassName,
                   )}
+                  style={stickyStyle(column.sticky, column.stickyOffset)}
                 >
                   {column.header}
                 </th>
@@ -113,30 +141,45 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {data.map((row) => (
-              <tr
-                key={getRowId(row)}
-                className={cn(
-                  "group border-t border-border transition-colors hover:bg-muted/50",
-                  onRowClick && "cursor-pointer",
-                )}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.id}
+            {data.map((row) => {
+              const rowId = getRowId(row);
+              const expanded =
+                Boolean(renderSubRow && isSubRowExpanded?.(row));
+              return (
+                <Fragment key={rowId}>
+                  <tr
                     className={cn(
-                      "px-4 py-3 text-foreground",
-                      alignClass(column.align),
-                      stickyClass(column.sticky, false),
-                      column.className,
+                      "group border-t border-border transition-colors hover:bg-muted/50",
+                      onRowClick && "cursor-pointer",
+                      expanded && "bg-muted/30",
                     )}
+                    onClick={onRowClick ? () => onRowClick(row) : undefined}
                   >
-                    {column.cell(row)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+                    {columns.map((column) => (
+                      <td
+                        key={column.id}
+                        className={cn(
+                          "px-4 py-3 text-foreground",
+                          alignClass(column.align),
+                          stickyClass(column.sticky, false),
+                          column.className,
+                        )}
+                        style={stickyStyle(column.sticky, column.stickyOffset)}
+                      >
+                        {column.cell(row)}
+                      </td>
+                    ))}
+                  </tr>
+                  {expanded ? (
+                    <tr key={`${rowId}-details`} className="border-t border-border">
+                      <td colSpan={columns.length} className="p-0">
+                        {renderSubRow?.(row)}
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

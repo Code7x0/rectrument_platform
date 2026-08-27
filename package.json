@@ -14,6 +14,8 @@
     "migrate:business-ids:dry": "DRY_RUN=1 node --env-file=.env.local scripts/migrate-business-ids.mjs",
     "backfill:job-ids": "node --env-file=.env.local scripts/backfill-job-ids-from-markers.mjs",
     "backfill:job-ids:dry": "DRY_RUN=1 node --env-file=.env.local scripts/backfill-job-ids-from-markers.mjs",
+    "ensure:job-ids": "node --env-file=.env.local scripts/ensure-all-job-ids.mjs",
+    "ensure:job-ids:dry": "DRY_RUN=1 node --env-file=.env.local scripts/ensure-all-job-ids.mjs",
     "am:upsert": "node --env-file=.env.local scripts/upsert-account-manager.mjs",
     "test:roles": "node --env-file=.env.local scripts/verify-role-identity.mjs",
     "test:file-preview": "tsx --test lib/files/build-file-response.test.ts lib/files/resolve-client-preview.test.ts",

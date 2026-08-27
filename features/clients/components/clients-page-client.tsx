@@ -149,7 +149,7 @@ export function ClientsPageClient({
         title={`Clients (${filtered.length})`}
         description={
           isAmPath
-            ? "Your assigned clients by Client ID. Open a workspace to manage jobs and talent partners."
+            ? "Your assigned clients by Client ID. Expand a row or open a workspace for the recruiter briefing kit."
             : "Hiring companies and their workspaces. Assign an Account Manager to own each client."
         }
         actions={

@@ -99,9 +99,7 @@ export function ClientOverviewTab({
       <WorkspaceSection title="Recruiter briefing kit">
         <div className="grid gap-4 sm:grid-cols-2">
           <Detail label="Website" value={client.website} />
-          {!hideClientName ? (
-            <Detail label="Client Name" value={client.name} />
-          ) : null}
+          <Detail label="Client Name" value={client.name} />
           <Detail label="Client Code" value={client.clientCode} />
           <Detail label="Employee Size" value={client.employeeSize} />
         </div>

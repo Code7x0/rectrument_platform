@@ -30,6 +30,7 @@ import {
   destroySubmission,
 } from "@/features/submissions/repositories/submissions.repository";
 import { buildScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
+import { INTERNAL_SOURCE_LABEL } from "@/features/submissions/lib/internal-sourcing";
 import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
 import { updateCandidateRecord } from "@/features/candidates/repositories/candidates.repository";
 import { toAirtableUpdateFields } from "@/features/candidates/services/candidates.mapper";
@@ -135,8 +136,12 @@ async function withEnrichment(
       clientName,
       clientCode,
       jobPriority: job?.priority ?? null,
-      partnerName: partner?.label ?? null,
-      partnerCode: partner?.code ?? null,
+      partnerName: row.partnerId
+        ? (partner?.label ?? null)
+        : INTERNAL_SOURCE_LABEL,
+      partnerCode: row.partnerId
+        ? (partner?.code ?? null)
+        : INTERNAL_SOURCE_LABEL,
     };
   });
 }
@@ -397,6 +402,164 @@ export async function applySubmissionStatusChange(
     throw new Error("Failed to update submission status");
   }
   return enriched;
+}
+
+/**
+ * Staff submit without a Talent Partner — tagged as Internally sourced.
+ * Used when Admin / Super Admin (or AM) adds a candidate directly on a job.
+ */
+export async function submitCandidateForStaff(input: {
+  jobId: string;
+  form: CandidateFormValues;
+  resumeUpload: UploadedFile;
+}): Promise<SubmitCandidateResult> {
+  const job = await getJobById(input.jobId);
+  if (!job) {
+    throw new Error("Job not found");
+  }
+
+  const screeningNotes = buildScreeningMatrixNotes({
+    experience: input.form.experience,
+    skillScreens: input.form.skillScreens ?? [],
+    offerInHand: {
+      ctc: input.form.offerInHandCtc,
+      location: input.form.offerInHandLocation,
+      doj: input.form.offerInHandDoj,
+      company: input.form.offerInHandCompany,
+      reason: input.form.offerInHandReason,
+    },
+    remarks: input.form.remarks,
+  });
+
+  const duplicates = await findDuplicateCandidates({
+    email: input.form.email,
+    phone: input.form.phone,
+  });
+  if (duplicates.length > 0) {
+    const { evaluateDuplicateCandidatePolicy } = await import(
+      "@/features/submissions/lib/duplicate-candidate-policy"
+    );
+    const matchedIds = new Set(duplicates.map((row) => row.id));
+    const relatedSubs = (await listSubmissions({ enrich: false })).filter(
+      (row) => matchedIds.has(row.candidateId) || matchedIds.has(row.id),
+    );
+    const policy = evaluateDuplicateCandidatePolicy(relatedSubs);
+    if (policy.action !== "allow") {
+      if (policy.action === "block_alert_am") {
+        const { notifyDuplicateCandidateAttempt } = await import(
+          "@/features/notifications/services/notification-events"
+        );
+        notifyDuplicateCandidateAttempt({
+          accountManagerId: job.accountManagerId ?? null,
+          accountManagerIds: job.accountManagerIds ?? null,
+          partnerId: "",
+          partnerLabel: INTERNAL_SOURCE_LABEL,
+          jobTitle: job.title,
+          jobCode: job.jobCode,
+          candidateName: input.form.fullName,
+          existingStatus: policy.existingStatus ?? "Unknown",
+          matchedCandidateId: duplicates[0]?.id ?? "",
+        });
+      }
+      return {
+        ok: false,
+        reason: "duplicate_blocked",
+        message: policy.message,
+        existingStatus: policy.existingStatus ?? null,
+        duplicates,
+      };
+    }
+  }
+
+  const { allocateCandidateCodeForPerson } = await import(
+    "@/features/shared/services/business-ids.service"
+  );
+  const candidateCode = await allocateCandidateCodeForPerson({
+    fullName: input.form.fullName,
+    phone: input.form.phone,
+    submittedAt: new Date(),
+  });
+
+  const createInput = {
+    fullName: input.form.fullName,
+    email: input.form.email,
+    phone: input.form.phone || undefined,
+    currentCompany: input.form.currentCompany || undefined,
+    currentLocation: input.form.currentLocation || undefined,
+    experience: input.form.experience || undefined,
+    currentCtc: input.form.currentCtc || undefined,
+    expectedCtc: input.form.expectedCtc || undefined,
+    noticePeriod: input.form.noticePeriod || undefined,
+    linkedIn: input.form.linkedIn?.trim() || undefined,
+    skills: parseSkillsInput(input.form.skills),
+    remarks: screeningNotes || undefined,
+    jobId: input.jobId,
+    candidateCode,
+    createdByLabel: INTERNAL_SOURCE_LABEL,
+    stampAnonymous: false,
+    status: "submitted" as const,
+  };
+
+  const createAttempts = [
+    createInput,
+    { ...createInput, candidateCode: undefined },
+  ];
+  let submission: Submission | null = null;
+  let lastCreateError: unknown;
+  for (const attempt of createAttempts) {
+    try {
+      submission = await insertSubmission(
+        toAirtableCandidateSubmissionCreateFields(attempt),
+      );
+      lastCreateError = null;
+      break;
+    } catch (error) {
+      lastCreateError = error;
+    }
+  }
+  if (!submission) {
+    throw lastCreateError instanceof Error
+      ? lastCreateError
+      : new Error("Unable to create candidate submission");
+  }
+
+  let candidate = await getCandidateById(submission.candidateId);
+  if (!candidate) {
+    throw new Error("Candidate was created but could not be reloaded");
+  }
+
+  try {
+    candidate = await attachResumeToCandidate(candidate.id, input.resumeUpload);
+  } catch (error) {
+    console.error("[staff-submit] Resume upload failed after create", error);
+    throw new Error(
+      error instanceof Error
+        ? `Candidate saved, but resume upload failed: ${error.message}`
+        : "Candidate saved, but resume upload failed",
+    );
+  }
+
+  try {
+    const { notifyCandidateSubmitted } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    await notifyCandidateSubmitted({
+      accountManagerId: job.accountManagerId ?? null,
+      candidateName: candidate.fullName,
+      jobTitle: job.title,
+      submissionId: submission.id,
+    });
+  } catch (error) {
+    console.error("Failed to publish candidate submission notification", error);
+  }
+
+  const [enriched] = await withEnrichment([submission]);
+  return {
+    ok: true,
+    submission: enriched ?? submission,
+    candidate,
+    reusedCandidate: false,
+  };
 }
 
 /**

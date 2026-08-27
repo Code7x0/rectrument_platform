@@ -22,8 +22,8 @@ export type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; message: string; errors?: string[] };
 
-function formValuesToInput(values: JobFormValues, createdById?: string) {
-  const accountManagerIds = Array.from(
+function resolveSelectedAccountManagerIds(values: JobFormValues): string[] {
+  return Array.from(
     new Set(
       (values.accountManagerIds?.length
         ? values.accountManagerIds
@@ -35,6 +35,44 @@ function formValuesToInput(values: JobFormValues, createdById?: string) {
         .filter(Boolean),
     ),
   );
+}
+
+async function assertAmJobAssignmentAllowed(
+  clientId: string,
+  accountManagerIds: string[],
+): Promise<ActionResult | null> {
+  if (accountManagerIds.length === 0) {
+    return null;
+  }
+
+  const { findClientById } = await import(
+    "@/features/clients/repositories/clients.repository"
+  );
+  const client = await findClientById(clientId);
+  if (!client) {
+    return { success: false, message: "Client not found" };
+  }
+
+  const allowed = new Set(
+    [...(client.accountManagerIds ?? []), client.accountManagerId].filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
+
+  for (const id of accountManagerIds) {
+    if (!allowed.has(id)) {
+      return {
+        success: false,
+        message: "Selected Account Manager is not assigned to this client",
+      };
+    }
+  }
+
+  return null;
+}
+
+function formValuesToInput(values: JobFormValues, createdById?: string) {
+  const accountManagerIds = resolveSelectedAccountManagerIds(values);
   return {
     title: values.title,
     clientId: values.clientId,
@@ -144,11 +182,6 @@ export async function createJobAction(
       const { assertAccountManagerOwnsClient, ScopeDeniedError } = await import(
         "@/lib/auth/scope"
       );
-      const { resolveAccountManagerScopeId } = await import("@/lib/auth");
-      const amId = resolveAccountManagerScopeId(session);
-      if (!amId) {
-        return { success: false, message: "Account Manager profile is missing" };
-      }
       try {
         await assertAccountManagerOwnsClient(session, values.clientId);
       } catch (error) {
@@ -157,8 +190,16 @@ export async function createJobAction(
         }
         throw error;
       }
-      values.accountManagerId = amId;
-      values.accountManagerIds = [amId];
+      const selectedAmIds = resolveSelectedAccountManagerIds(values);
+      const denied = await assertAmJobAssignmentAllowed(
+        values.clientId,
+        selectedAmIds,
+      );
+      if (denied) {
+        return denied;
+      }
+      values.accountManagerIds = selectedAmIds;
+      values.accountManagerId = selectedAmIds[0] ?? "";
     }
 
     const jdUpload = await parseJobAttachmentFromFormData(
@@ -231,8 +272,6 @@ export async function updateJobAction(
         assertAccountManagerOwnsClient,
         ScopeDeniedError,
       } = await import("@/lib/auth/scope");
-      const { resolveAccountManagerScopeId } = await import("@/lib/auth");
-      const amId = resolveAccountManagerScopeId(session);
       try {
         await assertAccountManagerOwnsJob(session, jobId);
         await assertAccountManagerOwnsClient(session, values.clientId);
@@ -242,10 +281,16 @@ export async function updateJobAction(
         }
         throw error;
       }
-      values.accountManagerId = amId ?? values.accountManagerId;
-      if (amId) {
-        values.accountManagerIds = [amId];
+      const selectedAmIds = resolveSelectedAccountManagerIds(values);
+      const denied = await assertAmJobAssignmentAllowed(
+        values.clientId,
+        selectedAmIds,
+      );
+      if (denied) {
+        return denied;
       }
+      values.accountManagerIds = selectedAmIds;
+      values.accountManagerId = selectedAmIds[0] ?? "";
     }
 
     const jdUpload = await parseJobAttachmentFromFormData(

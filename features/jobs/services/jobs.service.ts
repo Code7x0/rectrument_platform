@@ -599,6 +599,27 @@ export async function updateJob(
     throw new Error("Failed to update job");
   }
 
+  const detailKeys = Object.keys(input).filter(
+    (key) => key !== "accountManagerId" && key !== "accountManagerIds",
+  );
+  if (detailKeys.length > 0) {
+    const { notifyJobDetailsUpdated } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    void notifyJobDetailsUpdated({
+      jobId,
+      jobTitle: job.title,
+      jobCode: job.jobCode,
+      accountManagerIds: job.accountManagerIds?.length
+        ? job.accountManagerIds
+        : job.accountManagerId
+          ? [job.accountManagerId]
+          : [],
+    }).catch((error) => {
+      console.error("[notifications] job update notify failed", error);
+    });
+  }
+
   return job;
 }
 

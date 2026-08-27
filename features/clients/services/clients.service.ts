@@ -270,6 +270,31 @@ export async function updateClient(
     }
   }
 
+  const detailKeys = Object.keys(input).filter(
+    (key) => key !== "accountManagerId" && key !== "accountManagerIds",
+  );
+  if (detailKeys.length > 0) {
+    const { notifyClientDetailsUpdated } = await import(
+      "@/features/notifications/services/notification-events"
+    );
+    const amIds = Array.from(
+      new Set(
+        [
+          ...(client.accountManagerIds ?? []),
+          client.accountManagerId ?? null,
+        ].filter((id): id is string => Boolean(id)),
+      ),
+    );
+    void notifyClientDetailsUpdated({
+      clientId,
+      clientName: client.name,
+      clientCode: client.clientCode,
+      accountManagerIds: amIds,
+    }).catch((error) => {
+      console.error("[notifications] client update notify failed", error);
+    });
+  }
+
   return client;
 }
 

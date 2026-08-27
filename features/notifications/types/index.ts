@@ -39,6 +39,7 @@ export type NotificationChannel = "in_app" | "email" | "both" | "none";
 export type NotificationEntityType =
   | "user"
   | "partner"
+  | "client"
   | "job"
   | "allocation"
   | "submission"

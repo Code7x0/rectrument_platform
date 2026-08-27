@@ -19,6 +19,7 @@ import { listJobs } from "@/features/jobs/services";
 import {
   listClientOptions,
   listPartnerOptions,
+  listAccountManagerOptions,
 } from "@/services/lookups";
 
 const TABS: ClientWorkspaceTabId[] = [
@@ -70,14 +71,14 @@ export default async function AccountManagerClientWorkspacePage({
     notFound();
   }
 
-  const [stats, jobs, accountManagers, clients, partners] = await Promise.all([
+  const [stats, jobs, allAccountManagers, clients, partners] = await Promise.all([
     getClientWorkspaceStats(clientId, { accountManagerId }),
     listJobs({
       clientId,
       includeArchived: true,
       accountManagerId,
     }),
-    Promise.resolve([{ id: accountManagerId, label: "You" }]),
+    listAccountManagerOptions(),
     listClientOptions().then((rows) =>
       rows
         .filter(
@@ -92,6 +93,19 @@ export default async function AccountManagerClientWorkspacePage({
     ),
     listPartnerOptions("operational"),
   ]);
+
+  const coOwnerIds = new Set<string>([accountManagerId]);
+  if (client.accountManagerIds?.length) {
+    for (const id of client.accountManagerIds) {
+      coOwnerIds.add(id);
+    }
+  }
+  if (client.accountManagerId) {
+    coOwnerIds.add(client.accountManagerId);
+  }
+  const accountManagers = allAccountManagers.filter((am) =>
+    coOwnerIds.has(am.id),
+  );
 
   const [{ allocations, submissions }, activityTimeline] = await Promise.all([
     loadClientWorkspacePipeline(jobs, { includePartnerIdentity: false }),

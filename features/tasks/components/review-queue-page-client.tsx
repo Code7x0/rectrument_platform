@@ -249,6 +249,7 @@ export function ReviewQueuePageClient({
     return "all";
   });
   const [jobTitleFilter, setJobTitleFilter] = useState("");
+  const [idSearch, setIdSearch] = useState("");
   const [clientFilter, setClientFilter] = useState("all");
   const [partnerFilter, setPartnerFilter] = useState("all");
   const [jobIdFilter, setJobIdFilter] = useState(initialJobId ?? "");
@@ -332,6 +333,16 @@ export function ReviewQueuePageClient({
         (row.jobTitle ?? "").toLowerCase().includes(q),
       );
     }
+    const idQ = idSearch.trim().toLowerCase();
+    if (idQ) {
+      next = next.filter(
+        (row) =>
+          (row.submissionCode?.toLowerCase().includes(idQ) ?? false) ||
+          (row.jobCode?.toLowerCase().includes(idQ) ?? false) ||
+          (row.candidateName?.toLowerCase().includes(idQ) ?? false) ||
+          (row.email?.toLowerCase().includes(idQ) ?? false),
+      );
+    }
     if (clientFilter !== "all") {
       next = next.filter((row) => row.clientId === clientFilter);
     }
@@ -339,10 +350,23 @@ export function ReviewQueuePageClient({
       next = next.filter((row) => row.partnerId === partnerFilter);
     }
     if (jobIdFilter.trim()) {
-      next = next.filter((row) => row.jobId === jobIdFilter.trim());
+      const jobQ = jobIdFilter.trim().toLowerCase();
+      next = next.filter(
+        (row) =>
+          row.jobId === jobIdFilter.trim() ||
+          (row.jobCode?.toLowerCase().includes(jobQ) ?? false),
+      );
     }
     return sortSubmissionsForReview(next);
-  }, [rows, statusFilter, jobTitleFilter, clientFilter, partnerFilter, jobIdFilter]);
+  }, [
+    rows,
+    statusFilter,
+    jobTitleFilter,
+    idSearch,
+    clientFilter,
+    partnerFilter,
+    jobIdFilter,
+  ]);
 
   const statusSelectOptions = useMemo(() => {
     const base = [...STATUS_FILTER_OPTIONS];
@@ -609,7 +633,7 @@ export function ReviewQueuePageClient({
         }
       />
 
-      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="space-y-1.5">
           <Label htmlFor="status-filter">Submission Status</Label>
           <Select
@@ -646,6 +670,15 @@ export function ReviewQueuePageClient({
             value={jobTitleFilter}
             onChange={(event) => setJobTitleFilter(event.target.value)}
             placeholder="Filter by job title"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="id-search">Job / Candidate ID</Label>
+          <Input
+            id="id-search"
+            value={idSearch}
+            onChange={(event) => setIdSearch(event.target.value)}
+            placeholder="e.g. BCE_001 or BCE_001_002"
           />
         </div>
         <div className="space-y-1.5">
