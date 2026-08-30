@@ -18,10 +18,12 @@ import { recordActivity } from "@/features/workflows/services/activity.service";
 import { sendEmail, sendEmailSafe } from "@/services/email";
 import {
   createUserRecord,
+  convertUserRoleIdentity,
   findUserByEmail,
   findUserByInvitationToken,
   getUserById,
   listUsers,
+  permanentDeleteUserIdentity,
   updateUserRecord,
 } from "@/services/users/users.service";
 import { getRoleLabel } from "@/lib/auth/permissions";
@@ -520,7 +522,13 @@ export async function inviteStaffUser(
 
   const existing = await findUserByEmail(input.email);
   if (existing) {
-    throw new Error("A user with this email already exists");
+    if (existing.role === input.role) {
+      throw new Error("This user already has that role");
+    }
+    if (existing.role === "super_admin") {
+      throw new Error("Cannot change Super Admin role");
+    }
+    return changeUserRole(existing.id, input.role, actorUserId);
   }
 
   const token = createInvitationToken();
@@ -647,22 +655,12 @@ export async function changeUserRole(
   if (user.role === toRole) {
     return user;
   }
-  if (toRole === "partner") {
-    throw new Error(
-      "Accounts cannot be demoted to Talent Partner. Promote Talent Partners to Account Manager only.",
-    );
-  }
-  if (user.role === "partner" && toRole !== "account_manager") {
-    throw new Error(
-      "Talent Partners can only be promoted to Account Manager.",
-    );
-  }
 
-  const updated = await updateUserRecord(userId, { role: toRole });
+  const updated = await convertUserRoleIdentity(userId, toRole);
 
   await safeActivity({
     entityType: "user",
-    entityId: userId,
+    entityId: updated.id,
     action: "role_changed",
     fromStatus: user.role,
     toStatus: toRole,
@@ -674,10 +672,21 @@ export async function changeUserRole(
     "@/features/notifications/services/notification-events"
   );
   notifyRoleChanged({
-    userId,
-    userName: user.fullName,
+    userId: updated.id,
+    userName: updated.fullName,
     fromRole: user.role,
     toRole,
+  });
+
+  await sendEmailSafe({
+    to: updated.email,
+    template: "role_changed",
+    data: {
+      name: updated.fullName,
+      fromRole: getRoleLabel(user.role),
+      toRole: getRoleLabel(toRole),
+      loginUrl: `${appBaseUrl()}/sign-in`,
+    },
   });
 
   return updated;
@@ -716,6 +725,34 @@ export async function deactivateUser(
   notifyUserDeactivated({ userId, userName: user.fullName });
 
   return updated;
+}
+
+export async function permanentDeleteUser(
+  userId: string,
+  actorUserId: string,
+): Promise<void> {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.role === "super_admin") {
+    throw new Error("Cannot delete Super Admin");
+  }
+  if (user.status === "active") {
+    throw new Error("Deactivate the user before permanent deletion");
+  }
+
+  await permanentDeleteUserIdentity(userId);
+
+  await safeActivity({
+    entityType: "user",
+    entityId: userId,
+    action: "status_change",
+    fromStatus: user.status,
+    toStatus: "deleted",
+    actorUserId,
+    note: `Permanently deleted ${user.fullName} (${user.email})`,
+  });
 }
 
 export async function resetUserAccess(

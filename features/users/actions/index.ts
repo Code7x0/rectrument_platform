@@ -5,6 +5,7 @@ export {
   deactivateUserAction,
   finalizePartnerRegistrationAction,
   inviteStaffAction,
+  permanentDeleteUserAction,
   registerTalentPartnerAction,
   rejectPartnerAction,
   resetUserAccessAction,

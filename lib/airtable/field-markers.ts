@@ -6,6 +6,39 @@
 export const INVITE_MARKER_PREFIX = "invite:";
 export const PAYOUT_MARKER_PREFIX = "[RP_PAYOUT]";
 export const DOC_MARKER_PREFIX = "[RP_DOC]";
+export const ROLE_MARKER_PREFIX = "[RP_ROLE:";
+
+export type StoredRoleMarker = "admin" | "account_manager" | "partner";
+
+const ROLE_MARKER_RE = /\[RP_ROLE:(admin|account_manager|partner)\]/;
+
+export function parseRoleMarker(
+  text: string | null | undefined,
+): StoredRoleMarker | null {
+  if (!text?.trim()) {
+    return null;
+  }
+  const match = ROLE_MARKER_RE.exec(text);
+  if (!match?.[1]) {
+    return null;
+  }
+  return match[1] as StoredRoleMarker;
+}
+
+export function upsertRoleMarker(
+  existing: string | null | undefined,
+  role: StoredRoleMarker | null,
+): string {
+  const lines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith(ROLE_MARKER_PREFIX));
+  if (role) {
+    lines.push(`${ROLE_MARKER_PREFIX}${role}]`);
+  }
+  return lines.join("\n");
+}
 
 export function buildInviteMarker(token: string, expiry: string | null): string {
   return `${INVITE_MARKER_PREFIX}${token}:${expiry ?? ""}`;

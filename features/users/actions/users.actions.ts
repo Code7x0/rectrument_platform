@@ -14,6 +14,7 @@ import {
   deactivateUser,
   finalizePartnerRegistration,
   inviteStaffUser,
+  permanentDeleteUser,
   rejectPartnerApplication,
   resetUserAccess,
   submitPartnerRegistration,
@@ -23,6 +24,7 @@ import {
   changeRoleSchema,
   inviteStaffSchema,
   partnerRegistrationSchema,
+  permanentDeleteUserSchema,
   rejectPartnerSchema,
   updateIdentityVisibilitySchema,
 } from "@/features/users/schemas/users.schema";
@@ -339,6 +341,42 @@ export async function deactivateUserAction(
     return {
       success: false,
       message: actionErrorMessage(error, "Unable to deactivate"),
+    };
+  }
+}
+
+export async function permanentDeleteUserAction(
+  input: unknown,
+): Promise<ActionResult<{ ok: true }>> {
+  try {
+    const session = await requirePermission("manage_roles");
+    await requireRole("super_admin");
+    const parsed = permanentDeleteUserSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        message: parsed.error.issues[0]?.message ?? "Invalid delete request",
+      };
+    }
+    const user = await import("@/services/users/users.service").then((mod) =>
+      mod.getUserById(parsed.data.userId),
+    );
+    if (!user) {
+      return { success: false, message: "User not found" };
+    }
+    if (user.email.trim().toLowerCase() !== parsed.data.confirmEmail.trim().toLowerCase()) {
+      return {
+        success: false,
+        message: "Confirmation email does not match this user",
+      };
+    }
+    await permanentDeleteUser(parsed.data.userId, session.userId);
+    revalidateUserPaths();
+    return { success: true, data: { ok: true } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to delete user"),
     };
   }
 }

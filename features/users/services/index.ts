@@ -10,6 +10,7 @@ export {
   inviteStaffUser,
   listManagedUsers,
   listPendingPartnerApplications,
+  permanentDeleteUser,
   rejectPartnerApplication,
   resetUserAccess,
   submitPartnerRegistration,

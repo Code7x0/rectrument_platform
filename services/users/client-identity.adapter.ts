@@ -6,6 +6,7 @@
 
 import {
   createRecord,
+  deleteRecord,
   findRecord,
   getRecords,
   updateRecord,
@@ -28,6 +29,8 @@ import {
 import {
   buildInviteMarker,
   parseInviteMarker,
+  parseRoleMarker,
+  upsertRoleMarker,
 } from "@/lib/airtable/field-markers";
 import { getOptionalEnv } from "@/lib/api/env";
 import { getAirtableTableName } from "@/lib/airtable/tables";
@@ -151,31 +154,21 @@ function mapAccountManagerRecord(record: {
   const invite = parseInviteMarker(
     asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments]),
   );
+  const comments = asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments]);
+  const markerRole = parseRoleMarker(comments);
   const hasPendingInvite = Boolean(invite?.token) && status === "inactive";
-  // Env Super Admin / Admin must never be blocked by an inactive AM row.
-  if (elevated) {
-    return {
-      ...syntheticElevatedUser(email, elevated),
-      id: record.id,
-      accountManagerId: record.id,
-      fullName:
-        asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.name]) ?? email,
-      phone: asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]),
-    };
-  }
-  return {
+  const base = {
     id: record.id,
     clerkUserId: null,
     email,
     fullName:
       asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.name]) ?? email,
-    role: "account_manager",
-    status: hasPendingInvite ? "inactive" : status,
+    status: hasPendingInvite ? ("inactive" as UserStatus) : status,
     registrationStatus: hasPendingInvite
-      ? "invitation_pending"
+      ? ("invitation_pending" as RegistrationStatus)
       : status === "active"
-        ? "active"
-        : "inactive",
+        ? ("active" as RegistrationStatus)
+        : ("inactive" as RegistrationStatus),
     identityVisibility: null,
     phone: asString(fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]),
     city: null,
@@ -192,6 +185,17 @@ function mapAccountManagerRecord(record: {
     rejectedReason: null,
     invitationToken: invite?.token ?? null,
     invitationExpiry: invite?.expiry ?? null,
+  };
+  // Env Super Admin / Admin must never be blocked by an inactive AM row.
+  if (elevated === "super_admin") {
+    return { ...base, role: "super_admin", status: "active", registrationStatus: "active" };
+  }
+  if (elevated === "admin" || markerRole === "admin") {
+    return { ...base, role: "admin", status: "active", registrationStatus: "active" };
+  }
+  return {
+    ...base,
+    role: "account_manager",
   };
 }
 
@@ -225,7 +229,9 @@ function mapPartnerAsUser(record: {
   const { status, registrationStatus } = mapPartnerStatus(
     asString(fields[PARTNERS_TABLE_FIELDS.status]),
   );
-  return {
+  const notes = asString(fields[PARTNERS_TABLE_FIELDS.notes]);
+  const markerRole = parseRoleMarker(notes);
+  const base = {
     id: record.id,
     clerkUserId: null,
     email,
@@ -233,10 +239,9 @@ function mapPartnerAsUser(record: {
       asString(fields[PARTNERS_TABLE_FIELDS.name]) ??
       asString(fields[PARTNERS_TABLE_FIELDS.companyName]) ??
       email,
-    role: "partner",
     status,
     registrationStatus,
-    identityVisibility: "private",
+    identityVisibility: "private" as const,
     phone: asString(fields[PARTNERS_TABLE_FIELDS.phone]),
     city: asString(fields[PARTNERS_TABLE_FIELDS.city]),
     state: null,
@@ -252,6 +257,13 @@ function mapPartnerAsUser(record: {
     rejectedReason: null,
     invitationToken: null,
     invitationExpiry: null,
+  };
+  if (markerRole === "admin") {
+    return { ...base, role: "admin" as const, status: "active", registrationStatus: "active" };
+  }
+  return {
+    ...base,
+    role: "partner" as const,
   };
 }
 
@@ -839,6 +851,279 @@ export async function clientCreateUserRecord(
   throw new Error(
     `Cannot create ${fields.role} in the locked Airtable schema. Add the email to AIRTABLE_SUPER_ADMIN_EMAILS or AIRTABLE_ADMIN_EMAILS, or create an Account Manager / Partner record.`,
   );
+}
+
+async function findAmRecordByEmail(email: string) {
+  const normalized = normalizeEmail(email);
+  const records = await getRecords(accountManagersTable(), {
+    filterByFormula: `LOWER({${ACCOUNT_MANAGERS_TABLE_FIELDS.email}}) = '${escapeFormula(normalized)}'`,
+    maxRecords: 1,
+  });
+  return records[0] ?? null;
+}
+
+async function createAccountManagerFromUser(
+  user: User,
+  options?: { adminMarker?: boolean },
+): Promise<User> {
+  const existingAm = await findAmRecordByEmail(user.email);
+  if (existingAm) {
+    const comments = asString(
+      existingAm.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
+    );
+    await updateRecord(accountManagersTable(), existingAm.id, {
+      [ACCOUNT_MANAGERS_TABLE_FIELDS.name]: user.fullName,
+      [ACCOUNT_MANAGERS_TABLE_FIELDS.email]: user.email,
+      [ACCOUNT_MANAGERS_TABLE_FIELDS.status]: "Active",
+      [ACCOUNT_MANAGERS_TABLE_FIELDS.comments]: options?.adminMarker
+        ? upsertRoleMarker(comments, "admin")
+        : upsertRoleMarker(comments, null),
+      ...(user.phone
+        ? { [ACCOUNT_MANAGERS_TABLE_FIELDS.phone]: user.phone }
+        : {}),
+    });
+    const mapped = mapAccountManagerRecord({
+      id: existingAm.id,
+      fields: (await findRecord(accountManagersTable(), existingAm.id))
+        .fields as AirtableFields,
+    });
+    if (!mapped) {
+      throw new Error("Failed to update account manager identity");
+    }
+    return mapped;
+  }
+
+  const payload: AirtableFields = {
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.name]: user.fullName,
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.email]: user.email,
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.status]: "Active",
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.comments]: options?.adminMarker
+      ? upsertRoleMarker("", "admin")
+      : "",
+  };
+  if (user.phone) {
+    payload[ACCOUNT_MANAGERS_TABLE_FIELDS.phone] = user.phone;
+  }
+  const created = await createRecord(accountManagersTable(), payload);
+  const mapped = mapAccountManagerRecord({
+    id: created.id,
+    fields: created.fields as AirtableFields,
+  });
+  if (!mapped) {
+    throw new Error("Failed to create account manager identity");
+  }
+  return mapped;
+}
+
+async function createPartnerFromUser(user: User): Promise<User> {
+  const existing = await clientFindUserByEmail(user.email);
+  if (existing?.partnerId) {
+    await updateRecord(partnersTable(), existing.partnerId, {
+      [PARTNERS_TABLE_FIELDS.name]: user.fullName,
+      [PARTNERS_TABLE_FIELDS.email]: user.email,
+      [PARTNERS_TABLE_FIELDS.status]: "Active",
+      [PARTNERS_TABLE_FIELDS.companyName]:
+        user.fullName.split(" ")[0] ?? user.fullName,
+      ...(user.phone ? { [PARTNERS_TABLE_FIELDS.phone]: user.phone } : {}),
+      ...(user.city ? { [PARTNERS_TABLE_FIELDS.city]: user.city } : {}),
+    });
+    const mapped = await clientGetUserById(existing.partnerId);
+    if (!mapped) {
+      throw new Error("Failed to update partner identity");
+    }
+    return mapped;
+  }
+
+  const { allocatePartnerCodeForPerson } = await import(
+    "@/features/shared/services/business-ids.service"
+  );
+  const partnerCode = await allocatePartnerCodeForPerson({
+    fullName: user.fullName,
+    phone: user.phone,
+  });
+  const payload: AirtableFields = {
+    [PARTNERS_TABLE_FIELDS.partnerId]: partnerCode,
+    [PARTNERS_TABLE_FIELDS.name]: user.fullName,
+    [PARTNERS_TABLE_FIELDS.email]: user.email,
+    [PARTNERS_TABLE_FIELDS.status]: "Active",
+    [PARTNERS_TABLE_FIELDS.companyName]:
+      user.fullName.split(" ")[0] ?? user.fullName,
+  };
+  if (user.phone) {
+    payload[PARTNERS_TABLE_FIELDS.phone] = user.phone;
+  }
+  if (user.city) {
+    payload[PARTNERS_TABLE_FIELDS.city] = user.city;
+  }
+  const created = await createRecord(partnersTable(), payload);
+  const mapped = mapPartnerAsUser({
+    id: created.id,
+    fields: created.fields as AirtableFields,
+  });
+  if (!mapped) {
+    throw new Error("Failed to create partner identity");
+  }
+  return mapped;
+}
+
+async function deactivatePartnerRecord(partnerId: string): Promise<void> {
+  await updateRecord(partnersTable(), partnerId, {
+    [PARTNERS_TABLE_FIELDS.status]: "Inactive",
+  });
+}
+
+async function deactivateAccountManagerRecord(amId: string): Promise<void> {
+  const record = await findRecord(accountManagersTable(), amId);
+  const comments = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments]);
+  await updateRecord(accountManagersTable(), amId, {
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.status]: "Not Active",
+    [ACCOUNT_MANAGERS_TABLE_FIELDS.comments]: upsertRoleMarker(comments, null),
+  });
+}
+
+export async function clientConvertUserRole(
+  userId: string,
+  toRole: UserRole,
+): Promise<User> {
+  if (toRole === "super_admin") {
+    throw new Error("Cannot promote anyone to Super Admin");
+  }
+
+  const user = await clientGetUserById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.role === "super_admin") {
+    throw new Error("Cannot change Super Admin role");
+  }
+  if (user.id.startsWith("env_")) {
+    throw new Error(
+      "Env-only users must be managed via AIRTABLE_ADMIN_EMAILS / AIRTABLE_SUPER_ADMIN_EMAILS",
+    );
+  }
+  if (user.role === toRole) {
+    return user;
+  }
+
+  if (toRole === "admin") {
+    if (user.accountManagerId) {
+      const record = await findRecord(accountManagersTable(), user.accountManagerId);
+      const comments = asString(
+        record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
+      );
+      await updateRecord(accountManagersTable(), user.accountManagerId, {
+        [ACCOUNT_MANAGERS_TABLE_FIELDS.status]: "Active",
+        [ACCOUNT_MANAGERS_TABLE_FIELDS.comments]: upsertRoleMarker(
+          comments,
+          "admin",
+        ),
+      });
+      if (user.partnerId) {
+        await deactivatePartnerRecord(user.partnerId);
+      }
+      const updated = await clientGetUserById(user.accountManagerId);
+      if (!updated) {
+        throw new Error("Failed to promote user to Admin");
+      }
+      return updated;
+    }
+
+    if (user.partnerId) {
+      const am = await createAccountManagerFromUser(user, { adminMarker: true });
+      await deactivatePartnerRecord(user.partnerId);
+      return am;
+    }
+
+    return createAccountManagerFromUser(user, { adminMarker: true });
+  }
+
+  if (toRole === "account_manager") {
+    if (user.accountManagerId) {
+      const record = await findRecord(accountManagersTable(), user.accountManagerId);
+      const comments = asString(
+        record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
+      );
+      await updateRecord(accountManagersTable(), user.accountManagerId, {
+        [ACCOUNT_MANAGERS_TABLE_FIELDS.status]: "Active",
+        [ACCOUNT_MANAGERS_TABLE_FIELDS.comments]: upsertRoleMarker(
+          comments,
+          null,
+        ),
+      });
+      if (user.partnerId) {
+        await deactivatePartnerRecord(user.partnerId);
+      }
+      const updated = await clientGetUserById(user.accountManagerId);
+      if (!updated) {
+        throw new Error("Failed to convert user to Account Manager");
+      }
+      return updated;
+    }
+
+    if (user.partnerId) {
+      const am = await createAccountManagerFromUser(user);
+      await deactivatePartnerRecord(user.partnerId);
+      return am;
+    }
+
+    return createAccountManagerFromUser(user);
+  }
+
+  if (toRole === "partner") {
+    if (user.partnerId) {
+      const record = await findRecord(partnersTable(), user.partnerId);
+      const notes = asString(record.fields[PARTNERS_TABLE_FIELDS.notes]);
+      await updateRecord(partnersTable(), user.partnerId, {
+        [PARTNERS_TABLE_FIELDS.status]: "Active",
+        [PARTNERS_TABLE_FIELDS.notes]: upsertRoleMarker(notes, null),
+      });
+      if (user.accountManagerId) {
+        await deactivateAccountManagerRecord(user.accountManagerId);
+      }
+      const updated = await clientGetUserById(user.partnerId);
+      if (!updated) {
+        throw new Error("Failed to convert user to Talent Partner");
+      }
+      return updated;
+    }
+
+    const partner = await createPartnerFromUser(user);
+    if (user.accountManagerId) {
+      await deactivateAccountManagerRecord(user.accountManagerId);
+    }
+    return partner;
+  }
+
+  throw new Error(`Unsupported role conversion to ${toRole}`);
+}
+
+export async function clientPermanentDeleteUser(userId: string): Promise<void> {
+  const user = await clientGetUserById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.role === "super_admin") {
+    throw new Error("Cannot delete Super Admin");
+  }
+  if (user.id.startsWith("env_")) {
+    throw new Error(
+      "Remove env-only users from AIRTABLE_ADMIN_EMAILS or AIRTABLE_SUPER_ADMIN_EMAILS",
+    );
+  }
+  if (user.status === "active") {
+    throw new Error("Deactivate the user before permanent deletion");
+  }
+
+  if (user.partnerId) {
+    await deleteRecord(partnersTable(), user.partnerId);
+    return;
+  }
+  if (user.accountManagerId) {
+    await deleteRecord(accountManagersTable(), user.accountManagerId);
+    return;
+  }
+
+  throw new Error("No identity record found to delete");
 }
 
 export type { UserRole };

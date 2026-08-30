@@ -1,5 +1,6 @@
 import {
   createRecord,
+  deleteRecord,
   findRecord,
   getRecords,
   updateRecord,
@@ -24,12 +25,14 @@ import type {
 } from "@/types";
 
 import {
+  clientConvertUserRole,
   clientCreateUserRecord,
   clientFindUserByClerkId,
   clientFindUserByEmail,
   clientFindUserByInvitationToken,
   clientGetUserById,
   clientListUsers,
+  clientPermanentDeleteUser,
   clientResolveUserForClerkIdentity,
   clientUpdateClerkId,
   clientUpdateLastLogin,
@@ -444,6 +447,45 @@ export async function createUserRecord(fields: CreateUserInput): Promise<User> {
     id: created.id,
     fields: created.fields as AirtableFields,
   });
+}
+
+export async function convertUserRoleIdentity(
+  userId: string,
+  toRole: UserRole,
+): Promise<User> {
+  if (isClientIdentityMode()) {
+    return clientConvertUserRole(userId, toRole);
+  }
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.role === "super_admin" || toRole === "super_admin") {
+    throw new Error("Cannot change Super Admin role");
+  }
+  return updateUserRecord(userId, {
+    role: toRole,
+    status: "active",
+    registrationStatus: "active",
+  });
+}
+
+export async function permanentDeleteUserIdentity(userId: string): Promise<void> {
+  if (isClientIdentityMode()) {
+    await clientPermanentDeleteUser(userId);
+    return;
+  }
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (user.role === "super_admin") {
+    throw new Error("Cannot delete Super Admin");
+  }
+  if (user.status === "active") {
+    throw new Error("Deactivate the user before permanent deletion");
+  }
+  await deleteRecord(getUsersTableName(), userId);
 }
 
 export type { RegistrationStatus, UserStatus };

@@ -62,10 +62,17 @@ export type RejectPartnerValues = z.infer<typeof rejectPartnerSchema>;
 
 export const changeRoleSchema = z.object({
   userId: z.string().min(1),
-  toRole: z.enum(["admin", "account_manager"]),
+  toRole: z.enum(["admin", "account_manager", "partner"]),
 });
 
 export type ChangeRoleValues = z.infer<typeof changeRoleSchema>;
+
+export const permanentDeleteUserSchema = z.object({
+  userId: z.string().min(1),
+  confirmEmail: z.string().trim().email("Enter the user's email to confirm"),
+});
+
+export type PermanentDeleteUserValues = z.infer<typeof permanentDeleteUserSchema>;
 
 export const updateIdentityVisibilitySchema = z.object({
   partnerId: z.string().min(1),
