@@ -30,6 +30,7 @@
 .ovato-landing .btn-flame {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 15px 28px;
   border-radius: 999px;
@@ -41,6 +42,12 @@
   background: linear-gradient(100deg, var(--flame-1), var(--flame-2));
   color: #1a0a10;
   box-shadow: 0 8px 30px -8px rgba(255, 110, 90, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ovato-landing .btn-flame:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 34px -8px rgba(255, 110, 90, 0.62);
 }
 
 .ovato-landing .btn-ghost {
@@ -159,8 +166,14 @@
 
 .ovato-landing .split-card {
   border-radius: 20px;
-  padding: 36px 32px;
+  padding: 28px 24px;
   border: 1px solid var(--line);
+}
+
+@media (min-width: 640px) {
+  .ovato-landing .split-card {
+    padding: 36px 32px;
+  }
 }
 
 .ovato-landing .split-card.partner {
