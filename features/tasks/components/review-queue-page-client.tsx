@@ -27,6 +27,7 @@ import { SubmissionStatusBadge } from "@/features/submissions/components/submiss
 import type { Submission } from "@/features/submissions/types";
 import { deleteSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { StaffAddCandidateDialog } from "@/features/submissions/components/staff-add-candidate-dialog";
+import { ExportCandidatesButton } from "@/features/submissions/components/export-candidates-button";
 import { getReviewDetailAction } from "@/features/workflows/actions/review.actions";
 import { signalLiveDataChange } from "@/lib/live-sync";
 import {
@@ -624,12 +625,18 @@ export function ReviewQueuePageClient({
             : "All candidate submissions across the pipeline.")
         }
         actions={
-          canAddCandidate ? (
-            <Button type="button" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Add Candidate
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportCandidatesButton
+              rows={filteredRows}
+              audience="account_manager"
+            />
+            {canAddCandidate ? (
+              <Button type="button" onClick={() => setAddOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add Candidate
+              </Button>
+            ) : null}
+          </div>
         }
       />
 

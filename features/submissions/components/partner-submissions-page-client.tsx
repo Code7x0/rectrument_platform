@@ -27,6 +27,7 @@ import type { Payout } from "@/features/payouts/types";
 import { requestSecondLevelReviewAction } from "@/features/submissions/actions/review-fields.actions";
 import { deleteOwnUnreviewedSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { EditCandidateDialog } from "@/features/submissions/components/edit-candidate-dialog";
+import { ExportCandidatesButton } from "@/features/submissions/components/export-candidates-button";
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
 import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
@@ -261,6 +262,16 @@ export function PartnerSubmissionsPageClient({
       <PageHeader
         title={`My Candidates (${filteredRows.length})`}
         description="Track status, interview stage, Screening Matrix, and Internal Feedback."
+        actions={
+          <ExportCandidatesButton
+            rows={filteredRows}
+            audience="partner"
+            payoutsBySubmission={payoutsBySubmission}
+            jobCode={
+              filterJobId ? (filteredRows[0]?.jobCode ?? null) : null
+            }
+          />
+        }
       />
 
       {filterJobId ? (
