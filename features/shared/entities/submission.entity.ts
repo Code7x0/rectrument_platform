@@ -66,6 +66,14 @@ export interface SubmissionEntity {
   wantsSecondLevelReview: boolean;
   /** Raw Airtable option text when present. */
   secondLevelReviewLabel: string | null;
+  /** Profile fields — from Airtable columns and/or screening notes. */
+  currentCompany?: string | null;
+  currentLocation?: string | null;
+  experience?: string | null;
+  currentCtc?: string | null;
+  expectedCtc?: string | null;
+  noticePeriod?: string | null;
+  skills?: string | null;
 }
 
 export interface CreateSubmissionInput {

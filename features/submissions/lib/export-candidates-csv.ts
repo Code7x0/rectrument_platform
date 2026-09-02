@@ -2,6 +2,7 @@ import { submissionStatusDisplayLabel } from "@/features/shared/entities";
 import type { Payout } from "@/features/payouts/types";
 import { PAYOUT_STATUS_LABELS } from "@/features/payouts/types";
 import type { Submission } from "@/features/submissions/types";
+import { resolveSubmissionProfile } from "@/features/submissions/lib/submission-profile";
 import {
   buildCsvContent,
   csvFilename,
@@ -15,6 +16,65 @@ type CsvColumn = {
   header: string;
   value: (row: Submission, payout?: Payout | null) => string;
 };
+
+function profileColumns(): CsvColumn[] {
+  return [
+    {
+      header: "Current Company",
+      value: (row) => formatCsvCell(resolveSubmissionProfile(row).currentCompany),
+    },
+    {
+      header: "Current Location",
+      value: (row) =>
+        formatCsvCell(resolveSubmissionProfile(row).currentLocation),
+    },
+    {
+      header: "Total Experience",
+      value: (row) => formatCsvCell(resolveSubmissionProfile(row).experience),
+    },
+    {
+      header: "Current CTC",
+      value: (row) => formatCsvCell(resolveSubmissionProfile(row).currentCtc),
+    },
+    {
+      header: "Expected CTC",
+      value: (row) => formatCsvCell(resolveSubmissionProfile(row).expectedCtc),
+    },
+    {
+      header: "Notice Period",
+      value: (row) => formatCsvCell(resolveSubmissionProfile(row).noticePeriod),
+    },
+    {
+      header: "Skills",
+      value: (row) => formatCsvCell(resolveSubmissionProfile(row).skills),
+    },
+    {
+      header: "Offer CTC",
+      value: (row) =>
+        formatCsvCell(resolveSubmissionProfile(row).offerInHandCtc),
+    },
+    {
+      header: "Offer Company",
+      value: (row) =>
+        formatCsvCell(resolveSubmissionProfile(row).offerInHandCompany),
+    },
+    {
+      header: "Offer Location",
+      value: (row) =>
+        formatCsvCell(resolveSubmissionProfile(row).offerInHandLocation),
+    },
+    {
+      header: "Offer DOJ",
+      value: (row) =>
+        formatCsvCell(resolveSubmissionProfile(row).offerInHandDoj),
+    },
+    {
+      header: "Offer Reason",
+      value: (row) =>
+        formatCsvCell(resolveSubmissionProfile(row).offerInHandReason),
+    },
+  ];
+}
 
 function partnerColumns(): CsvColumn[] {
   return [
@@ -34,6 +94,7 @@ function partnerColumns(): CsvColumn[] {
       header: "Phone",
       value: (row) => formatCsvCell(row.phone),
     },
+    ...profileColumns(),
     {
       header: "Job ID",
       value: (row) => formatCsvCell(row.jobCode),
@@ -103,6 +164,7 @@ function accountManagerColumns(): CsvColumn[] {
       header: "Phone",
       value: (row) => formatCsvCell(row.phone),
     },
+    ...profileColumns(),
     {
       header: "Job ID",
       value: (row) => formatCsvCell(row.jobCode),

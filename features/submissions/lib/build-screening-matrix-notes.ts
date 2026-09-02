@@ -1,6 +1,7 @@
 import type { SkillScreenRow } from "@/features/candidates/schemas/candidate.schema";
 
 export function buildScreeningMatrixNotes(input: {
+  currentCompany?: string | null;
   experience?: string | null;
   skillScreens?: SkillScreenRow[] | null;
   offerInHand?: {
@@ -12,6 +13,7 @@ export function buildScreeningMatrixNotes(input: {
   } | null;
   remarks?: string | null;
 }): string {
+  const currentCompany = input.currentCompany?.trim() ?? "";
   const experience = input.experience?.trim() ?? "";
   const extra = input.remarks?.trim() ?? "";
   const offerInHand = {
@@ -48,6 +50,9 @@ export function buildScreeningMatrixNotes(input: {
   }
 
   const lines: string[] = [];
+  if (currentCompany) {
+    lines.push(`Current company: ${currentCompany}`);
+  }
   if (experience) {
     lines.push(`Total experience: ${experience}`);
   }
@@ -92,6 +97,7 @@ export function buildScreeningMatrixNotes(input: {
 }
 
 export function parseScreeningMatrixNotes(notes: string | null | undefined): {
+  currentCompany: string;
   experience: string;
   skillScreens: SkillScreenRow[];
   offerInHand: {
@@ -106,6 +112,7 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
   const text = notes?.trim() ?? "";
   if (!text) {
     return {
+      currentCompany: "",
       experience: "",
       skillScreens: [{ skill: "", years: "", alternate: "" }],
       offerInHand: {
@@ -118,6 +125,9 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
       remarks: "",
     };
   }
+
+  const currentCompanyMatch = /^Current company:\s*(.+)$/m.exec(text);
+  const currentCompany = currentCompanyMatch?.[1]?.trim() ?? "";
 
   const experienceMatch = /^Total experience:\s*(.+)$/m.exec(text);
   const experience = experienceMatch?.[1]?.trim() ?? "";
@@ -207,7 +217,8 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
 
   const additionalMatch = /Additional notes:\n([\s\S]*)$/.exec(text);
   const structured = Boolean(
-    experience ||
+    currentCompany ||
+      experience ||
       skillScreens.length > 0 ||
       Object.values(offerInHand).some(Boolean),
   );
@@ -216,6 +227,7 @@ export function parseScreeningMatrixNotes(notes: string | null | undefined): {
     : text;
 
   return {
+    currentCompany,
     experience,
     offerInHand,
     skillScreens:

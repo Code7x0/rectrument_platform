@@ -8,6 +8,7 @@ import {
 
 test("offer in hand fields round-trip through screening matrix notes", () => {
   const text = buildScreeningMatrixNotes({
+    currentCompany: "Example Corp",
     experience: "6 years",
     skillScreens: [{ skill: "React", years: "4 years", alternate: "" }],
     offerInHand: {
@@ -21,6 +22,7 @@ test("offer in hand fields round-trip through screening matrix notes", () => {
   });
 
   const parsed = parseScreeningMatrixNotes(text);
+  assert.equal(parsed.currentCompany, "Example Corp");
   assert.equal(parsed.experience, "6 years");
   assert.equal(parsed.skillScreens.length, 1);
   assert.equal(parsed.skillScreens[0]?.skill, "React");

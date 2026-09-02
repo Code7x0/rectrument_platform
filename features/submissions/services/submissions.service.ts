@@ -122,6 +122,9 @@ async function withEnrichment(
       null;
     const clientName =
       rawName && !/^rec[a-zA-Z0-9]{10,}$/.test(rawName) ? rawName : clientCode;
+    const candidateSkills = candidate?.skills?.length
+      ? candidate.skills.join(", ")
+      : null;
     return {
       ...row,
       candidateName: candidate?.fullName ?? row.candidateName ?? null,
@@ -130,6 +133,13 @@ async function withEnrichment(
       linkedIn: candidate?.linkedIn ?? row.linkedIn ?? null,
       email: candidate?.email ?? row.email ?? null,
       phone: candidate?.phone ?? row.phone ?? null,
+      currentCompany: candidate?.currentCompany ?? row.currentCompany ?? null,
+      currentLocation: candidate?.currentLocation ?? row.currentLocation ?? null,
+      experience: candidate?.experience ?? row.experience ?? null,
+      currentCtc: candidate?.currentCtc ?? row.currentCtc ?? null,
+      expectedCtc: candidate?.expectedCtc ?? row.expectedCtc ?? null,
+      noticePeriod: candidate?.noticePeriod ?? row.noticePeriod ?? null,
+      skills: candidateSkills ?? row.skills ?? null,
       jobTitle: job?.title ?? null,
       jobCode: job?.jobCode || null,
       clientId,
@@ -419,6 +429,7 @@ export async function submitCandidateForStaff(input: {
   }
 
   const screeningNotes = buildScreeningMatrixNotes({
+    currentCompany: input.form.currentCompany,
     experience: input.form.experience,
     skillScreens: input.form.skillScreens ?? [],
     offerInHand: {
@@ -587,6 +598,7 @@ export async function submitCandidateForAllocation(
   }
 
   const screeningNotes = buildScreeningMatrixNotes({
+    currentCompany: payload.form.currentCompany,
     experience: payload.form.experience,
     skillScreens: payload.form.skillScreens ?? [],
     offerInHand: {
@@ -1254,6 +1266,7 @@ export async function updatePartnerSubmissionProfile(input: {
   }
 
   const screeningNotes = buildScreeningMatrixNotes({
+    currentCompany: input.form.currentCompany,
     experience: input.form.experience,
     skillScreens: input.form.skillScreens ?? [],
     offerInHand: {

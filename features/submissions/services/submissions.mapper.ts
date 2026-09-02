@@ -74,6 +74,40 @@ function mapWantsSecondLevelReview(value: unknown): {
   };
 }
 
+function asSkills(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/** Client field has trailing space: "Current CTC ". */
+function readSubmissionCurrentCtc(fields: AirtableFields): string | null {
+  return (
+    asString(fields[SUBMISSIONS_TABLE_FIELDS.currentCtc]) ??
+    asString(fields["Current CTC"])
+  );
+}
+
+function mapProfileFieldsFromAirtable(fields: AirtableFields) {
+  const skills = asSkills(fields[CANDIDATES_TABLE_FIELDS.skills]);
+  return {
+    currentCompany: asString(fields[CANDIDATES_TABLE_FIELDS.currentCompany]),
+    currentLocation: asString(fields[SUBMISSIONS_TABLE_FIELDS.currentLocation]),
+    experience: asString(fields[CANDIDATES_TABLE_FIELDS.experience]),
+    currentCtc: readSubmissionCurrentCtc(fields),
+    expectedCtc: asString(fields[SUBMISSIONS_TABLE_FIELDS.expectedCtc]),
+    noticePeriod: asString(fields[SUBMISSIONS_TABLE_FIELDS.noticePeriod]),
+    skills: skills.length > 0 ? skills.join(", ") : null,
+  };
+}
+
 export function mapSubmissionRecord(record: {
   id: string;
   fields: AirtableFields;
@@ -133,6 +167,7 @@ export function mapSubmissionRecord(record: {
       wantsSecondLevelReview: secondReview.wantsSecondLevelReview,
       secondLevelReviewLabel: secondReview.secondLevelReviewLabel,
       jobPriority: null,
+      ...mapProfileFieldsFromAirtable(fields),
     };
   }
 
@@ -174,6 +209,7 @@ export function mapSubmissionRecord(record: {
     wantsSecondLevelReview: secondReview.wantsSecondLevelReview,
     secondLevelReviewLabel: secondReview.secondLevelReviewLabel,
     jobPriority: null,
+    ...mapProfileFieldsFromAirtable(fields),
   };
 }
 
