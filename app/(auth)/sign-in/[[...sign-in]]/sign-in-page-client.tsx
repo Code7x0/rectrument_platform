@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { EmailOtpSignIn } from "@/components/auth/email-otp-sign-in";
 import { AuthPageShell } from "@/components/shared/auth-message";
 import { Button } from "@/components/ui/button";
 import { APP_NAME, ROUTES } from "@/lib/constants";
@@ -38,7 +39,7 @@ export function SignInPageClient() {
       <div className="mb-8 text-center">
         <h1 className="text-xl font-semibold tracking-tight">{APP_NAME}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sign in with your Google account
+          Sign in with Google or email one-time code
         </p>
       </div>
 
@@ -81,7 +82,14 @@ export function SignInPageClient() {
           </div>
         </div>
       ) : (
-        <GoogleSignInButton />
+        <div className="space-y-3">
+          <GoogleSignInButton />
+          <div className="relative py-1 text-center text-xs text-muted-foreground">
+            <span className="bg-background px-2">or</span>
+            <span className="absolute inset-x-0 top-1/2 -z-10 h-px bg-border" />
+          </div>
+          <EmailOtpSignIn />
+        </div>
       )}
 
       <p className="mt-6 text-center text-xs text-muted-foreground">

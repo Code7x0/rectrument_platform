@@ -140,7 +140,7 @@ export function renderBody(
         "",
         `You have been allocated a new job: ${data.jobTitle ?? "Open role"}.`,
         "",
-        "Sign in to the Recruiting Partner Platform to read the job description, download attachments, and submit candidates.",
+        "Sign in to OVATO.ai to read the job description, download attachments, and submit candidates.",
         data.jobsUrl ? `Open your jobs: ${data.jobsUrl}` : "",
         "",
         "TalentSocio Team",

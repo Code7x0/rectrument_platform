@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     default: APP_NAME,
     template: `%s | ${APP_NAME}`,
   },
-  description: "ovato.ai — talent recruitment platform",
+  description: "OVATO.ai by Talent Socio — referral-led hiring platform",
   applicationName: APP_NAME,
 };
 

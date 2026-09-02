@@ -386,11 +386,23 @@ export async function approvePartnerApplication(
       const partnerCode = await ensurePartnerHasBusinessCode(partnerRecord);
       await updatePartner(user.partnerId, {
         status: "active",
+        verificationStatus: "verified",
         ...(partnerCode ? { partnerCode } : {}),
       });
     } else {
-      await updatePartner(user.partnerId, { status: "active" });
+      await updatePartner(user.partnerId, {
+        status: "active",
+        verificationStatus: "verified",
+      });
     }
+
+    const { verifyPartnerDocumentsOnApproval } = await import(
+      "@/features/partner-documents/services/documents.service"
+    );
+    await verifyPartnerDocumentsOnApproval({
+      partnerId: user.partnerId,
+      actorUserId,
+    });
 
     // Belt-and-suspenders: client identity login keys off Partners.Status === Active.
     // Re-read and force Active if the row is still Probation/Inactive.

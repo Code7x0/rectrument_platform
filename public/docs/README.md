@@ -1,6 +1,6 @@
 # Partner Agreement PDF
 
-Official TalentSocio Talent Partner Network Agreement:
+Official OVATO.ai by Talent Socio partner agreement:
 
 ```
 public/docs/partner-agreement.pdf

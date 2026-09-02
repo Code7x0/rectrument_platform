@@ -429,8 +429,30 @@ export async function archivePartnerDocument(
   return enriched ?? updated;
 }
 
+export async function verifyPartnerDocumentsOnApproval(input: {
+  partnerId: string;
+  actorUserId: string;
+}): Promise<void> {
+  const docs = await listDocumentsForPartner(input.partnerId);
+  for (const doc of docs) {
+    if (doc.status === "archived" || doc.verificationStatus === "verified") {
+      continue;
+    }
+    await patchDocument(
+      doc.id,
+      toAirtableUpdateFields({
+        verificationStatus: "verified",
+        verifiedById: input.actorUserId,
+        verifiedAt: new Date().toISOString(),
+        rejectionReason: null,
+      }),
+    );
+  }
+
+  await syncPartnerVerificationFromDocuments(input.partnerId);
+}
+
 /**
- * Roll partner-level verification from active required document slots.
  * Payout readiness can later gate on partner.verificationStatus === "verified".
  */
 export async function syncPartnerVerificationFromDocuments(

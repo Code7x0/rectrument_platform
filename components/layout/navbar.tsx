@@ -11,7 +11,7 @@ import { NotificationBell } from "@/features/notifications/components/notificati
 import type { Notification } from "@/features/notifications/types";
 import { SearchTrigger } from "@/features/search/components/search-trigger";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { APP_NAME } from "@/lib/constants";
+import { APP_BRAND_MARK, APP_TAGLINE } from "@/lib/constants";
 import type { AppNavItem } from "@/lib/navigation";
 
 interface NavbarProps {
@@ -58,8 +58,9 @@ export function Navbar({
 
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold tracking-tight text-foreground">
-          {APP_NAME}
+          {APP_BRAND_MARK}
         </p>
+        <p className="truncate text-[10px] text-muted-foreground">{APP_TAGLINE}</p>
       </div>
 
       <div className="ml-2 hidden max-w-md flex-1 items-center md:flex">

@@ -1,0 +1,222 @@
+.ovato-landing {
+  --navy-deep: #0b0a33;
+  --navy: #14134d;
+  --navy-light: #201f63;
+  --flame-1: #ff5e7a;
+  --flame-2: #ff8a37;
+  --flame-3: #ffc65c;
+  --teal: #2fe0c4;
+  --text-hi: #f6f4ff;
+  --text-lo: #a7a2d6;
+  --line: rgba(255, 255, 255, 0.1);
+  --card: rgba(255, 255, 255, 0.045);
+  background: var(--navy-deep);
+  color: var(--text-hi);
+  line-height: 1.5;
+}
+
+.ovato-landing .flame-text {
+  background: linear-gradient(
+    100deg,
+    var(--flame-1),
+    var(--flame-2) 55%,
+    var(--flame-3)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ovato-landing .btn-flame {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 28px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15.5px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  background: linear-gradient(100deg, var(--flame-1), var(--flame-2));
+  color: #1a0a10;
+  box-shadow: 0 8px 30px -8px rgba(255, 110, 90, 0.55);
+}
+
+.ovato-landing .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 28px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 15.5px;
+  cursor: pointer;
+  text-decoration: none;
+  background: transparent;
+  color: var(--text-hi);
+  border: 1.5px solid var(--line);
+}
+
+.ovato-landing .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--teal);
+  font-weight: 600;
+  background: rgba(47, 224, 196, 0.1);
+  border: 1px solid rgba(47, 224, 196, 0.3);
+  padding: 6px 14px;
+  border-radius: 999px;
+  margin-bottom: 26px;
+}
+
+.ovato-landing .eyebrow .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+
+.ovato-landing .board {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 26px 26px 18px;
+  position: relative;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6);
+}
+
+.ovato-landing .board::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--flame-1), var(--flame-2), var(--teal));
+  border-radius: 0 0 4px 4px;
+}
+
+.ovato-landing .live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 4px rgba(47, 224, 196, 0.18);
+}
+
+.ovato-landing .status {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ovato-landing .status.placed {
+  background: rgba(47, 224, 196, 0.14);
+  color: var(--teal);
+}
+
+.ovato-landing .status.interviewing {
+  background: rgba(255, 138, 55, 0.14);
+  color: var(--flame-2);
+}
+
+.ovato-landing .status.referred {
+  background: rgba(255, 94, 122, 0.14);
+  color: var(--flame-1);
+}
+
+.ovato-landing .status.open {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-hi);
+  border: 1px solid var(--line);
+}
+
+.ovato-landing .step-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 32px 26px;
+}
+
+.ovato-landing .step-num {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--flame-1), var(--flame-2));
+  color: #1a0a10;
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+
+.ovato-landing .split-card {
+  border-radius: 20px;
+  padding: 36px 32px;
+  border: 1px solid var(--line);
+}
+
+.ovato-landing .split-card.partner {
+  background: linear-gradient(
+    160deg,
+    rgba(255, 94, 122, 0.1),
+    rgba(255, 138, 55, 0.04)
+  );
+  border-color: rgba(255, 138, 55, 0.25);
+}
+
+.ovato-landing .split-card.client {
+  background: linear-gradient(
+    160deg,
+    rgba(47, 224, 196, 0.1),
+    rgba(47, 224, 196, 0.02)
+  );
+  border-color: rgba(47, 224, 196, 0.25);
+}
+
+.ovato-landing .always-on {
+  margin-top: 28px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 32px 34px;
+}
+
+.ovato-landing .always-on .icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--teal), #6ff0dd);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.ovato-landing .cta-band {
+  background: linear-gradient(120deg, var(--navy-light), var(--navy));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+
+.ovato-landing .cta-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255, 94, 122, 0.18),
+    transparent 60%
+  );
+  pointer-events: none;
+}
