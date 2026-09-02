@@ -25,7 +25,8 @@ export const metadata: Metadata = {
     default: APP_NAME,
     template: `%s | ${APP_NAME}`,
   },
-  description: "Recruitment Partner Management System",
+  description: "ovato.ai — talent recruitment platform",
+  applicationName: APP_NAME,
 };
 
 export default async function RootLayout({

@@ -1,4 +1,4 @@
-export const APP_NAME = "Recruiting Partner Platform";
+export const APP_NAME = "ovato.ai";
 
 export const ROUTES = {
   home: "/",
