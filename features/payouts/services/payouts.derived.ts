@@ -20,6 +20,7 @@ import {
 } from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { mapSubmissionRecord } from "@/features/submissions/services/submissions.mapper";
+import { isPayoutVisibleRecruitment } from "@/features/payouts/lib/payout-recruitment-gate";
 import type { Payout, PayoutStatus } from "@/features/payouts/types";
 import type { Submission } from "@/features/submissions/types";
 
@@ -115,12 +116,7 @@ export const derivePayoutsFromClientCrm = cache(async function derivePayoutsFrom
         id: record.id,
         fields: record.fields as AirtableFields,
       });
-      if (
-        submission.status !== "joined" &&
-        submission.status !== "offer" &&
-        submission.status !== "interview" &&
-        !markerBySubmission.has(submission.id)
-      ) {
+      if (!isPayoutVisibleRecruitment(submission)) {
         continue;
       }
       const meta = jobMeta.get(submission.jobId);

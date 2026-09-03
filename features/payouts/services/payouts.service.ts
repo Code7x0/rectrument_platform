@@ -35,6 +35,7 @@ import type {
   UpdatePayoutInput,
 } from "@/features/payouts/types";
 import { getSubmissionById, listSubmissions } from "@/features/submissions/services";
+import { isPayoutVisibleRecruitment } from "@/features/payouts/lib/payout-recruitment-gate";
 import type { Submission } from "@/features/submissions/types";
 import { recordActivity } from "@/features/workflows/services/activity.service";
 
@@ -143,8 +144,20 @@ async function withEnrichment(
       accountManagerName: job?.accountManagerId
         ? (amMap.get(job.accountManagerId) ?? null)
         : null,
-      recruitmentStatus: submission?.status ?? null,
+      recruitmentStatus: submission?.status ?? payout.recruitmentStatus ?? null,
     };
+  }).filter((payout) => {
+    const submission = submissionMap.get(payout.submissionId);
+    if (submission) {
+      return isPayoutVisibleRecruitment(submission);
+    }
+    if (payout.recruitmentStatus) {
+      return isPayoutVisibleRecruitment({
+        status: payout.recruitmentStatus,
+        airtableStatus: null,
+      });
+    }
+    return false;
   });
 }
 
