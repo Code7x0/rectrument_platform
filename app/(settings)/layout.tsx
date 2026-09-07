@@ -6,6 +6,8 @@ import { listNotificationsForUser } from "@/features/notifications/services";
 import { canAccessSettings } from "@/features/settings/services";
 import { requireAuth } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export default async function SettingsLayout({
   children,
 }: {

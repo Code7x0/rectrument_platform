@@ -271,10 +271,19 @@ export async function getSystemDiagnostics(): Promise<SystemDiagnostics> {
   }
 
   try {
-    const { getUnreadNotificationCount } = await import(
-      "@/features/notifications/services"
+    const { isNotificationsStorageAvailable } = await import(
+      "@/features/notifications/repositories/notifications.repository"
     );
-    await getUnreadNotificationCount("diagnostics");
+    if (isNotificationsStorageAvailable()) {
+      const { findNotifications } = await import(
+        "@/features/notifications/repositories/notifications.repository"
+      );
+      await findNotifications({ maxRecords: 1 });
+    } else {
+      await import(
+        "@/features/notifications/lib/ephemeral-notification-store"
+      );
+    }
     notificationService = "available";
   } catch {
     notificationService = "unavailable";

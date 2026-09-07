@@ -4,6 +4,8 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { requireAuth } from "@/lib/auth";
 import { listNotificationsForUser } from "@/features/notifications/services";
 
+export const dynamic = "force-dynamic";
+
 export default async function NotificationsLayout({
   children,
 }: {

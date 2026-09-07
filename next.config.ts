@@ -13,10 +13,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: UPLOAD_BODY_LIMIT,
     },
+    // Next.js 15.5 — proxyClientMaxBodySize is not recognized here yet.
     middlewareClientMaxBodySize: UPLOAD_BODY_LIMIT,
-    ...({
-      proxyClientMaxBodySize: UPLOAD_BODY_LIMIT,
-    } as Record<string, string>),
   },
 };
 
