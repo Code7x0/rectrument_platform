@@ -403,22 +403,41 @@ export async function getSyncFingerprint(userId: string): Promise<{
       > }));
 
     if (!isNotificationsStorageAvailable()) {
-      // Reuse the CRM sample — avoid a second Candidates scan every pulse.
-      const [user, crm, derived] = await Promise.all([
-        getUserById(userId),
+      const viewer = await getUserById(userId);
+      const partnerScopeId = viewer?.partnerId?.trim() || null;
+
+      const [crm, derived, ephemeralHead, partnerDigest] = await Promise.all([
         crmHeadPromise,
-        getUserById(userId).then((viewer) =>
-          deriveNotificationsForViewer({
-            recipientUserId: userId,
-            partnerId: viewer?.partnerId,
-            accountManagerId: viewer?.accountManagerId,
-            role: viewer?.role,
-            maxRecords: 40,
-          }),
+        deriveNotificationsForViewer({
+          recipientUserId: userId,
+          partnerId: viewer?.partnerId,
+          accountManagerId: viewer?.accountManagerId,
+          role: viewer?.role,
+          maxRecords: 100,
+        }),
+        import("@/features/notifications/lib/ephemeral-notification-store").then(
+          ({ getEphemeralSyncFingerprint }) =>
+            getEphemeralSyncFingerprint(userId),
         ),
+        partnerScopeId
+          ? import("@/features/submissions/services/submissions.service").then(
+              async ({ listPartnerSubmissions }) => {
+                const rows = await listPartnerSubmissions(partnerScopeId);
+                return rows
+                  .map(
+                    (row) =>
+                      `${row.id}:${row.airtableStatus ?? row.status}:${row.interviewStage ?? ""}`,
+                  )
+                  .sort()
+                  .join(",");
+              },
+            )
+          : Promise.resolve(""),
       ]);
       const unread = derived.filter((row) => row.readStatus === "unread").length;
       const head = derived[0];
+      const crmHead =
+        partnerScopeId && partnerDigest ? partnerDigest : crm.crmHead;
       return {
         unread,
         fingerprint: [
@@ -426,7 +445,8 @@ export async function getSyncFingerprint(userId: string): Promise<{
           head?.id ?? "",
           head?.createdAt ?? "",
           head?.type ?? "",
-          crm.crmHead,
+          ephemeralHead,
+          crmHead,
         ].join("|"),
       };
     }
@@ -649,8 +669,34 @@ async function listUsersByRole(role: UserRole): Promise<User[]> {
 export async function findPartnerUserId(
   partnerId: string,
 ): Promise<string | null> {
+  const normalized = partnerId?.trim();
+  if (!normalized) {
+    console.warn("[notifications] findPartnerUserId called with empty partnerId");
+    return null;
+  }
+
   const users = await listUsers({ role: "partner" });
-  return users.find((u) => u.partnerId === partnerId)?.id ?? null;
+  const linked = users.find(
+    (user) => user.partnerId === normalized || user.id === normalized,
+  );
+  if (linked) {
+    return linked.id;
+  }
+
+  const { isClientIdentityMode } = await import("@/lib/airtable/identity-mode");
+  if (isClientIdentityMode()) {
+    try {
+      const { getPartnerById } = await import("@/features/partners/services");
+      const partner = await getPartnerById(normalized);
+      if (partner) {
+        return normalized;
+      }
+    } catch (error) {
+      console.error("[notifications] partner record lookup failed", error);
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -287,6 +287,40 @@ export async function listSubmissions(
   return filtered;
 }
 
+/**
+ * Resolve the owning partner for notifications — mirrors listPartnerSubmissions
+ * fallbacks when the Candidates row has no Partner link (legacy data).
+ */
+export async function resolvePartnerIdForSubmission(
+  submission: Pick<Submission, "id" | "candidateId" | "partnerId" | "jobId">,
+): Promise<string | null> {
+  const direct = submission.partnerId?.trim();
+  if (direct) {
+    return direct;
+  }
+
+  try {
+    const records = await getRecords(getAirtableTableName("partnersTable"), {
+      fields: [PARTNERS_TABLE_FIELDS.candidates],
+    });
+    for (const record of records) {
+      const linked = asLinkedIds(
+        (record.fields as AirtableFields)[PARTNERS_TABLE_FIELDS.candidates],
+      );
+      if (
+        linked.includes(submission.id) ||
+        (submission.candidateId && linked.includes(submission.candidateId))
+      ) {
+        return record.id;
+      }
+    }
+  } catch (error) {
+    console.warn("[submissions] resolvePartnerId reverse lookup failed", error);
+  }
+
+  return null;
+}
+
 async function listPartnerLinkedCandidateIds(
   partnerId: string,
 ): Promise<Set<string>> {
@@ -338,7 +372,12 @@ export const listPartnerSubmissions = cache(async function listPartnerSubmission
     return linked;
   }
 
-  return [...linked, ...extras].sort((a, b) =>
+  const stampedExtras = extras.map((row) => ({
+    ...row,
+    partnerId: row.partnerId?.trim() ? row.partnerId : partnerId,
+  }));
+
+  return [...linked, ...stampedExtras].sort((a, b) =>
     (b.submissionDate ?? "").localeCompare(a.submissionDate ?? ""),
   );
 });
@@ -1120,17 +1159,28 @@ export async function updateSubmissionReviewFields(
   }
 
   try {
+    const notificationPartnerId =
+      (await resolvePartnerIdForSubmission(enriched)) ??
+      enriched.partnerId?.trim() ??
+      "";
+
     if (statusChanged) {
       const { notifySubmissionStatusChanged, notifyAdminCandidateSelected } =
         await import("@/features/notifications/services/notification-events");
-      await notifySubmissionStatusChanged({
-        partnerId: enriched.partnerId,
-        candidateName: enriched.candidateName ?? "Candidate",
-        jobTitle: enriched.jobTitle ?? "Job",
-        submissionId: enriched.id,
-        toStatus: nextDomainStatus,
-        statusLabel: enriched.airtableStatus,
-      });
+      if (notificationPartnerId) {
+        await notifySubmissionStatusChanged({
+          partnerId: notificationPartnerId,
+          candidateName: enriched.candidateName ?? "Candidate",
+          jobTitle: enriched.jobTitle ?? "Job",
+          submissionId: enriched.id,
+          toStatus: nextDomainStatus,
+          statusLabel: enriched.airtableStatus,
+        });
+      } else {
+        console.warn("[notifications] status change skipped — no partner id", {
+          submissionId: enriched.id,
+        });
+      }
 
       const { matchesSubmissionStatusGroup } = await import(
         "@/features/submissions/lib/submission-status-buckets"
@@ -1148,13 +1198,15 @@ export async function updateSubmissionReviewFields(
       const { notifySubmissionReviewUpdated } = await import(
         "@/features/notifications/services/notification-events"
       );
-      await notifySubmissionReviewUpdated({
-        partnerId: enriched.partnerId,
-        candidateName: enriched.candidateName ?? "Candidate",
-        jobTitle: enriched.jobTitle ?? "Job",
-        submissionId: enriched.id,
-        interviewStage: enriched.interviewStage,
-      });
+      if (notificationPartnerId) {
+        await notifySubmissionReviewUpdated({
+          partnerId: notificationPartnerId,
+          candidateName: enriched.candidateName ?? "Candidate",
+          jobTitle: enriched.jobTitle ?? "Job",
+          submissionId: enriched.id,
+          interviewStage: enriched.interviewStage,
+        });
+      }
     }
   } catch (error) {
     console.error("Failed to notify partner of review field update", error);

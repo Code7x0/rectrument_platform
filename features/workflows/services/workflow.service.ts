@@ -60,16 +60,25 @@ export async function transitionSubmissionStatus(
   }
 
   try {
+    const { resolvePartnerIdForSubmission } = await import(
+      "@/features/submissions/services/submissions.service"
+    );
+    const notificationPartnerId =
+      (await resolvePartnerIdForSubmission(updated)) ??
+      updated.partnerId?.trim() ??
+      "";
     const { notifySubmissionStatusChanged } = await import(
       "@/features/notifications/services/notification-events"
     );
-    await notifySubmissionStatusChanged({
-      partnerId: updated.partnerId,
-      candidateName: updated.candidateName ?? "Candidate",
-      jobTitle: updated.jobTitle ?? "Job",
-      submissionId: updated.id,
-      toStatus: input.toStatus,
-    });
+    if (notificationPartnerId) {
+      await notifySubmissionStatusChanged({
+        partnerId: notificationPartnerId,
+        candidateName: updated.candidateName ?? "Candidate",
+        jobTitle: updated.jobTitle ?? "Job",
+        submissionId: updated.id,
+        toStatus: input.toStatus,
+      });
+    }
   } catch (error) {
     console.error("Failed to publish submission notification", error);
   }

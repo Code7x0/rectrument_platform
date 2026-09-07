@@ -7,6 +7,7 @@ export {
   listReviewQueueSubmissions,
   listSubmissions,
   requestSecondLevelReview,
+  resolvePartnerIdForSubmission,
   stageResumeFile,
   submitCandidateForAllocation,
   submitCandidateForStaff,

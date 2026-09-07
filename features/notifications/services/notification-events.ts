@@ -598,6 +598,7 @@ const STATUS_NOTIFICATION: Partial<
     { type: "interview" | "offer" | "joined" | "rejected" | "candidate"; title: string }
   >
 > = {
+  submitted: { type: "candidate", title: "Candidate status updated" },
   interview: { type: "interview", title: "Interview scheduled" },
   offer: { type: "offer", title: "Offer received" },
   joined: { type: "joined", title: "Candidate joined" },

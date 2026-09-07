@@ -24,26 +24,7 @@ export async function deriveNotificationsForViewer(input: {
   role?: string | null;
   maxRecords?: number;
 }): Promise<Notification[]> {
-  const records = await getRecords(getAirtableTableName("candidatesTable"), {
-    sort: [
-      { field: SUBMISSIONS_TABLE_FIELDS.submissionDate, direction: "desc" },
-    ],
-    maxRecords: input.maxRecords ?? 40,
-  });
-
-  let allowedJobIds: Set<string> | null = null;
-  const amScopeId =
-    input.accountManagerId ||
-    (input.role === "account_manager" ? input.recipientUserId : null);
-  if (amScopeId) {
-    const { listJobs } = await import("@/features/jobs/services");
-    const ownedJobs = await listJobs({
-      accountManagerId: amScopeId,
-      includeArchived: true,
-    });
-    allowedJobIds = new Set(ownedJobs.map((job) => job.id));
-  }
-
+  const maxRecords = input.maxRecords ?? 100;
   const dismissed = await getDismissedNotificationIds();
   const candidatesBase =
     input.role === "partner"
@@ -53,22 +34,28 @@ export async function deriveNotificationsForViewer(input: {
         : "/admin/candidates";
 
   const items: Notification[] = [];
-  for (const record of records) {
-    try {
-      const submission = mapSubmissionRecord({
-        id: record.id,
-        fields: record.fields as AirtableFields,
-      });
-      if (input.partnerId && submission.partnerId !== input.partnerId) {
-        continue;
-      }
-      if (allowedJobIds && !allowedJobIds.has(submission.jobId)) {
-        continue;
-      }
-      const name =
-        asString(record.fields[CANDIDATES_TABLE_FIELDS.fullName]) ??
-        "Candidate";
-      const id = `derived_notif_${record.id}`;
+
+  const amScopeId =
+    input.accountManagerId ||
+    (input.role === "account_manager" ? input.recipientUserId : null);
+  let allowedJobIds: Set<string> | null = null;
+  if (amScopeId) {
+    const { listJobs } = await import("@/features/jobs/services");
+    const ownedJobs = await listJobs({
+      accountManagerId: amScopeId,
+      includeArchived: true,
+    });
+    allowedJobIds = new Set(ownedJobs.map((job) => job.id));
+  }
+
+  if (input.role === "partner" && input.partnerId) {
+    const { listPartnerSubmissions } = await import(
+      "@/features/submissions/services/submissions.service"
+    );
+    const submissions = await listPartnerSubmissions(input.partnerId);
+    for (const submission of submissions) {
+      const name = submission.candidateName ?? "Candidate";
+      const id = `derived_notif_${submission.id}`;
       items.push({
         id,
         notificationCode: null,
@@ -88,8 +75,53 @@ export async function deriveNotificationsForViewer(input: {
         metadata: null,
         activityId: null,
       });
-    } catch {
-      // skip
+    }
+  } else {
+    const records = await getRecords(getAirtableTableName("candidatesTable"), {
+      sort: [
+        { field: SUBMISSIONS_TABLE_FIELDS.submissionDate, direction: "desc" },
+      ],
+      maxRecords,
+    });
+
+    for (const record of records) {
+      try {
+        const submission = mapSubmissionRecord({
+          id: record.id,
+          fields: record.fields as AirtableFields,
+        });
+        if (input.partnerId && submission.partnerId !== input.partnerId) {
+          continue;
+        }
+        if (allowedJobIds && !allowedJobIds.has(submission.jobId)) {
+          continue;
+        }
+        const name =
+          asString(record.fields[CANDIDATES_TABLE_FIELDS.fullName]) ??
+          "Candidate";
+        const id = `derived_notif_${record.id}`;
+        items.push({
+          id,
+          notificationCode: null,
+          recipientUserId: input.recipientUserId,
+          title: `Candidate update: ${name}`,
+          description: `Status is now ${submissionStatusDisplayLabel(submission)}`,
+          type: "candidate",
+          priority: "medium",
+          category: "candidates",
+          entityType: "submission",
+          entityId: submission.id,
+          actionUrl: `${candidatesBase}?submissionId=${encodeURIComponent(submission.id)}`,
+          readStatus: dismissed.has(id) ? "read" : "unread",
+          createdAt: submission.submissionDate,
+          readAt: null,
+          archived: false,
+          metadata: null,
+          activityId: null,
+        });
+      } catch {
+        // skip
+      }
     }
   }
 
@@ -113,7 +145,7 @@ export async function deriveNotificationsForViewer(input: {
     );
     const ephemeral = await listEphemeralNotificationsForRecipient(
       input.recipientUserId,
-      { maxRecords: input.maxRecords ?? 40 },
+      { maxRecords },
     );
     const existingKeys = new Set(
       items.map(
@@ -139,7 +171,7 @@ export async function deriveNotificationsForViewer(input: {
   items.sort((a, b) =>
     (b.createdAt ?? "").localeCompare(a.createdAt ?? ""),
   );
-  return items.slice(0, input.maxRecords ?? 40);
+  return items.slice(0, maxRecords);
 }
 
 async function deriveClaimNotificationsForViewer(input: {

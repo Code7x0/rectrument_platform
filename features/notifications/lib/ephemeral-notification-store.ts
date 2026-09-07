@@ -174,6 +174,21 @@ export async function listEphemeralNotificationsForRecipient(
     .slice(0, max);
 }
 
+/** Cheap hash for sync polling when ephemeral notifications are published. */
+export async function getEphemeralSyncFingerprint(
+  recipientUserId: string,
+): Promise<string> {
+  const store = await readStoreUnlocked();
+  return store.notifications
+    .filter((row) => row.recipientUserId === recipientUserId && !row.archived)
+    .slice(0, 8)
+    .map(
+      (row) =>
+        `${row.id}:${row.createdAt ?? ""}:${row.entityId ?? ""}:${row.title}`,
+    )
+    .join("|");
+}
+
 function withEphemeralNotificationStore<T>(
   fn: (store: EphemeralNotificationsStoreFile) => Promise<T> | T,
 ): Promise<T> {
