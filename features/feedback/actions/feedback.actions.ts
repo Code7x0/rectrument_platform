@@ -122,6 +122,15 @@ export async function submitFeedbackAction(
         type: parsed.data.type,
         message: parsed.data.message,
       });
+
+      const { notifyPartnerQuerySubmitted } = await import(
+        "@/features/notifications/services/notification-events"
+      );
+      notifyPartnerQuerySubmitted({
+        partnerCode,
+        message: parsed.data.message,
+        type: feedbackTypeLabel(parsed.data.type),
+      });
     } else {
       const user = await getUserById(session.userId);
       submitterName = user?.fullName ?? roleLabel;

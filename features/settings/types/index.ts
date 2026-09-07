@@ -94,6 +94,9 @@ export interface SystemDiagnostics {
   nodeEnv: string;
   databaseStatus: "configured" | "missing_env";
   emailProvider: string;
+  emailDelivery: "resend" | "console";
+  emailFromConfigured: boolean;
+  superAdminRecipients: number;
   uploadProvider: string;
   activityService: "available" | "unavailable";
   notificationService: "available" | "unavailable";

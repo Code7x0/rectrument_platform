@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/constants";
 import type { EmailTemplateId } from "@/services/email/types";
 
 export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
@@ -24,6 +25,13 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplateId, string> = {
   candidate_submitted: "New candidate submitted – TalentSocio",
   candidate_status_changed: "Candidate status update – TalentSocio",
   feedback_submission: "Platform feedback submission – TalentSocio",
+  admin_candidate_selected: "New Select – Approval Required",
+  partner_query_submitted: "Partner question / request – TalentSocio",
+  job_updated: "Job updated – TalentSocio",
+  daily_digest_am: "Your daily recruiting digest – TalentSocio",
+  daily_digest_partner: "Your daily partner digest – TalentSocio",
+  daily_digest_admin: "Admin daily digest – TalentSocio",
+  email_test: `${APP_NAME} — test email`,
 };
 
 /**
@@ -45,8 +53,7 @@ export function renderBody(
         "",
         data.loginUrl ? `Sign in: ${data.loginUrl}` : "",
         "",
-        "Cheers,",
-        "TalentSocio Team",
+        "Cheers",
       ]
         .filter(Boolean)
         .join("\n");
@@ -300,6 +307,80 @@ export function renderBody(
       ]
         .filter(Boolean)
         .join("\n");
+    case "admin_candidate_selected":
+      return [
+        "Hello Chief,",
+        "",
+        "A candidate has been marked as Selected:",
+        "",
+        `Candidate: ${data.candidateName ?? "—"}`,
+        `Job: ${data.jobTitle ?? "—"}`,
+        data.clientName ? `Client: ${data.clientName}` : "",
+        data.partnerCode ? `Partner: ${data.partnerCode}` : "",
+        "",
+        data.reviewUrl ? `👉 View: ${data.reviewUrl}` : "",
+        "",
+        APP_NAME,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "partner_query_submitted":
+      return [
+        "Hello,",
+        "",
+        "A Talent Partner submitted a question or request on the platform.",
+        "",
+        data.partnerCode ? `Partner ID: ${data.partnerCode}` : "",
+        data.feedbackType ? `Type: ${data.feedbackType}` : "",
+        data.jobTitle ? `Job: ${data.jobTitle}` : "",
+        data.candidateName ? `Candidate: ${data.candidateName}` : "",
+        "",
+        "Message:",
+        data.message ?? "—",
+        "",
+        data.reviewUrl ? `👉 Reply in platform: ${data.reviewUrl}` : "",
+        "",
+        APP_NAME,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "job_updated":
+      return [
+        `Hi ${data.name ?? data.partnerName ?? "there"},`,
+        "",
+        `Job ${data.jobTitle ?? "update"}: ${data.changedSummary ?? "details were updated."}`,
+        "",
+        data.jobsUrl ? `Open jobs: ${data.jobsUrl}` : "",
+        "",
+        "Cheers",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "daily_digest_am":
+    case "daily_digest_partner":
+    case "daily_digest_admin":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        data.digestBody ?? "No activity to report today.",
+        "",
+        data.dashboardUrl ? `Open dashboard: ${data.dashboardUrl}` : "",
+        "",
+        APP_NAME,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    case "email_test":
+      return [
+        `Hi ${data.name ?? "there"},`,
+        "",
+        `This is a test email from ${APP_NAME}.`,
+        "",
+        `Provider: ${data.provider ?? "unknown"}`,
+        `Sent at: ${data.sentAt ?? new Date().toISOString()}`,
+        "",
+        "If you received this, transactional email is configured correctly.",
+      ].join("\n");
     default: {
       const _exhaustive: never = template;
       return String(_exhaustive);

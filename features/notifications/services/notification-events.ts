@@ -13,6 +13,13 @@ import type { SubmissionStatus } from "@/features/shared/entities";
 import type { PayoutStatus } from "@/features/payouts/types";
 import type { UserRole } from "@/types";
 import { getRoleLabel } from "@/lib/auth/permissions";
+import {
+  fanOutEmail,
+  getAccountManagerEmail,
+  getAdminNotificationEmails,
+  getSuperAdminNotificationEmails,
+} from "@/lib/email/recipients";
+import { sendEmailSafe } from "@/services/email";
 
 function safe(promise: Promise<unknown>): void {
   void promise.catch((error) => {
@@ -25,6 +32,102 @@ function appBaseUrl(): string {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     process.env.APP_URL?.replace(/\/$/, "") ||
     "http://localhost:3000"
+  );
+}
+
+export async function notifyAdminCandidateSelected(input: {
+  candidateName: string;
+  jobTitle: string;
+  clientName?: string | null;
+  partnerCode?: string | null;
+  submissionId: string;
+}): Promise<void> {
+  const reviewUrl = `${appBaseUrl()}/admin/candidates?submissionId=${encodeURIComponent(input.submissionId)}`;
+  const recipients = await getSuperAdminNotificationEmails();
+  if (recipients.length === 0) {
+    console.warn("[email] No Super Admin emails for candidate select alert");
+    return;
+  }
+
+  await fanOutEmail(recipients, (to) =>
+    sendEmailSafe({
+      to,
+      template: "admin_candidate_selected",
+      subject: "New Select – TalentSocio",
+      data: {
+        candidateName: input.candidateName,
+        jobTitle: input.jobTitle,
+        clientName: input.clientName?.trim() ?? "",
+        partnerCode: input.partnerCode?.trim() ?? "",
+        reviewUrl,
+      },
+    }),
+  );
+
+  await notifyRole("admin", {
+    title: "New select",
+    description: `${input.candidateName} selected on ${input.jobTitle}.`,
+    type: "candidate",
+    category: "candidates",
+    priority: "high",
+    entityType: "submission",
+    entityId: input.submissionId,
+    actionUrl: `/admin/candidates?submissionId=${encodeURIComponent(input.submissionId)}`,
+  });
+}
+
+export async function notifyPartnerQuerySubmitted(input: {
+  partnerCode: string;
+  message: string;
+  type: string;
+  accountManagerId?: string | null;
+  jobTitle?: string | null;
+  candidateName?: string | null;
+}): Promise<void> {
+  const reviewUrl = `${appBaseUrl()}/account-manager/feedback`;
+  const recipients: string[] = [];
+
+  if (input.accountManagerId) {
+    const amEmail = await getAccountManagerEmail(input.accountManagerId);
+    if (amEmail) {
+      recipients.push(amEmail);
+    }
+  }
+
+  const { getOptionalEnv } = await import("@/lib/api/env");
+  const feedbackTo = getOptionalEnv("FEEDBACK_TO_EMAIL");
+  const feedbackCc = getOptionalEnv("FEEDBACK_CC_EMAILS");
+  for (const raw of [feedbackTo, feedbackCc]) {
+    if (!raw?.trim()) {
+      continue;
+    }
+    for (const part of raw.split(",")) {
+      const email = part.trim().toLowerCase();
+      if (email) {
+        recipients.push(email);
+      }
+    }
+  }
+
+  if (recipients.length === 0) {
+    const admins = await getAdminNotificationEmails();
+    recipients.push(...admins);
+  }
+
+  await fanOutEmail(recipients, (to) =>
+    sendEmailSafe({
+      to,
+      template: "partner_query_submitted",
+      subject: "Partner question / request – TalentSocio",
+      data: {
+        partnerCode: input.partnerCode,
+        feedbackType: input.type,
+        message: input.message,
+        jobTitle: input.jobTitle?.trim() ?? "",
+        candidateName: input.candidateName?.trim() ?? "",
+        reviewUrl,
+      },
+    }),
   );
 }
 
@@ -1007,6 +1110,8 @@ export async function notifyJobDetailsUpdated(input: {
       .filter(Boolean),
   );
 
+  const jobsUrl = `${appBaseUrl()}/partner/jobs`;
+
   for (const partnerId of partnerIds) {
     const partnerUserId = await findPartnerUserId(partnerId);
     if (!partnerUserId) {
@@ -1022,6 +1127,13 @@ export async function notifyJobDetailsUpdated(input: {
       entityType: "job",
       entityId: input.jobId,
       actionUrl: "/partner/jobs",
+      sendEmail: true,
+      emailTemplate: "job_updated",
+      emailData: {
+        jobTitle: label,
+        changedSummary: description,
+        jobsUrl,
+      },
     });
   }
 

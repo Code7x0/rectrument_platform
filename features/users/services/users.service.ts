@@ -258,31 +258,14 @@ export async function finalizePartnerRegistration(input: {
     applicantName: fullName,
   });
 
-  const { getSuperAdminEmails, getAdminEmails } = await import(
-    "@/lib/airtable/identity-mode"
+  const { getSuperAdminNotificationEmails, fanOutEmail } = await import(
+    "@/lib/email/recipients"
   );
   const approvalUrl = `${appBaseUrl()}/admin/approvals`;
-  const [superAdmins, admins] = await Promise.all([
-    listUsers({ role: "super_admin", status: "active" }),
-    listUsers({ role: "admin", status: "active" }),
-  ]);
-  const recipients = [
-    ...new Set([
-      ...superAdmins.map((u) => u.email).filter(Boolean),
-      ...admins.map((u) => u.email).filter(Boolean),
-      ...getSuperAdminEmails(),
-      ...getAdminEmails(),
-    ]),
-  ];
+  const recipients = await getSuperAdminNotificationEmails();
   if (recipients.length === 0) {
     console.warn(
-      "[registration] No Super Admin/Admin emails found for registration fan-out",
-      {
-        usersTableSuperAdmins: superAdmins.length,
-        usersTableAdmins: admins.length,
-        envSuperAdmins: getSuperAdminEmails().length,
-        envAdmins: getAdminEmails().length,
-      },
+      "[registration] No Super Admin emails found for registration fan-out — set AIRTABLE_SUPER_ADMIN_EMAILS",
     );
   } else {
     console.info("[registration] Sending partner registration emails", {
@@ -291,32 +274,23 @@ export async function finalizePartnerRegistration(input: {
       partnerName: fullName,
     });
   }
-  const sendResults = await Promise.all(
-    recipients.map((to) =>
-      sendEmailSafe({
-        to,
-        template: "partner_registration_submitted",
-        subject: "New Partner Registration – Approval Required",
-        data: {
-          partnerName: fullName,
-          name: fullName,
-          experience: input.experience,
-          specialization: input.skills,
-          skills: input.skills,
-          email: input.email,
-          approvalUrl,
-        },
-      }),
-    ),
+  const emailResults = await fanOutEmail(recipients, (to) =>
+    sendEmailSafe({
+      to,
+      template: "partner_registration_submitted",
+      subject: "New Partner Registration – Approval Required",
+      data: {
+        partnerName: fullName,
+        name: fullName,
+        experience: input.experience,
+        specialization: input.skills,
+        skills: input.skills,
+        email: input.email,
+        approvalUrl,
+      },
+    }),
   );
-  console.info("[registration] Partner registration email results", {
-    sent: sendResults.filter(Boolean).length,
-    attempted: recipients.length,
-    providers: sendResults
-      .filter(Boolean)
-      .map((result) => result?.provider)
-      .filter(Boolean),
-  });
+  console.info("[registration] Partner registration email results", emailResults);
 }
 
 export async function listPendingPartnerApplications(): Promise<

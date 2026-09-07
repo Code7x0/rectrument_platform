@@ -1121,9 +1121,8 @@ export async function updateSubmissionReviewFields(
 
   try {
     if (statusChanged) {
-      const { notifySubmissionStatusChanged } = await import(
-        "@/features/notifications/services/notification-events"
-      );
+      const { notifySubmissionStatusChanged, notifyAdminCandidateSelected } =
+        await import("@/features/notifications/services/notification-events");
       await notifySubmissionStatusChanged({
         partnerId: enriched.partnerId,
         candidateName: enriched.candidateName ?? "Candidate",
@@ -1132,6 +1131,19 @@ export async function updateSubmissionReviewFields(
         toStatus: nextDomainStatus,
         statusLabel: enriched.airtableStatus,
       });
+
+      const { matchesSubmissionStatusGroup } = await import(
+        "@/features/submissions/lib/submission-status-buckets"
+      );
+      if (matchesSubmissionStatusGroup(enriched, "selected")) {
+        await notifyAdminCandidateSelected({
+          candidateName: enriched.candidateName ?? "Candidate",
+          jobTitle: enriched.jobTitle ?? "Job",
+          clientName: enriched.clientName,
+          partnerCode: enriched.partnerCode,
+          submissionId: enriched.id,
+        });
+      }
     } else if (stageChanged || notesChanged) {
       const { notifySubmissionReviewUpdated } = await import(
         "@/features/notifications/services/notification-events"

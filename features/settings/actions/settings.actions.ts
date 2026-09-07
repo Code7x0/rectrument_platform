@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import {
   canAccessSettings,
+  sendTestEmail,
   updateCompanySettings,
   updateNotificationPlatformSettings,
   updatePayoutSettings,
@@ -44,6 +45,27 @@ async function requireSettingsSession() {
     throw new Error("Forbidden");
   }
   return session;
+}
+
+export async function sendTestEmailAction(): Promise<ActionResult<{ provider: string }>> {
+  try {
+    const session = await requireSettingsSession();
+    if (session.role !== "super_admin") {
+      return { success: false, message: "Only Super Admin can send test emails" };
+    }
+    const { getUserById } = await import("@/services/users");
+    const user = await getUserById(session.userId);
+    if (!user?.email?.trim()) {
+      return { success: false, message: "No email on your user profile" };
+    }
+    const result = await sendTestEmail(user.email);
+    return { success: true, data: { provider: result.provider } };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to send test email"),
+    };
+  }
 }
 
 export async function updateCompanySettingsAction(

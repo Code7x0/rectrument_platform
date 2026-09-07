@@ -23,6 +23,9 @@ import type {
   UsersDefaultsSettings,
 } from "@/features/settings/types";
 import { APP_NAME } from "@/lib/constants";
+import { getSuperAdminNotificationEmails } from "@/lib/email/recipients";
+import { isResendConfigured } from "@/services/email/providers/resend.provider";
+import { sendEmailSafe } from "@/services/email";
 import { getOptionalEnv } from "@/lib/api/env";
 import { listUsers } from "@/services/users/users.service";
 import type { AppSession, UserRole } from "@/types";
@@ -202,6 +205,9 @@ export function getIntegrationsOverview(): IntegrationStatusItem[] {
       getOptionalEnv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
   );
   const emailProvider = getOptionalEnv("EMAIL_PROVIDER") ?? "console";
+  const resendReady = isResendConfigured();
+  const emailDelivery =
+    emailProvider === "resend" || resendReady ? "resend" : "console";
 
   return [
     {
@@ -219,8 +225,11 @@ export function getIntegrationsOverview(): IntegrationStatusItem[] {
     {
       id: "email",
       name: "Email Provider",
-      status: emailProvider === "console" ? "configured" : "connected",
-      description: `Current provider: ${emailProvider} (abstraction only).`,
+      status: emailDelivery === "resend" ? "connected" : "configured",
+      description:
+        emailDelivery === "resend"
+          ? "Resend is configured — transactional emails will deliver."
+          : "Console mode — emails log to server output until RESEND_API_KEY + EMAIL_FROM are set.",
     },
     {
       id: "slack",
@@ -271,13 +280,21 @@ export async function getSystemDiagnostics(): Promise<SystemDiagnostics> {
     notificationService = "unavailable";
   }
 
+  const emailProvider = getOptionalEnv("EMAIL_PROVIDER") ?? "console";
+  const resendReady = isResendConfigured();
+  const superAdminRecipients = (await getSuperAdminNotificationEmails()).length;
+
   return {
     platformName: APP_NAME,
     platformVersion: process.env.npm_package_version ?? "0.1.0",
     environment: getOptionalEnv("VERCEL_ENV") ?? getOptionalEnv("APP_ENV") ?? "local",
     nodeEnv: process.env.NODE_ENV ?? "development",
     databaseStatus: airtableConfigured ? "configured" : "missing_env",
-    emailProvider: getOptionalEnv("EMAIL_PROVIDER") ?? "console",
+    emailProvider,
+    emailDelivery:
+      emailProvider === "resend" || resendReady ? "resend" : "console",
+    emailFromConfigured: Boolean(getOptionalEnv("EMAIL_FROM")?.trim()),
+    superAdminRecipients,
     uploadProvider: getOptionalEnv("UPLOAD_PROVIDER") ?? "airtable",
     activityService,
     notificationService,
@@ -290,6 +307,28 @@ export async function getSystemDiagnostics(): Promise<SystemDiagnostics> {
       new Date().toISOString(),
     typescriptMode: "strict",
   };
+}
+
+/**
+ * Send a test transactional email to verify Resend / console configuration.
+ */
+export async function sendTestEmail(to: string): Promise<{
+  provider: string;
+  queued: boolean;
+}> {
+  const result = await sendEmailSafe({
+    to,
+    template: "email_test",
+    data: {
+      name: "there",
+      provider: getOptionalEnv("EMAIL_PROVIDER") ?? "console",
+      sentAt: new Date().toISOString(),
+    },
+  });
+  if (!result) {
+    throw new Error("Test email failed — check server logs");
+  }
+  return { provider: result.provider, queued: result.queued };
 }
 
 /**

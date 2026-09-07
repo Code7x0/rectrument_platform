@@ -19,7 +19,10 @@ export default async function SystemSettingsPage() {
       canManageCompany={canManageCompanySettings(session.role)}
       badge="Read-only"
     >
-      <SystemDiagnosticsPanel diagnostics={diagnostics} />
+      <SystemDiagnosticsPanel
+        diagnostics={diagnostics}
+        canSendTestEmail={session.role === "super_admin"}
+      />
     </SettingsShell>
   );
 }
