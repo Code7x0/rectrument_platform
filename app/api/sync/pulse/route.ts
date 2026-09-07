@@ -9,7 +9,7 @@ import { getSyncFingerprint } from "@/features/notifications/services/notificati
  */
 export async function GET() {
   const session = await getAppSession();
-  if (!session) {
+  if (!session || session.status !== "active") {
     return NextResponse.json({ success: false }, { status: 401 });
   }
 

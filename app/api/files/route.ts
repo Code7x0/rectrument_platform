@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 
 import { getAppSession } from "@/lib/auth";
 import { buildProxiedFilePayload } from "@/lib/files/build-file-response";
+import { canAccessAttachmentUrl } from "@/lib/files/authorize-attachment-access";
 import {
   isAllowedAttachmentUrl,
   sanitizeDownloadFilename,
 } from "@/lib/files/file-preview";
 
 export const runtime = "nodejs";
+
+const MAX_PROXY_BYTES = 12 * 1024 * 1024;
 
 export async function GET(request: Request) {
   const session = await getAppSession();
@@ -24,6 +27,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Invalid file URL" }, { status: 400 });
   }
 
+  if (!(await canAccessAttachmentUrl(session, url))) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
   const upstream = await fetch(url, { cache: "no-store" });
   if (!upstream.ok) {
     return NextResponse.json(
@@ -32,7 +39,15 @@ export async function GET(request: Request) {
     );
   }
 
+  const contentLength = Number(upstream.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_PROXY_BYTES) {
+    return NextResponse.json({ message: "File too large" }, { status: 413 });
+  }
+
   const buffer = Buffer.from(await upstream.arrayBuffer());
+  if (buffer.byteLength > MAX_PROXY_BYTES) {
+    return NextResponse.json({ message: "File too large" }, { status: 413 });
+  }
 
   try {
     const payload = await buildProxiedFilePayload({ buffer, filename, download });

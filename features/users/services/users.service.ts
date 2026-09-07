@@ -15,7 +15,7 @@ import {
 import { validateDocumentFileMeta } from "@/features/partner-documents/schemas/document.schema";
 import type { PartnerDocumentType } from "@/features/partner-documents/types";
 import { recordActivity } from "@/features/workflows/services/activity.service";
-import { sendEmail, sendEmailSafe } from "@/services/email";
+import { sendEmailSafe } from "@/services/email";
 import {
   createUserRecord,
   convertUserRoleIdentity,
@@ -601,7 +601,7 @@ export async function acceptInvitation(
     note: "Invitation accepted — account activated",
   });
 
-  await sendEmail({
+  await sendEmailSafe({
     to: user.email,
     template: "welcome",
     data: {
@@ -662,17 +662,6 @@ export async function changeUserRole(
     userName: updated.fullName,
     fromRole: user.role,
     toRole,
-  });
-
-  await sendEmailSafe({
-    to: updated.email,
-    template: "role_changed",
-    data: {
-      name: updated.fullName,
-      fromRole: getRoleLabel(user.role),
-      toRole: getRoleLabel(toRole),
-      loginUrl: `${appBaseUrl()}/sign-in`,
-    },
   });
 
   return updated;
@@ -775,7 +764,7 @@ export async function resetUserAccess(
     note: "Access reset — new invitation issued",
   });
 
-  await sendEmail({
+  await sendEmailSafe({
     to: user.email,
     template: "password_setup",
     data: {

@@ -9,11 +9,14 @@ import { sendDailyDigests } from "@/services/email/digests/daily-digest.service"
  */
 export async function GET(request: Request) {
   const secret = getOptionalEnv("CRON_SECRET")?.trim();
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    console.error("[cron] CRON_SECRET is not configured");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 503 });
+  }
+
+  const auth = request.headers.get("authorization");
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {

@@ -439,6 +439,17 @@ export async function approveJobClaim(input: {
     status: "approved",
     reviewedByUserId: input.reviewerUserId,
     allocationId,
+  }).catch(async (error) => {
+    const current = await findJobClaimById(claim.id);
+    if (current?.status === "approved" && current.allocationId) {
+      return current;
+    }
+    console.error("[job-claims] claim approval update failed after allocation", {
+      claimId: claim.id,
+      allocationId,
+      error,
+    });
+    throw error;
   });
 
   notifyJobClaimApproved({
