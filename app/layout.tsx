@@ -4,9 +4,18 @@ import { auth } from "@clerk/nextjs/server";
 
 import { AppProviders } from "@/components/providers/app-providers";
 import { getAppSession } from "@/lib/auth";
-import { APP_NAME } from "@/lib/constants";
+import {
+  APP_BRAND_MARK,
+  APP_NAME,
+  APP_TAGLINE,
+  BRAND_LOGO_PATH,
+} from "@/lib/constants";
 
 import "./globals.css";
+
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+  "https://www.ovato.ai";
 
 const sans = Plus_Jakarta_Sans({
   variable: "--font-app-sans",
@@ -21,12 +30,38 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: {
     default: APP_NAME,
-    template: `%s | ${APP_NAME}`,
+    template: `%s | ${APP_BRAND_MARK}`,
   },
-  description: "OVATO.ai by Talent Socio — referral-led hiring platform",
-  applicationName: APP_NAME,
+  description: `${APP_BRAND_MARK} ${APP_TAGLINE} — referral-led hiring platform`,
+  applicationName: APP_BRAND_MARK,
+  icons: {
+    icon: [{ url: BRAND_LOGO_PATH, type: "image/png" }],
+    apple: BRAND_LOGO_PATH,
+    shortcut: BRAND_LOGO_PATH,
+  },
+  openGraph: {
+    type: "website",
+    siteName: APP_BRAND_MARK,
+    title: APP_NAME,
+    description: `${APP_BRAND_MARK} ${APP_TAGLINE} — referral-led hiring platform`,
+    images: [
+      {
+        url: BRAND_LOGO_PATH,
+        width: 113,
+        height: 109,
+        alt: `${APP_BRAND_MARK} ${APP_TAGLINE}`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: APP_NAME,
+    description: `${APP_BRAND_MARK} ${APP_TAGLINE} — referral-led hiring platform`,
+    images: [BRAND_LOGO_PATH],
+  },
 };
 
 export default async function RootLayout({

@@ -7,6 +7,7 @@ import type {
   SendEmailResult,
 } from "@/services/email/types";
 import { DEFAULT_SUBJECTS, renderBody, renderSubject } from "@/services/email/templates";
+import { renderOvatoEmailHtml } from "@/services/email/layout";
 
 /**
  * Production email delivery via Resend.
@@ -24,7 +25,7 @@ export class ResendEmailProvider implements EmailService {
   async send(input: SendEmailInput): Promise<SendEmailResult> {
     const subject = input.subject ?? renderSubject(input.template, input.data);
     const text = renderBody(input.template, input.data);
-    const html = textToSimpleHtml(text);
+    const html = renderOvatoEmailHtml(text);
 
     const { data, error } = await this.client.emails.send({
       from: this.from,
@@ -51,17 +52,6 @@ export class ResendEmailProvider implements EmailService {
 
     return { id, provider: "resend", queued: true };
   }
-}
-
-function textToSimpleHtml(text: string): string {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return `<div style="font-family: system-ui, -apple-system, Segoe UI, sans-serif; font-size: 15px; line-height: 1.55; color: #0f172a;">${escaped
-    .split("\n")
-    .map((line) => (line.trim() ? line : "<br />"))
-    .join("<br />")}</div>`;
 }
 
 /** Soft check used by factory — missing keys fall back to console in non-strict envs. */

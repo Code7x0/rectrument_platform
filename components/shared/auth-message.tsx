@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,9 @@ export function AuthPageShell({ children }: AuthPageShellProps) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-6">
       <div className="w-full max-w-lg rounded-2xl border border-[#E2E8F0] bg-white p-8 shadow-sm">
+        <div className="mb-6 flex justify-center">
+          <BrandLogo className="justify-center" />
+        </div>
         {children}
       </div>
     </main>

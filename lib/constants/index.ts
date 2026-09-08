@@ -2,6 +2,7 @@ export const APP_NAME = "OVATO.ai by Talent Socio";
 export const APP_NAME_SHORT = "OVATO";
 export const APP_BRAND_MARK = "OVATO.ai";
 export const APP_TAGLINE = "by Talent Socio";
+export const BRAND_LOGO_PATH = "/brand/ovato-logo.png";
 
 export const ROUTES = {
   home: "/",

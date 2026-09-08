@@ -1,10 +1,11 @@
 import Image from "next/image";
 
-import { APP_NAME_SHORT, APP_TAGLINE } from "@/lib/constants";
+import { APP_NAME_SHORT, APP_TAGLINE, BRAND_LOGO_PATH } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface BrandLogoProps {
   compact?: boolean;
+  iconOnly?: boolean;
   showTagline?: boolean;
   className?: string;
   onDark?: boolean;
@@ -12,16 +13,30 @@ interface BrandLogoProps {
 
 export function BrandLogo({
   compact = false,
+  iconOnly = false,
   showTagline = true,
   className,
   onDark = false,
 }: BrandLogoProps) {
   const size = compact ? 32 : 38;
 
+  if (iconOnly) {
+    return (
+      <Image
+        src={BRAND_LOGO_PATH}
+        alt={`${APP_NAME_SHORT} logo`}
+        width={size}
+        height={size}
+        className={cn("shrink-0 rounded-[9px]", className)}
+        priority
+      />
+    );
+  }
+
   return (
     <div className={cn("flex min-w-0 items-center gap-2.5", className)}>
       <Image
-        src="/brand/ovato-logo.png"
+        src={BRAND_LOGO_PATH}
         alt={`${APP_NAME_SHORT} logo`}
         width={size}
         height={size}

@@ -74,7 +74,10 @@ function SignInPanel({ className }: { className?: string }) {
         className,
       )}
     >
-      <p className="mb-1 text-[13px] font-semibold tracking-wide text-[#F6F4FF] uppercase">
+      <div className="mb-4 flex justify-center">
+        <BrandLogo compact onDark className="justify-center" />
+      </div>
+      <p className="mb-1 text-center text-[13px] font-semibold tracking-wide text-[#F6F4FF] uppercase">
         Partner sign in
       </p>
       <p className="mb-4 text-[13.5px] leading-relaxed text-[#A7A2D6]">

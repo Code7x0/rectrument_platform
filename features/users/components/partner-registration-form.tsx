@@ -13,6 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import Link from "next/link";
 
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +34,6 @@ import {
   partnerRegistrationSchema,
   type PartnerRegistrationValues,
 } from "@/features/users/schemas/users.schema";
-import { APP_NAME } from "@/lib/constants";
 import {
   DOCUMENT_ACCEPT,
   validateDocumentUploadMeta,
@@ -203,17 +203,17 @@ export function PartnerRegistrationForm() {
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      <div className="mb-8 space-y-2">
-        <p className="text-sm font-medium tracking-wide text-[#64748B] uppercase">
-          {APP_NAME}
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A]">
-          Become a Talent Partner
-        </h1>
-        <p className="text-sm text-[#64748B]">
-          Submit your profile and documents. Access is granted only after Admin
-          approval — you cannot sign in until then.
-        </p>
+      <div className="mb-8 space-y-4">
+        <BrandLogo />
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A]">
+            Become a Talent Partner
+          </h1>
+          <p className="text-sm text-[#64748B]">
+            Submit your profile and documents. Access is granted only after Admin
+            approval — you cannot sign in until then.
+          </p>
+        </div>
       </div>
 
       <form
