@@ -12,6 +12,11 @@ import {
   getAdminNotificationEmails,
   getSuperAdminNotificationEmails,
 } from "@/lib/email/recipients";
+import {
+  formatCountLine,
+  formatOvatoDate,
+  formatTable,
+} from "@/services/email/layout";
 import { sendEmailSafe } from "@/services/email";
 import { listUsers } from "@/services/users";
 
@@ -25,10 +30,10 @@ function appBaseUrl(): string {
   );
 }
 
-function startOfUtcDay(date: Date): Date {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
-  );
+function rollingWindowStart(now: Date): Date {
+  const start = new Date(now);
+  start.setUTCHours(start.getUTCHours() - 24);
+  return start;
 }
 
 function parseSubmissionDate(value: string | null | undefined): Date | null {
@@ -54,59 +59,45 @@ function submissionOwnedByAm(
   return job.accountManagerIds.includes(accountManagerId);
 }
 
-function formatSubmissionLine(
-  submission: {
-    candidateName: string | null;
-    jobTitle: string | null;
-    clientName: string | null;
-    resumeUrl: string | null;
-  },
-): string {
-  const parts = [
-    submission.candidateName ?? "Candidate",
-    submission.jobTitle ? `— ${submission.jobTitle}` : "",
-    submission.clientName ? `(${submission.clientName})` : "",
-    submission.resumeUrl ? `[resume]` : "",
-  ];
-  return parts.filter(Boolean).join(" ");
+function inWindow(
+  value: string | null | undefined,
+  windowStart: Date,
+  now: Date,
+): boolean {
+  const parsed = parseSubmissionDate(value);
+  return parsed != null && parsed >= windowStart && parsed <= now;
 }
 
-function buildGroupedNewProfiles(
-  rows: Array<{
-    clientName: string | null;
-    jobCode: string | null;
-    jobTitle: string | null;
-    candidateName: string | null;
-    resumeUrl: string | null;
-  }>,
+function buildRecommendedByClient(
+  rows: Submission[],
 ): string {
   if (rows.length === 0) {
-    return "No new profiles added today.";
+    return "Profiles Recommended:\nNo new profiles added in the last 24 hours.";
   }
 
-  const byClient = new Map<string, Map<string, string[]>>();
+  const byClient = new Map<string, Map<string, number>>();
   for (const row of rows) {
-    const client = row.clientName ?? "Client";
-    const jobKey = `${row.jobCode ?? "—"} · ${row.jobTitle ?? "Role"}`;
+    const client = row.clientName?.trim() || "Client";
+    const designation = row.jobTitle?.trim() || "Role";
     if (!byClient.has(client)) {
       byClient.set(client, new Map());
     }
     const jobs = byClient.get(client)!;
-    if (!jobs.has(jobKey)) {
-      jobs.set(jobKey, []);
-    }
-    jobs.get(jobKey)!.push(formatSubmissionLine(row));
+    jobs.set(designation, (jobs.get(designation) ?? 0) + 1);
   }
 
-  const lines: string[] = ["NEW PROFILES TODAY"];
+  const lines = ["Profiles Recommended:"];
   for (const [client, jobs] of byClient) {
-    lines.push(`\n${client}`);
-    for (const [jobKey, names] of jobs) {
-      lines.push(`  ${jobKey} — ${names.length} profile(s)`);
-      for (const name of names) {
-        lines.push(`    • ${name}`);
-      }
-    }
+    lines.push("", client);
+    lines.push(
+      formatTable(
+        ["Designation", "Count"],
+        [...jobs.entries()].map(([designation, count]) => [
+          designation,
+          String(count),
+        ]),
+      ),
+    );
   }
   return lines.join("\n");
 }
@@ -125,17 +116,62 @@ function buildSlaSection(rows: Submission[], now: Date): string {
   });
 
   if (breached.length === 0) {
-    return "SLA ALERTS\nNo 48-hour screening breaches.";
+    return "SLA alert\nNo profiles missing SLA.";
   }
 
-  const lines = [
-    "SLA ALERTS (48+ hours in Pending Review / Internal Screening)",
-  ];
+  const lines = ["SLA alert"];
+  const byClient = new Map<string, Submission[]>();
   for (const row of breached) {
+    const client = row.clientName?.trim() || "Client";
+    if (!byClient.has(client)) {
+      byClient.set(client, []);
+    }
+    byClient.get(client)!.push(row);
+  }
+
+  for (const [client, clientRows] of byClient) {
+    lines.push("", `Client Name: ${client}`);
     lines.push(
-      `  • ${row.candidateName ?? "Candidate"} — ${row.jobTitle ?? "Job"} (${submissionExactStatusLabel(row)})`,
+      formatTable(
+        [
+          "Role",
+          "Candidate Name",
+          "Date Recommended",
+          "SLA Breach (In Days)",
+          "Status",
+        ],
+        clientRows.map((row) => {
+          const submitted = parseSubmissionDate(row.submissionDate);
+          const breachDays = submitted
+            ? String(
+                Math.max(
+                  0,
+                  Math.floor(
+                    (now.getTime() - submitted.getTime()) /
+                      (24 * 60 * 60 * 1000),
+                  ) - SLA_HOURS / 24,
+                ),
+              )
+            : "—";
+          const dateLabel = submitted
+            ? submitted.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                timeZone: "UTC",
+              })
+            : "—";
+          return [
+            row.jobTitle ?? "Role",
+            row.candidateName ?? "Candidate",
+            dateLabel,
+            breachDays,
+            submissionExactStatusLabel(row),
+          ];
+        }),
+      ),
     );
   }
+
   return lines.join("\n");
 }
 
@@ -143,13 +179,47 @@ function buildPartnerSnapshot(rows: Submission[]): string {
   const count = (group: Parameters<typeof matchesSubmissionStatusGroup>[1]) =>
     rows.filter((row) => matchesSubmissionStatusGroup(row, group)).length;
 
+  const superHigh = rows.filter((row) => row.jobPriority === "urgent").length;
+
   return [
-    "PARTNER SNAPSHOT",
-    `  Interviewing: ${count("interviewing")}`,
-    `  Pending Review: ${count("pending_review")}`,
-    `  Internal Screening: ${count("internal_screening")}`,
-    `  Being Submitted: ${count("being_submitted")}`,
-    `  Selected: ${count("selected")}`,
+    "Jobs Assigned",
+    formatCountLine("Super High Priority Jobs", superHigh),
+    formatCountLine("Candidates Pending Review", count("pending_review")),
+    formatCountLine(
+      "Candidates Internal Screening in Progress",
+      count("internal_screening"),
+    ),
+    formatCountLine("Being Submitted to Client", count("being_submitted")),
+    formatCountLine("Interviewing", count("interviewing")),
+    formatCountLine("Selected", count("selected")),
+  ].join("\n");
+}
+
+function buildPartnerCandidateUpdates(rows: Submission[]): string {
+  const recent = rows
+    .filter((row) => row.submissionDate)
+    .sort(
+      (a, b) =>
+        (parseSubmissionDate(b.submissionDate)?.getTime() ?? 0) -
+        (parseSubmissionDate(a.submissionDate)?.getTime() ?? 0),
+    )
+    .slice(0, 8);
+
+  if (recent.length === 0) {
+    return "Candidate Updates:\nNo recent candidate updates.";
+  }
+
+  return [
+    "Candidate Updates:",
+    formatTable(
+      ["Candidate ID", "Field Updated", "Present Value", "Internal Feedback"],
+      recent.map((row) => [
+        row.submissionCode?.trim() || row.id.slice(0, 8),
+        "Submission Status",
+        submissionExactStatusLabel(row),
+        row.remarks?.trim() || row.interviewStage?.trim() || "—",
+      ]),
+    ),
   ].join("\n");
 }
 
@@ -160,9 +230,8 @@ export interface DailyDigestResult {
 }
 
 export async function sendDailyDigests(now = new Date()): Promise<DailyDigestResult> {
-  const todayStart = startOfUtcDay(now);
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setUTCDate(yesterdayStart.getUTCDate() - 1);
+  const windowStart = rollingWindowStart(now);
+  const digestDate = formatOvatoDate(now);
 
   const [submissions, jobs, queries, amUsers, partnerUsers] = await Promise.all([
     listSubmissions({ includePartnerIdentity: true }),
@@ -194,24 +263,52 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     const owned = submissions.filter((row) =>
       submissionOwnedByAm(row, jobMap, amId),
     );
-    const newToday = owned.filter((row) => {
+    const newInWindow = owned.filter((row) =>
+      inWindow(row.submissionDate, windowStart, now),
+    );
+    const pendingAction = owned.filter(
+      (row) =>
+        matchesSubmissionStatusGroup(row, "pending_review") ||
+        matchesSubmissionStatusGroup(row, "internal_screening"),
+    );
+    const slaMissing = owned.filter((row) => {
+      if (
+        !matchesSubmissionStatusGroup(row, "pending_review") &&
+        !matchesSubmissionStatusGroup(row, "internal_screening")
+      ) {
+        return false;
+      }
       const submitted = parseSubmissionDate(row.submissionDate);
-      return submitted != null && submitted >= todayStart;
+      const cutoff = new Date(now.getTime() - SLA_HOURS * 60 * 60 * 1000);
+      return submitted != null && submitted <= cutoff;
     });
+    const secondLevelReviews = owned.filter(
+      (row) => row.wantsSecondLevelReview || row.secondLevelReviewLabel,
+    );
     const openQueries = queries.filter((query) => {
       if (query.status !== "open") {
         return false;
       }
-      const submitted = parseSubmissionDate(query.submittedAt);
-      return submitted != null && submitted >= yesterdayStart;
+      return inWindow(query.submittedAt, windowStart, now);
     });
 
     const digestBody = [
-      buildGroupedNewProfiles(newToday),
+      formatCountLine(
+        "New Profiles Added for your action",
+        newInWindow.length,
+      ),
+      formatCountLine("Profiles Pending your action", pendingAction.length),
+      formatCountLine("Profiles Missing SLAs", slaMissing.length),
+      formatCountLine(
+        "2nd Level Review Request raised",
+        secondLevelReviews.length,
+      ),
+      "",
+      buildRecommendedByClient(newInWindow),
       "",
       buildSlaSection(owned, now),
       "",
-      "PARTNER QUESTIONS (since yesterday)",
+      "PARTNER QUESTIONS (last 24 hours)",
       openQueries.length === 0
         ? "No new partner questions."
         : openQueries
@@ -229,6 +326,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       data: {
         name: am.fullName,
         digestBody,
+        digestDate,
         dashboardUrl: `${baseUrl}/account-manager`,
       },
     });
@@ -254,23 +352,30 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
         .filter((row) => row.status !== "archived" && row.status !== "cancelled")
         .map((row) => row.jobId),
     );
-    const newJobsToday = jobs.filter((job) => {
-      if (!allocatedJobIds.has(job.id)) {
-        return false;
-      }
-      const posted = parseSubmissionDate(job.postedDate ?? job.createdAt);
-      return posted != null && posted >= todayStart;
-    });
+
+    const newRoleTitles = jobs
+      .filter((job) => {
+        const posted = parseSubmissionDate(job.postedDate ?? job.createdAt);
+        return (
+          job.status === "open" &&
+          posted != null &&
+          inWindow(job.postedDate ?? job.createdAt, windowStart, now)
+        );
+      })
+      .map((job) => job.title)
+      .filter(Boolean);
 
     const digestBody = [
-      "JOB UPDATES / NEW ALLOCATIONS TODAY",
-      newJobsToday.length === 0
-        ? "No newly posted jobs on your allocated roles today. Real-time job edit alerts are sent immediately when a job changes."
-        : newJobsToday
-            .map((job) => `  • ${job.jobCode ?? job.title}`)
-            .join("\n"),
+      digestDate,
+      "",
+      formatCountLine("New Roles Activated – Available to be claimed", newRoleTitles.length),
+      newRoleTitles.length === 0
+        ? "No new open roles in the last 24 hours."
+        : newRoleTitles.map((title) => `  • ${title}`).join("\n"),
       "",
       buildPartnerSnapshot(owned),
+      "",
+      buildPartnerCandidateUpdates(owned),
     ].join("\n");
 
     result.attempted += 1;
@@ -280,6 +385,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       data: {
         name: partner.fullName,
         digestBody,
+        digestDate,
         dashboardUrl: `${baseUrl}/partner`,
       },
     });
@@ -296,52 +402,48 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     : await getAdminNotificationEmails();
 
   if (fallbackAdmins.length > 0) {
-    const selectsToday = submissions.filter((row) => {
-      if (!matchesSubmissionStatusGroup(row, "selected")) {
-        return false;
-      }
-      const submitted = parseSubmissionDate(row.submissionDate);
-      return submitted != null && submitted >= todayStart;
-    });
-    const actedToday = submissions.filter((row) => {
-      if (!matchesSubmissionStatusGroup(row, "being_submitted")) {
-        return false;
-      }
-      const submitted = parseSubmissionDate(row.submissionDate);
-      return submitted != null && submitted >= todayStart;
-    });
-
     const digestBody = [
-      "SELECTS TODAY",
-      selectsToday.length === 0
-        ? "No new selects."
-        : selectsToday
-            .map(
-              (row) =>
-                `  • ${row.candidateName ?? "Candidate"} — ${row.jobTitle ?? "Job"} (${row.partnerCode ?? "Partner"})`,
-            )
-            .join("\n"),
+      formatCountLine(
+        "Pending Review",
+        submissions.filter((row) =>
+          matchesSubmissionStatusGroup(row, "pending_review"),
+        ).length,
+      ),
+      formatCountLine(
+        "Being Submitted to Client",
+        submissions.filter((row) =>
+          matchesSubmissionStatusGroup(row, "being_submitted"),
+        ).length,
+      ),
+      formatCountLine(
+        "Interviewing",
+        submissions.filter((row) =>
+          matchesSubmissionStatusGroup(row, "interviewing"),
+        ).length,
+      ),
+      formatCountLine(
+        "Selects",
+        submissions.filter((row) => matchesSubmissionStatusGroup(row, "selected"))
+          .length,
+      ),
       "",
-      "SUBMITTED TO CLIENT TODAY",
-      actedToday.length === 0
-        ? "No profiles moved to client submission today."
-        : actedToday
-            .map(
-              (row) =>
-                `  • ${row.candidateName ?? "Candidate"} — ${row.jobTitle ?? "Job"}`,
-            )
-            .join("\n"),
+      digestDate,
+      formatCountLine(
+        "Count of fresh profiles added in 24 hours",
+        submissions.filter((row) => inWindow(row.submissionDate, windowStart, now))
+          .length,
+      ),
+      formatCountLine(
+        "Count of Roles where profiles were added",
+        new Set(
+          submissions
+            .filter((row) => inWindow(row.submissionDate, windowStart, now))
+            .map((row) => row.jobId)
+            .filter(Boolean),
+        ).size,
+      ),
       "",
       buildSlaSection(submissions, now),
-      "",
-      "NEW / UPDATED JOBS TODAY",
-      jobs
-        .filter((job) => {
-          const posted = parseSubmissionDate(job.postedDate ?? job.createdAt);
-          return posted != null && posted >= todayStart;
-        })
-        .map((job) => `  • ${job.jobCode ?? job.title}`)
-        .join("\n") || "No job changes today.",
     ].join("\n");
 
     const adminResult = await fanOutEmail(fallbackAdmins, (to) =>
@@ -351,6 +453,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
         data: {
           name: "Chief",
           digestBody,
+          digestDate,
           dashboardUrl: `${baseUrl}/admin`,
         },
       }),

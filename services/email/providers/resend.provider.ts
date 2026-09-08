@@ -6,7 +6,7 @@ import type {
   SendEmailInput,
   SendEmailResult,
 } from "@/services/email/types";
-import { DEFAULT_SUBJECTS, renderBody } from "@/services/email/templates";
+import { DEFAULT_SUBJECTS, renderBody, renderSubject } from "@/services/email/templates";
 
 /**
  * Production email delivery via Resend.
@@ -22,7 +22,7 @@ export class ResendEmailProvider implements EmailService {
   }
 
   async send(input: SendEmailInput): Promise<SendEmailResult> {
-    const subject = input.subject ?? DEFAULT_SUBJECTS[input.template];
+    const subject = input.subject ?? renderSubject(input.template, input.data);
     const text = renderBody(input.template, input.data);
     const html = textToSimpleHtml(text);
 

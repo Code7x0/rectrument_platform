@@ -4,14 +4,14 @@ import type {
   SendEmailInput,
   SendEmailResult,
 } from "../types";
-import { DEFAULT_SUBJECTS, renderBody } from "../templates";
+import { DEFAULT_SUBJECTS, renderBody, renderSubject } from "../templates";
 
 /**
  * Development / staging provider — logs instead of sending.
  */
 export class ConsoleEmailProvider implements EmailService {
   async send(input: SendEmailInput): Promise<SendEmailResult> {
-    const subject = input.subject ?? DEFAULT_SUBJECTS[input.template];
+    const subject = input.subject ?? renderSubject(input.template, input.data);
     const body = renderBody(input.template, input.data);
     const id = `console_${Date.now()}`;
 

@@ -206,8 +206,19 @@ const TEMPLATE_SAMPLES: Array<{
     data: {
       name: "Partner",
       jobTitle: "AB_001",
+      jobCode: "AB_001",
       changedSummary: "Job description updated (smoke test).",
       jobsUrl: `${base}/partner/jobs`,
+    },
+  },
+  {
+    template: "client_details_updated",
+    to: RECIPIENTS.admin,
+    data: {
+      name: "Account Manager",
+      clientName: "Test Client",
+      changeTable: "Field | Before | After\nStatus | Active | On hold",
+      clientsUrl: `${base}/account-manager/clients`,
     },
   },
   {

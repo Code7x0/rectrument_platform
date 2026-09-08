@@ -8,8 +8,9 @@ import { useEffect, useState } from "react";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { EmailOtpSignIn } from "@/components/auth/email-otp-sign-in";
 import { AuthPageShell } from "@/components/shared/auth-message";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import { Button } from "@/components/ui/button";
-import { APP_NAME, ROUTES } from "@/lib/constants";
+import { ROUTES } from "@/lib/constants";
 
 /**
  * Sign-in surface that recovers from a stuck Clerk session (signed into Clerk
@@ -36,9 +37,9 @@ export function SignInPageClient() {
 
   return (
     <AuthPageShell>
-      <div className="mb-8 text-center">
-        <h1 className="text-xl font-semibold tracking-tight">{APP_NAME}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <div className="mb-8 flex flex-col items-center text-center">
+        <BrandLogo className="justify-center" />
+        <p className="mt-4 text-sm text-muted-foreground">
           Sign in with Google or email one-time code
         </p>
       </div>

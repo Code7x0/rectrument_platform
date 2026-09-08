@@ -1133,7 +1133,9 @@ export async function notifyJobDetailsUpdated(input: {
       emailTemplate: "job_updated",
       emailData: {
         jobTitle: label,
+        jobCode: input.jobCode?.trim() ?? "",
         changedSummary: description,
+        changeTable: description,
         jobsUrl,
       },
     });
@@ -1186,11 +1188,20 @@ export async function notifyClientDetailsUpdated(input: {
       title: "Client updated",
       description,
       type: "system",
-      category: "system",
+      category: "jobs",
       priority: "medium",
       entityType: "client",
       entityId: input.clientId,
       actionUrl: `/account-manager/clients/${input.clientId}`,
+      sendEmail: true,
+      emailTemplate: "client_details_updated",
+      emailData: {
+        clientName: input.clientName,
+        clientCode: input.clientCode?.trim() ?? "",
+        changedSummary: description,
+        changeTable: input.changedSummary?.trim() ?? "",
+        clientsUrl: `${appBaseUrl()}/account-manager/clients/${input.clientId}`,
+      },
     });
   }
 

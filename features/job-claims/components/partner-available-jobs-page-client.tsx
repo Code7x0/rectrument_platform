@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/shared/empty-state";
+import {
+  PartnerJobPriorityFilter,
+  type PartnerJobPriorityFilterValue,
+} from "@/features/jobs/components/partner-job-priority-filter";
+import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import { claimJobAction } from "@/features/job-claims/actions/job-claims.actions";
 import { AvailableJobCard } from "@/features/job-claims/components/available-job-card";
 import type { PartnerAvailableJob } from "@/features/job-claims/types";
@@ -20,16 +25,43 @@ export function PartnerAvailableJobsPageClient({
   const router = useRouter();
   const [jobs, setJobs] = useState(initialJobs);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] =
+    useState<PartnerJobPriorityFilterValue>("all");
 
   useEffect(() => {
     setJobs(initialJobs);
   }, [initialJobs]);
 
-  const pendingJobs = jobs.filter((job) => job.claimState === "pending");
-  const rejectedJobs = jobs.filter(
-    (job) => job.claimState === "rejected" || job.claimState === "cooling",
+  const sortJobs = (rows: PartnerAvailableJob[]) =>
+    [...rows].sort((a, b) => compareJobsByPriorityThenOpenDate(a, b));
+
+  const filterByPriority = (rows: PartnerAvailableJob[]) => {
+    if (priorityFilter === "all") {
+      return rows;
+    }
+    return rows.filter((job) => job.priority === priorityFilter);
+  };
+
+  const pendingJobs = useMemo(
+    () => sortJobs(filterByPriority(jobs.filter((job) => job.claimState === "pending"))),
+    [jobs, priorityFilter],
   );
-  const openJobs = jobs.filter((job) => job.claimState === "available");
+  const rejectedJobs = useMemo(
+    () =>
+      sortJobs(
+        filterByPriority(
+          jobs.filter(
+            (job) => job.claimState === "rejected" || job.claimState === "cooling",
+          ),
+        ),
+      ),
+    [jobs, priorityFilter],
+  );
+  const openJobs = useMemo(
+    () =>
+      sortJobs(filterByPriority(jobs.filter((job) => job.claimState === "available"))),
+    [jobs, priorityFilter],
+  );
 
   async function handleClaim(job: PartnerAvailableJob) {
     if (claimingId) {
@@ -82,6 +114,18 @@ export function PartnerAvailableJobsPageClient({
 
   return (
     <>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <p className="text-sm text-[#64748B]">
+          Filter by priority to surface Super High and High roles first.
+        </p>
+        <PartnerJobPriorityFilter
+          value={priorityFilter}
+          onChange={setPriorityFilter}
+          id="partner-available-priority-filter"
+          className="w-full max-w-xs space-y-1.5"
+        />
+      </div>
+
       <div className="space-y-8">
         {pendingJobs.length > 0 ? (
           <section className="space-y-3">

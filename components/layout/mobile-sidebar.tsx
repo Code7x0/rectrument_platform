@@ -12,8 +12,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { NavigationItem } from "@/components/navigation/navigation-item";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import type { AppNavItem } from "@/lib/navigation";
-import { APP_NAME } from "@/lib/constants";
 
 interface MobileSidebarProps {
   items: AppNavItem[];
@@ -32,7 +32,9 @@ export function MobileSidebar({ items }: MobileSidebarProps) {
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="border-b border-[#E2E8F0] px-4 py-4 text-left">
-          <SheetTitle className="text-base">{APP_NAME}</SheetTitle>
+          <SheetTitle className="text-base">
+            <BrandLogo compact showTagline={false} />
+          </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 p-3">
           {items.map((item) => (

@@ -15,7 +15,7 @@ function priorityRank(priority: JobPriority | null | undefined): number {
 }
 
 function jobOpenDateMs(
-  job: Pick<Job, "postedDate" | "startDate" | "createdAt">,
+  job: Partial<Pick<Job, "postedDate" | "startDate" | "createdAt">>,
 ): number {
   const raw = job.postedDate || job.startDate || job.createdAt;
   if (!raw) {
@@ -29,8 +29,10 @@ function jobOpenDateMs(
  * Canonical Partner job ordering: Priority (Super High→Low), then open/posted date.
  */
 export function compareJobsByPriorityThenOpenDate(
-  a: Pick<Job, "priority" | "postedDate" | "startDate" | "createdAt" | "title">,
-  b: Pick<Job, "priority" | "postedDate" | "startDate" | "createdAt" | "title">,
+  a: Pick<Job, "priority" | "title"> &
+    Partial<Pick<Job, "postedDate" | "startDate" | "createdAt">>,
+  b: Pick<Job, "priority" | "title"> &
+    Partial<Pick<Job, "postedDate" | "startDate" | "createdAt">>,
 ): number {
   const byPriority = priorityRank(a.priority) - priorityRank(b.priority);
   if (byPriority !== 0) {

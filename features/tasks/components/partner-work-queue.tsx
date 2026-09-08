@@ -8,6 +8,11 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  PartnerJobPriorityFilter,
+  type PartnerJobPriorityFilterValue,
+} from "@/features/jobs/components/partner-job-priority-filter";
+import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import { WorkTaskCard } from "@/features/tasks/components/work-task-card";
 import type { PartnerWorkTask } from "@/features/tasks/types";
 
@@ -21,6 +26,8 @@ interface PartnerWorkQueueProps {
  */
 export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
   const [clientFilter, setClientFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] =
+    useState<PartnerJobPriorityFilterValue>("all");
 
   const clientOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -35,13 +42,19 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
   }, [tasks]);
 
   const filteredTasks = useMemo(() => {
-    if (clientFilter === "all") {
-      return tasks;
+    let rows = tasks;
+    if (clientFilter !== "all") {
+      rows = rows.filter(
+        (task) => (task.clientName?.trim() || "") === clientFilter,
+      );
     }
-    return tasks.filter(
-      (task) => (task.clientName?.trim() || "") === clientFilter,
+    if (priorityFilter !== "all") {
+      rows = rows.filter((task) => task.priority === priorityFilter);
+    }
+    return [...rows].sort((a, b) =>
+      compareJobsByPriorityThenOpenDate(a.job, b.job),
     );
-  }, [clientFilter, tasks]);
+  }, [clientFilter, priorityFilter, tasks]);
 
   if (tasks.length === 0) {
     return (
@@ -65,29 +78,41 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
           Showing {filteredTasks.length} of {tasks.length} assigned job
           {tasks.length === 1 ? "" : "s"} (includes Active and On Hold).
         </p>
-        {clientOptions.length > 0 ? (
-          <div className="w-full max-w-xs space-y-1.5 sm:w-56">
-            <Label htmlFor="partner-client-filter">Client</Label>
-            <Select
-              id="partner-client-filter"
-              value={clientFilter}
-              onChange={(event) => setClientFilter(event.target.value)}
-            >
-              <option value="all">All clients</option>
-              {clientOptions.map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : null}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+          <PartnerJobPriorityFilter
+            value={priorityFilter}
+            onChange={setPriorityFilter}
+            id="partner-assigned-priority-filter"
+            className="w-full space-y-1.5 sm:w-56"
+          />
+          {clientOptions.length > 0 ? (
+            <div className="w-full space-y-1.5 sm:w-56">
+              <Label htmlFor="partner-client-filter">Client</Label>
+              <Select
+                id="partner-client-filter"
+                value={clientFilter}
+                onChange={(event) => setClientFilter(event.target.value)}
+              >
+                <option value="all">All clients</option>
+                {clientOptions.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {filteredTasks.length === 0 ? (
         <EmptyState
-          title="No jobs for this client"
-          description="Try another client filter, or clear the filter to see all assigned jobs."
+          title={
+            priorityFilter !== "all" || clientFilter !== "all"
+              ? "No jobs match your filters"
+              : "No jobs for this client"
+          }
+          description="Try another priority or client filter, or clear filters to see all assigned jobs."
           icon={<Briefcase className="h-5 w-5" />}
         />
       ) : (

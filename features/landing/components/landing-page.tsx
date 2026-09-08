@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Inter, Sora } from "next/font/google";
@@ -8,9 +7,9 @@ import { useState } from "react";
 
 import { EmailOtpSignIn } from "@/components/auth/email-otp-sign-in";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { BrandLogo } from "@/components/shared/brand-logo";
 import {
   APP_BRAND_MARK,
-  APP_NAME_SHORT,
   APP_TAGLINE,
   ROUTES,
 } from "@/lib/constants";
@@ -64,33 +63,7 @@ const BOARD_ROWS = [
 ];
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-      <Image
-        src="/brand/ovato-logo.png"
-        alt={`${APP_NAME_SHORT} logo`}
-        width={compact ? 32 : 38}
-        height={compact ? 32 : 38}
-        className="shrink-0 rounded-[9px]"
-        priority
-      />
-      <div className="min-w-0">
-        <div
-          className={cn(
-            sora.className,
-            "truncate font-bold tracking-[0.2px] text-[#F6F4FF]",
-            compact ? "text-[15px] sm:text-[16px]" : "text-[17px] sm:text-[19px]",
-          )}
-        >
-          {APP_NAME_SHORT}
-          <span className="text-[#2FE0C4]">.ai</span>
-        </div>
-        <div className="truncate text-[10px] text-[#A7A2D6] sm:text-[11px]">
-          {APP_TAGLINE}
-        </div>
-      </div>
-    </div>
-  );
+  return <BrandLogo compact={compact} onDark />;
 }
 
 function SignInPanel({ className }: { className?: string }) {
@@ -164,6 +137,12 @@ export function LandingPage() {
               )}
             </button>
             <Link
+              href={ROUTES.signIn}
+              className="hidden rounded-full border border-[rgba(255,255,255,0.18)] px-4 py-2.5 text-[14px] font-semibold text-[#F6F4FF] transition hover:bg-[rgba(255,255,255,0.06)] sm:inline-flex"
+            >
+              Sign in
+            </Link>
+            <Link
               href={ROUTES.register}
               className="btn-flame shrink-0 whitespace-nowrap px-4 py-2.5 text-[14px] sm:px-7 sm:py-[15px] sm:text-[15.5px]"
             >
@@ -185,6 +164,13 @@ export function LandingPage() {
                   {link.label}
                 </a>
               ))}
+              <Link
+                href={ROUTES.signIn}
+                className="rounded-lg px-2 py-2 font-semibold text-[#F6F4FF] hover:bg-[rgba(255,255,255,0.04)]"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                Sign in
+              </Link>
             </div>
           </div>
         ) : null}

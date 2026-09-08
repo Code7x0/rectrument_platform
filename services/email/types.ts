@@ -19,6 +19,7 @@ export type EmailTemplateId =
   | "job_unassigned"
   | "client_assigned"
   | "client_unassigned"
+  | "client_details_updated"
   | "manager_job_assigned"
   | "manager_job_unassigned"
   | "role_changed"
