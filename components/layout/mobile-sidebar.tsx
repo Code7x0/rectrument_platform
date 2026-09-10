@@ -31,7 +31,7 @@ export function MobileSidebar({ items }: MobileSidebarProps) {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0">
-        <SheetHeader className="border-b border-[#E2E8F0] px-4 py-4 text-left">
+        <SheetHeader className="border-b border-border px-4 py-4 text-left">
           <SheetTitle className="text-base">
             <BrandLogo compact />
           </SheetTitle>

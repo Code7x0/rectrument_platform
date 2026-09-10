@@ -103,7 +103,7 @@ export function SuperAdminDashboard({ data }: SuperAdminDashboardProps) {
                 <DashboardMetricCard key={metric.id} {...metric} />
               ))}
             </DashboardGrid>
-            <DashboardCard className="mt-3 text-xs text-[#64748B]">
+            <DashboardCard className="mt-3 text-xs text-muted-foreground">
               Active means login-enabled users. Pending registrations block
               Talent Partner access until Admin approval.
             </DashboardCard>

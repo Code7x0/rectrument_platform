@@ -19,7 +19,7 @@ export function JobFilters({
   onChange,
 }: JobFiltersProps) {
   return (
-    <div className="grid gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 md:grid-cols-2 xl:grid-cols-6">
+    <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-6">
       <Input
         value={filters.search ?? ""}
         placeholder="Search Job ID, title, client"

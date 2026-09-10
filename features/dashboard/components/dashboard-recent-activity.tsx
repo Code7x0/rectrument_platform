@@ -31,23 +31,26 @@ export function DashboardRecentActivity({
 
   return (
     <DashboardCard className={cn("p-0", className)}>
-      <ol className="divide-y divide-[#F1F5F9]" aria-label="Recent activity">
+      <ol className="divide-y divide-border" aria-label="Recent activity">
         {items.map((item) => {
           const body = (
             <>
-              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#CBD5E1]" aria-hidden />
+              <span
+                className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-border"
+                aria-hidden
+              />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-[#0F172A]">
+                <span className="block text-sm font-medium text-foreground">
                   {item.title}
                 </span>
                 {item.description ? (
-                  <span className="mt-0.5 block text-xs text-[#64748B]">
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
                     {item.description}
                   </span>
                 ) : null}
                 {item.timestamp ? (
                   <time
-                    className="mt-1 block text-[11px] text-[#94A3B8]"
+                    className="mt-1 block text-[11px] text-muted-foreground/80"
                     dateTime={item.timestamp}
                   >
                     {formatDateTime(item.timestamp)}
@@ -62,7 +65,7 @@ export function DashboardRecentActivity({
               <li key={item.id}>
                 <Link
                   href={item.href}
-                  className="flex gap-3 px-4 py-3 transition hover:bg-[#F8FAFC] focus-visible:bg-[#F8FAFC] focus-visible:outline-none"
+                  className="flex gap-3 px-4 py-3 transition hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
                 >
                   {body}
                 </Link>

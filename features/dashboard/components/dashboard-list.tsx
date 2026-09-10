@@ -36,28 +36,30 @@ export function DashboardList({
 
   return (
     <DashboardCard className={cn("p-0", className)}>
-      <ul className="divide-y divide-[#F1F5F9]" role="list">
+      <ul className="divide-y divide-border" role="list">
         {items.map((item) => {
           const content = (
             <>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-[#0F172A]">
+                <p className="truncate text-sm font-medium text-foreground">
                   {item.title}
                 </p>
                 {item.subtitle ? (
-                  <p className="truncate text-xs text-[#64748B]">
+                  <p className="truncate text-xs text-muted-foreground">
                     {item.subtitle}
                   </p>
                 ) : null}
               </div>
               <div className="shrink-0 text-right">
                 {item.badge ? (
-                  <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[11px] font-medium text-[#475569]">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     {item.badge}
                   </span>
                 ) : null}
                 {item.meta ? (
-                  <p className="mt-0.5 text-[11px] text-[#94A3B8]">{item.meta}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+                    {item.meta}
+                  </p>
                 ) : null}
               </div>
             </>
@@ -68,7 +70,7 @@ export function DashboardList({
               <li key={item.id}>
                 <Link
                   href={item.href}
-                  className="flex items-start gap-3 px-4 py-3 transition hover:bg-[#F8FAFC] focus-visible:bg-[#F8FAFC] focus-visible:outline-none"
+                  className="flex items-start gap-3 px-4 py-3 transition hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
                 >
                   {content}
                 </Link>

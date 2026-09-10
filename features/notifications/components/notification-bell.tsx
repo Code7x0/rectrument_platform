@@ -100,14 +100,14 @@ export function NotificationBell({
           <div
             role="dialog"
             aria-label="Notification center"
-            className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,24rem)] overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-xl"
+            className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,24rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
           >
-            <div className="flex items-center justify-between border-b border-[#F1F5F9] px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <div>
-                <p className="text-sm font-semibold text-[#0F172A]">
+                <p className="text-sm font-semibold text-foreground">
                   Notifications
                 </p>
-                <p className="text-xs text-[#64748B]">
+                <p className="text-xs text-muted-foreground">
                   {unreadCount} unread
                 </p>
               </div>
@@ -140,18 +140,18 @@ export function NotificationBell({
 
             <div className="max-h-96 overflow-y-auto">
               {items.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-[#64748B]">
+                <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                   You&apos;re all caught up.
                 </p>
               ) : (
-                <ul className="divide-y divide-[#F1F5F9]">
+                <ul className="divide-y divide-border">
                   {[...pinned, ...rest].map((item) => (
                     <li key={item.id}>
                       <button
                         type="button"
                         className={cn(
-                          "flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-[#F8FAFC]",
-                          item.readStatus === "unread" && "bg-[#F8FAFC]",
+                          "flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-muted/60",
+                          item.readStatus === "unread" && "bg-muted/60",
                         )}
                         onClick={() => {
                           const href =
@@ -165,19 +165,19 @@ export function NotificationBell({
                         }}
                       >
                         <span className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium text-[#0F172A]">
+                          <span className="text-sm font-medium text-foreground">
                             {item.title}
                           </span>
                           {item.readStatus === "unread" ? (
-                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#2563EB]" />
+                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
                           ) : null}
                         </span>
                         {item.description ? (
-                          <span className="line-clamp-2 text-xs text-[#64748B]">
+                          <span className="line-clamp-2 text-xs text-muted-foreground">
                             {item.description}
                           </span>
                         ) : null}
-                        <span className="text-[11px] text-[#94A3B8]">
+                        <span className="text-[11px] text-muted-foreground/80">
                           {NOTIFICATION_PRIORITY_LABELS[item.priority]}
                           {item.createdAt
                             ? ` · ${formatDateTime(item.createdAt)}`
@@ -190,17 +190,17 @@ export function NotificationBell({
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#F1F5F9] px-4 py-2">
+            <div className="flex items-center justify-between border-t border-border px-4 py-2">
               <Link
                 href="/notifications"
-                className="text-xs font-medium text-[#2563EB] hover:underline"
+                className="text-xs font-medium text-primary hover:underline"
                 onClick={() => setOpen(false)}
               >
                 View all
               </Link>
               <Link
                 href="/notifications/preferences"
-                className="text-xs text-[#64748B] hover:underline"
+                className="text-xs text-muted-foreground hover:underline"
                 onClick={() => setOpen(false)}
               >
                 Preferences
