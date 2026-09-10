@@ -5,6 +5,7 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 import { revalidatePath } from "next/cache";
 
 import { requirePermission, requireRole } from "@/lib/auth";
+import { invalidateCrmAfterPartnerMutation } from "@/lib/cache/crm-cache";
 import {
   archivePartner,
   createPartner,
@@ -50,6 +51,7 @@ function formToInput(values: PartnerFormValues) {
 }
 
 function revalidatePartnerPaths(partnerId?: string) {
+  invalidateCrmAfterPartnerMutation();
   revalidatePath("/admin/partners");
   if (partnerId) {
     revalidatePath(`/admin/partners/${partnerId}`);

@@ -3,6 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { actionErrorMessage } from "@/lib/actions/errors";
+import {
+  invalidateCrmAfterAccountManagerMutation,
+  invalidateCrmAfterClientMutation,
+  invalidateCrmAfterJobMutation,
+} from "@/lib/cache/crm-cache";
 import { requireRole } from "@/lib/auth";
 import {
   assignAccountManagerToClient,
@@ -15,6 +20,9 @@ export type ActionResult =
   | { success: false; message: string };
 
 function revalidateAmPaths(clientId?: string) {
+  invalidateCrmAfterAccountManagerMutation();
+  invalidateCrmAfterClientMutation();
+  invalidateCrmAfterJobMutation();
   revalidatePath("/admin/account-managers");
   revalidatePath("/admin/clients");
   revalidatePath("/account-manager/clients");

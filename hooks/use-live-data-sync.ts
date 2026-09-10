@@ -11,15 +11,15 @@ import {
 } from "@/lib/live-sync";
 
 /**
- * Pulse hits Clerk + session + Airtable fingerprint work.
+ * Pulse hits Clerk + lightweight identity + notification fingerprint only.
  * An 8s cadence across all open dashboards dominated Vercel Fluid Active CPU.
  */
-const PULSE_INTERVAL_MS = 45_000;
+const PULSE_INTERVAL_MS = 90_000;
 /**
- * Safety-net full RSC refresh. Pulse + mutation `rpms:data` cover normal
- * updates; avoid re-running every layout/page Airtable tree every minute.
+ * Safety-net full RSC refresh for CRM edits outside the app or missed
+ * notification publishes. Pulse + mutation `rpms:data` cover normal updates.
  */
-const FULL_REFRESH_INTERVAL_MS = 5 * 60_000;
+const FULL_REFRESH_INTERVAL_MS = 12 * 60_000;
 const MIN_FULL_REFRESH_GAP_MS = 5_000;
 
 /**
@@ -93,13 +93,11 @@ export function useLiveDataSync(): void {
 
     function onFocus() {
       void checkPulse();
-      fullRefresh(false);
     }
 
     function onVisibility() {
       if (document.visibilityState === "visible") {
         void checkPulse();
-        fullRefresh(false);
       }
     }
 

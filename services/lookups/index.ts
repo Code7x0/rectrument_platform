@@ -1,17 +1,28 @@
 import { cache } from "react";
 
-import { listAccountManagerOptions as fetchAccountManagers } from "./accountManagers.lookup";
-import { listClientOptions as fetchClients } from "./clients.lookup";
-import { listPartnerOptions as fetchPartners } from "./partners.lookup";
+import {
+  getCachedAccountManagerLookupOptions,
+  getCachedClientLookupOptions,
+  getCachedPartnerLookupOptions,
+} from "@/lib/cache/crm-cache";
+
+import type { PartnerLookupMode } from "./partners.lookup";
 
 /**
- * Request-scoped cached lookups (React cache).
- * Prevents duplicate Airtable calls within a single RSC render.
- * Also safe to wrap with React Query on the client later.
+ * Request-scoped + cross-request cached lookups.
+ * Prevents duplicate Airtable calls within a single RSC render and across
+ * short-lived requests (90s TTL with tag invalidation on mutations).
  */
-export const listClientOptions = cache(fetchClients);
-export const listPartnerOptions = cache(fetchPartners);
-export const listAccountManagerOptions = cache(fetchAccountManagers);
+export const listClientOptions = cache(async () =>
+  getCachedClientLookupOptions(),
+);
+export const listPartnerOptions = cache(
+  async (mode: PartnerLookupMode = "identity") =>
+    getCachedPartnerLookupOptions(mode),
+);
+export const listAccountManagerOptions = cache(async () =>
+  getCachedAccountManagerLookupOptions(),
+);
 
 export type { LookupOption, LookupOptionsResult } from "./types";
 export type { PartnerLookupMode } from "./partners.lookup";

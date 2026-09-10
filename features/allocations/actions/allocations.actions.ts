@@ -4,6 +4,7 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 
 import { revalidatePath } from "next/cache";
 
+import { invalidateCrmAfterAllocationMutation } from "@/lib/cache/crm-cache";
 import {
   requirePermission,
   requireRole,
@@ -31,6 +32,7 @@ export type ActionResult<T = unknown> =
   | { success: false; message: string; errors?: string[] };
 
 function revalidateAllocationPaths() {
+  invalidateCrmAfterAllocationMutation();
   revalidatePath("/admin/allocations");
   revalidatePath("/account-manager/allocations");
   revalidatePath("/admin/jobs");

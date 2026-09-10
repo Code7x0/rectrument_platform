@@ -23,6 +23,8 @@ import type {
   UpdatePartnerInput,
 } from "@/features/partners/types";
 import { PARTNERS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import { getCachedAllPartners } from "@/lib/cache/crm-cache";
+import { cache } from "react";
 
 function applySearch(partners: Partner[], search?: string): Partner[] {
   if (!search?.trim()) {
@@ -39,16 +41,20 @@ function applySearch(partners: Partner[], search?: string): Partner[] {
   );
 }
 
+const loadAllPartnersCached = cache(async () => getCachedAllPartners());
+
 export async function listPartners(
   filters: PartnerListFilters = {},
 ): Promise<Partner[]> {
   const { search, ...airtableFilters } = filters;
   const formula = buildPartnersFilterFormula(airtableFilters);
 
-  const rows = await findPartners({
-    ...(formula ? { filterByFormula: formula } : {}),
-    sort: [{ field: PARTNERS_TABLE_FIELDS.companyName, direction: "asc" }],
-  });
+  const rows = formula
+    ? await findPartners({
+        filterByFormula: formula,
+        sort: [{ field: PARTNERS_TABLE_FIELDS.companyName, direction: "asc" }],
+      })
+    : await loadAllPartnersCached();
 
   return applySearch(rows, search);
 }

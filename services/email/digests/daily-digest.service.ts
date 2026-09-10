@@ -239,13 +239,32 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
   const windowStart = rollingWindowStart(now);
   const digestDate = formatOvatoDate(now);
 
-  const [submissions, jobs, queries, amUsers, partnerUsers] = await Promise.all([
-    listSubmissions({ includePartnerIdentity: true }),
-    listJobs({ includeArchived: false }),
-    listPartnerQueries(),
-    listUsers({ role: "account_manager", status: "active" }),
-    listUsers({ role: "partner", status: "active" }),
-  ]);
+  const [submissions, jobs, queries, amUsers, partnerUsers, allAllocations] =
+    await Promise.all([
+      listSubmissions({ includePartnerIdentity: true }),
+      listJobs({ includeArchived: false }),
+      listPartnerQueries(),
+      listUsers({ role: "account_manager", status: "active" }),
+      listUsers({ role: "partner", status: "active" }),
+      listAllocations({ includePartnerIdentity: false }),
+    ]);
+
+  const activeAllocationsByPartner = new Map<string, Set<string>>();
+  for (const allocation of allAllocations) {
+    if (
+      allocation.status === "archived" ||
+      allocation.status === "cancelled"
+    ) {
+      continue;
+    }
+    const partnerKey = allocation.partnerId?.trim();
+    if (!partnerKey) {
+      continue;
+    }
+    const jobIds = activeAllocationsByPartner.get(partnerKey) ?? new Set();
+    jobIds.add(allocation.jobId);
+    activeAllocationsByPartner.set(partnerKey, jobIds);
+  }
 
   const jobMap = new Map(
     jobs.map((job) => [
@@ -348,16 +367,10 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       continue;
     }
     const owned = submissions.filter((row) => row.partnerId === partner.partnerId);
-    const allocatedJobIds = new Set(
-      (
-        await listAllocations({
-          partnerId: partner.partnerId,
-          includePartnerIdentity: false,
-        })
-      )
-        .filter((row) => row.status !== "archived" && row.status !== "cancelled")
-        .map((row) => row.jobId),
-    );
+    // Preserved from prior per-partner listAllocations scope (not yet used in body).
+    const _allocatedJobIds =
+      activeAllocationsByPartner.get(partner.partnerId) ?? new Set<string>();
+    void _allocatedJobIds;
 
     const newRoleTitles = jobs
       .filter((job) => {

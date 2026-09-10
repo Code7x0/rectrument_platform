@@ -2,6 +2,7 @@ import { getRecords, updateRecord } from "@/lib/airtable/client";
 import { getOptionalEnv } from "@/lib/api/env";
 import { isClientCompatMode } from "@/lib/airtable/compat";
 import { ACCOUNT_MANAGERS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import { isValidAmCode, parseAmCodeMarker } from "@/lib/business-ids";
 import { listClients } from "@/features/clients/services";
 
 function asString(value: unknown): string | null {
@@ -85,9 +86,6 @@ export async function listAccountManagersDirectory(): Promise<{
   }
 
   const rows: AccountManagerDirectoryRow[] = [];
-  const { ensureAccountManagerHasBusinessCode } = await import(
-    "@/features/shared/services/business-ids.service"
-  );
 
   for (const record of amRecords) {
     const email = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.email]);
@@ -101,21 +99,12 @@ export async function listAccountManagersDirectory(): Promise<{
     const status = mapStatus(
       asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.status]),
     );
-    const phone = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]);
     const comments = asString(
       record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
     );
-    let amCode = "—";
-    try {
-      amCode = await ensureAccountManagerHasBusinessCode({
-        id: record.id,
-        name,
-        phone,
-        comments,
-      });
-    } catch (error) {
-      console.error("[am-code] directory ensure failed", record.id, error);
-    }
+    const parsedCode = parseAmCodeMarker(comments);
+    const amCode =
+      parsedCode && isValidAmCode(parsedCode) ? parsedCode : "—";
     const linked = clientsByAm.get(record.id) ?? [];
     rows.push({
       id: record.id,

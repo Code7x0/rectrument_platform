@@ -36,6 +36,8 @@ import {
   toAirtableUpdateFields,
 } from "./jobs.mapper";
 import { buildJobsFilterFormula } from "./jobs.validation";
+import { getCachedAllJobs } from "@/lib/cache/crm-cache";
+
 import { filterJobsForAccountManager } from "./jobs-am-visibility";
 
 const valueMaps = {
@@ -147,12 +149,8 @@ function applySearchFilter(jobs: Job[], search?: string): Job[] {
   );
 }
 
-/** Request-scoped full jobs scan. */
-const loadAllJobsCached = cache(async () =>
-  findJobs({
-    sort: [{ field: JOBS_TABLE_FIELDS.createdAt, direction: "desc" }],
-  }),
-);
+/** Request-scoped + cross-request cached full jobs scan. */
+const loadAllJobsCached = cache(async () => getCachedAllJobs());
 
 export async function listJobs(filters: JobListFilters = {}): Promise<Job[]> {
   const { search, accountManagerId, clientId, ...rest } = filters;

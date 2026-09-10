@@ -31,6 +31,7 @@ import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   CLIENTS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { getCachedAllClients } from "@/lib/cache/crm-cache";
 
 /** Prefer ID formula when the set is small; otherwise one full Clients scan. */
 const CLIENTS_BY_ID_THRESHOLD = 40;
@@ -69,12 +70,8 @@ export function clientOwnedByAccountManager(
   return client.accountManagerId === amId;
 }
 
-/** Request-scoped full clients scan. */
-const loadAllClientsCached = cache(async () =>
-  findClients({
-    sort: [{ field: CLIENTS_TABLE_FIELDS.name, direction: "asc" }],
-  }),
-);
+/** Request-scoped + cross-request cached full clients scan. */
+const loadAllClientsCached = cache(async () => getCachedAllClients());
 
 async function withAccountManagerNames(clients: Client[]): Promise<Client[]> {
   if (clients.length === 0) {

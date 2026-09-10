@@ -6,7 +6,7 @@ import {
   USERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
-import { parseAmCodeMarker } from "@/lib/business-ids";
+import { isValidAmCode, parseAmCodeMarker } from "@/lib/business-ids";
 
 import type { LookupOption } from "./types";
 
@@ -25,10 +25,6 @@ export async function listAccountManagerOptions(): Promise<LookupOption[]> {
       sort: [{ field: ACCOUNT_MANAGERS_TABLE_FIELDS.name, direction: "asc" }],
     });
 
-    const { ensureAccountManagerHasBusinessCode } = await import(
-      "@/features/shared/services/business-ids.service"
-    );
-
     const options: LookupOption[] = [];
     for (const record of records) {
       const name =
@@ -37,25 +33,16 @@ export async function listAccountManagerOptions(): Promise<LookupOption[]> {
       if (!name) {
         continue;
       }
-      const phone = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]);
       const comments = asString(
         record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
       );
-      let code = parseAmCodeMarker(comments);
-      try {
-        code = await ensureAccountManagerHasBusinessCode({
-          id: record.id,
-          name,
-          phone,
-          comments,
-        });
-      } catch (error) {
-        console.error("[am-code] ensure failed", record.id, error);
-      }
+      const parsedCode = parseAmCodeMarker(comments);
+      const code =
+        parsedCode && isValidAmCode(parsedCode) ? parsedCode : null;
       options.push({
         id: record.id,
         label: name,
-        code: code ?? null,
+        code,
       });
     }
     return options;

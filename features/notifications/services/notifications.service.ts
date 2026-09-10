@@ -351,141 +351,85 @@ export const getUnreadNotificationCount = cache(
 
 /**
  * Cheap fingerprint for soft real-time polling.
- * Combines notification head + CRM head so list/dashboard changes
- * (not only notification inserts) trigger a refresh for other users.
+ *
+ * Uses notification storage only (Airtable Notifications table or ephemeral
+ * file store) — no submissions scans or derived notification fan-out.
+ *
+ * LIMITATION: Cross-user CRM changes that do not publish a notification will
+ * not bump this fingerprint. Other users rely on the safety-net router.refresh()
+ * interval and their own mutations (signalLiveDataChange). There is no
+ * serverless-safe global revision counter without external storage (Redis/DB).
  */
 export async function getSyncFingerprint(userId: string): Promise<{
   fingerprint: string;
   unread: number;
 }> {
   try {
-    const { findSubmissionsSafe } = await import(
-      "@/features/submissions/repositories/submissions.repository"
-    );
-    const { SUBMISSIONS_TABLE_FIELDS } = await import(
-      "@/lib/airtable/fields"
-    );
+    if (isNotificationsStorageAvailable()) {
+      const recipientFormula = buildNotificationsFilterFormula({
+        recipientUserId: userId,
+        archived: false,
+      });
+      const unreadFormula = buildNotificationsFilterFormula({
+        recipientUserId: userId,
+        readStatus: "unread",
+        archived: false,
+      });
 
-    // Fingerprint sample only — not a data payload. Cap rows to limit Airtable
-    // page size + mapping cost on every open dashboard tab.
-    const crmHeadPromise = findSubmissionsSafe({
-      sort: [
-        {
-          field: SUBMISSIONS_TABLE_FIELDS.submissionDate,
-          direction: "desc",
-        },
-      ],
-      maxRecords: 40,
-    })
-      .then((rows) => {
-        const detail = rows
-          .map((row) =>
-            [
-              row.id,
-              row.submissionDate ?? "",
-              row.status,
-              row.airtableStatus ?? "",
-              row.interviewStage ?? "",
-              row.remarks ?? "",
-              row.internalFeedback ?? "",
-              row.wantsSecondLevelReview ? "1" : "0",
-            ].join(":"),
-          )
-          .join(";");
-        const statusDigest = rows
-          .map((row) => `${row.id}:${row.airtableStatus ?? row.status}`)
-          .sort()
-          .join(",");
-        return { crmHead: `${detail}#${statusDigest}`, rows };
-      })
-      .catch(() => ({ crmHead: "", rows: [] as Awaited<
-        ReturnType<typeof findSubmissionsSafe>
-      > }));
-
-    if (!isNotificationsStorageAvailable()) {
-      const viewer = await getUserById(userId);
-      const partnerScopeId = viewer?.partnerId?.trim() || null;
-
-      const [crm, derived, ephemeralHead, partnerDigest] = await Promise.all([
-        crmHeadPromise,
-        deriveNotificationsForViewer({
-          recipientUserId: userId,
-          partnerId: viewer?.partnerId,
-          accountManagerId: viewer?.accountManagerId,
-          role: viewer?.role,
-          maxRecords: 100,
+      const [latest, unreadRows] = await Promise.all([
+        findNotifications({
+          filterByFormula: recipientFormula,
+          sort: [
+            { field: NOTIFICATIONS_TABLE_FIELDS.createdAt, direction: "desc" },
+          ],
+          maxRecords: 1,
         }),
-        import("@/features/notifications/lib/ephemeral-notification-store").then(
-          ({ getEphemeralSyncFingerprint }) =>
-            getEphemeralSyncFingerprint(userId),
-        ),
-        partnerScopeId
-          ? import("@/features/submissions/services/submissions.service").then(
-              async ({ listPartnerSubmissions }) => {
-                const rows = await listPartnerSubmissions(partnerScopeId);
-                return rows
-                  .map(
-                    (row) =>
-                      `${row.id}:${row.airtableStatus ?? row.status}:${row.interviewStage ?? ""}`,
-                  )
-                  .sort()
-                  .join(",");
-              },
-            )
-          : Promise.resolve(""),
+        findNotifications({
+          filterByFormula: unreadFormula,
+          maxRecords: 50,
+        }),
       ]);
-      const unread = derived.filter((row) => row.readStatus === "unread").length;
-      const head = derived[0];
-      const crmHead =
-        partnerScopeId && partnerDigest ? partnerDigest : crm.crmHead;
+
+      const head = latest[0];
+      const unread = unreadRows.length;
       return {
         unread,
         fingerprint: [
+          "v2",
           unread,
           head?.id ?? "",
           head?.createdAt ?? "",
+          head?.readStatus ?? "",
           head?.type ?? "",
-          ephemeralHead,
-          crmHead,
+          head?.entityId ?? "",
         ].join("|"),
       };
     }
 
-    const recipientFormula = buildNotificationsFilterFormula({
-      recipientUserId: userId,
-      archived: false,
-    });
-    const unreadFormula = buildNotificationsFilterFormula({
-      recipientUserId: userId,
-      readStatus: "unread",
-      archived: false,
-    });
-
-    const [latest, unreadRows, crm] = await Promise.all([
-      findNotifications({
-        filterByFormula: recipientFormula,
-        sort: [
-          { field: NOTIFICATIONS_TABLE_FIELDS.createdAt, direction: "desc" },
-        ],
-        maxRecords: 1,
-      }),
-      findNotifications({
-        filterByFormula: unreadFormula,
-        maxRecords: 50,
-      }),
-      crmHeadPromise,
+    const {
+      getEphemeralSyncFingerprint,
+      listEphemeralNotificationsForRecipient,
+    } = await import(
+      "@/features/notifications/lib/ephemeral-notification-store"
+    );
+    const [ephemeralHead, ephemeralRows] = await Promise.all([
+      getEphemeralSyncFingerprint(userId),
+      listEphemeralNotificationsForRecipient(userId, { maxRecords: 50 }),
     ]);
+    const unread = ephemeralRows.filter(
+      (row) => row.readStatus === "unread",
+    ).length;
+    const head = ephemeralRows[0];
 
-    const head = latest[0];
-    const unread = unreadRows.length;
     return {
       unread,
       fingerprint: [
+        "v2-ephemeral",
         unread,
         head?.id ?? "",
         head?.createdAt ?? "",
-        head?.readStatus ?? "",
-        crm.crmHead,
+        head?.type ?? "",
+        ephemeralHead,
       ].join("|"),
     };
   } catch (error) {

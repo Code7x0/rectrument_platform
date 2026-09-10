@@ -7,6 +7,10 @@ import { auth } from "@clerk/nextjs/server";
 
 import { requirePermission, requireRole } from "@/lib/auth";
 import {
+  invalidateCrmAfterPartnerMutation,
+  invalidateCrmAfterUserMutation,
+} from "@/lib/cache/crm-cache";
+import {
   acceptInvitation,
   approvePartnerApplication,
   attachPartnerRegistrationDocument,
@@ -37,6 +41,8 @@ export type ActionResult<T = unknown> =
   | { success: false; message: string; errors?: string[] };
 
 function revalidateUserPaths() {
+  invalidateCrmAfterUserMutation();
+  invalidateCrmAfterPartnerMutation();
   revalidatePath("/admin/approvals");
   revalidatePath("/admin/partners");
   revalidatePath("/super-admin");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { actionErrorMessage } from "@/lib/actions/errors";
+import { invalidateCrmAfterAllocationMutation } from "@/lib/cache/crm-cache";
 import {
   requirePermission,
   requireRole,
@@ -34,6 +35,7 @@ export type ActionResult<T = unknown> =
   | { success: false; message: string };
 
 function revalidateClaimPaths() {
+  invalidateCrmAfterAllocationMutation();
   revalidatePath("/partner/available-jobs");
   revalidatePath("/partner/jobs");
   revalidatePath("/partner");

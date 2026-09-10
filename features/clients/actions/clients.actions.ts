@@ -5,6 +5,7 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 import { revalidatePath } from "next/cache";
 
 import { requirePermission, requireRole } from "@/lib/auth";
+import { invalidateCrmAfterClientMutation } from "@/lib/cache/crm-cache";
 import {
   archiveClient,
   createClient,
@@ -52,6 +53,7 @@ function formToInput(values: ClientFormValues) {
 }
 
 function revalidateClientPaths(clientId?: string) {
+  invalidateCrmAfterClientMutation();
   revalidatePath("/admin/clients");
   revalidatePath("/account-manager/clients");
   if (clientId) {

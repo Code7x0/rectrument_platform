@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
@@ -44,6 +44,15 @@ export function SearchPageClient({
   const [response, setResponse] = useState(initial);
   const [pending, startTransition] = useTransition();
   const { addRecent } = useRecentSearches();
+  /** SSR already fetched matching results — skip the duplicate client fetch on mount. */
+  const skipInitialClientFetchRef = useRef(
+    Boolean(
+      initial &&
+        initialQuery.trim() &&
+        query.trim() === initialQuery.trim() &&
+        filter === initialFilter,
+    ),
+  );
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -63,6 +72,10 @@ export function SearchPageClient({
   useEffect(() => {
     if (!query.trim()) {
       setResponse(null);
+      return;
+    }
+    if (skipInitialClientFetchRef.current) {
+      skipInitialClientFetchRef.current = false;
       return;
     }
     startTransition(async () => {

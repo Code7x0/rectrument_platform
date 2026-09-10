@@ -5,6 +5,7 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 import { revalidatePath } from "next/cache";
 
 import { requirePermission, requireRole } from "@/lib/auth";
+import { invalidateCrmAfterJobMutation } from "@/lib/cache/crm-cache";
 import {
   archiveJob,
   createJob,
@@ -21,6 +22,21 @@ import type { Job } from "@/features/jobs/types";
 export type ActionResult<T = unknown> =
   | { success: true; data: T }
   | { success: false; message: string; errors?: string[] };
+
+function revalidateJobMutationPaths(options?: {
+  notifications?: boolean;
+  allocations?: boolean;
+}) {
+  invalidateCrmAfterJobMutation();
+  revalidatePath("/admin/jobs");
+  revalidatePath("/account-manager/jobs");
+  if (options?.notifications) {
+    revalidatePath("/notifications");
+  }
+  if (options?.allocations) {
+    revalidatePath("/admin/allocations");
+  }
+}
 
 function resolveSelectedAccountManagerIds(values: JobFormValues): string[] {
   return Array.from(
@@ -228,9 +244,7 @@ export async function createJobAction(
       },
     });
 
-    revalidatePath("/admin/jobs");
-    revalidatePath("/account-manager/jobs");
-    revalidatePath("/notifications");
+    revalidateJobMutationPaths({ notifications: true });
 
     return { success: true, data: job };
   } catch (error) {
@@ -322,9 +336,7 @@ export async function updateJobAction(
       },
     });
 
-    revalidatePath("/admin/jobs");
-    revalidatePath("/account-manager/jobs");
-    revalidatePath("/notifications");
+    revalidateJobMutationPaths({ notifications: true });
 
     return { success: true, data: job };
   } catch (error) {
@@ -354,8 +366,7 @@ export async function archiveJobAction(jobId: string): Promise<ActionResult> {
     }
     const job = await archiveJob(jobId);
 
-    revalidatePath("/admin/jobs");
-    revalidatePath("/account-manager/jobs");
+    revalidateJobMutationPaths();
 
     return { success: true, data: job };
   } catch (error) {
@@ -390,8 +401,7 @@ export async function removeJobAttachmentAction(input: {
     }
 
     const job = await removeJobAttachment(input);
-    revalidatePath("/admin/jobs");
-    revalidatePath("/account-manager/jobs");
+    revalidateJobMutationPaths();
     return { success: true, data: job };
   } catch (error) {
     return {
@@ -410,9 +420,7 @@ export async function deleteJobAction(jobId: string): Promise<ActionResult> {
     await requireRole(["admin", "super_admin"]);
     await deleteJob(jobId);
 
-    revalidatePath("/admin/jobs");
-    revalidatePath("/account-manager/jobs");
-    revalidatePath("/admin/allocations");
+    revalidateJobMutationPaths({ allocations: true });
 
     return { success: true, data: { id: jobId } };
   } catch (error) {
