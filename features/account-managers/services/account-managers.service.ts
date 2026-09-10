@@ -99,6 +99,7 @@ export async function listAccountManagersDirectory(): Promise<{
     const status = mapStatus(
       asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.status]),
     );
+    const phone = asString(record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.phone]);
     const comments = asString(
       record.fields[ACCOUNT_MANAGERS_TABLE_FIELDS.comments],
     );

@@ -185,11 +185,17 @@ export function renderBody(
         greeting: "Hello Chief",
         sections: [
           "A new partner has registered, please review the request below:",
-          "",
-          `Name: ${data.partnerName ?? data.name ?? "—"}`,
-          `Years of Experience: ${data.experience ?? "—"}`,
-          `Specialization: ${data.specialization ?? data.skills ?? "—"}`,
-          data.email ? `Email: ${data.email}` : "",
+          formatTable(
+            ["Name", "Years of Experience", "Specialization", "Email"],
+            [
+              [
+                data.partnerName ?? data.name ?? "—",
+                data.experience ?? "—",
+                data.specialization ?? data.skills ?? "—",
+                data.email ?? "—",
+              ],
+            ],
+          ),
           data.approvalUrl
             ? `Approval Link: ${data.approvalUrl}`
             : "Open the Approvals page in the Admin console to review.",
@@ -323,11 +329,17 @@ export function renderBody(
         greeting: "Hello Chief",
         sections: [
           "A candidate has been marked as Selected:",
-          "",
-          `Candidate: ${data.candidateName ?? "—"}`,
-          `Job: ${data.jobTitle ?? "—"}`,
-          data.clientName ? `Client: ${data.clientName}` : "",
-          data.partnerCode ? `Partner: ${data.partnerCode}` : "",
+          formatTable(
+            ["Candidate", "Job", "Client", "Partner"],
+            [
+              [
+                data.candidateName ?? "—",
+                data.jobTitle ?? "—",
+                data.clientName ?? "—",
+                data.partnerCode ?? "—",
+              ],
+            ],
+          ),
         ],
         dashboardUrl: data.reviewUrl,
       });

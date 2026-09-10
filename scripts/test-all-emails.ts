@@ -44,6 +44,7 @@ process.env.APP_URL =
   process.env.APP_URL?.replace(/\/$/, "") || process.env.NEXT_PUBLIC_APP_URL;
 
 import type { EmailTemplateId } from "../services/email/types";
+import { formatCountLine, formatTable } from "../services/email/layout";
 import { DEFAULT_SUBJECTS, renderBody } from "../services/email/templates";
 import { sendEmail } from "../services/email";
 
@@ -217,7 +218,10 @@ const TEMPLATE_SAMPLES: Array<{
     data: {
       name: "Account Manager",
       clientName: "Test Client",
-      changeTable: "Field | Before | After\nStatus | Active | On hold",
+      changeTable: formatTable(
+        ["Client ID", "Field Updated", "Present Value"],
+        [["CL_001", "Status", "On hold"]],
+      ),
       clientsUrl: `${base}/account-manager/clients`,
     },
   },
@@ -258,7 +262,18 @@ const TEMPLATE_SAMPLES: Array<{
     to: RECIPIENTS.admin,
     data: {
       name: "Account Manager",
-      digestBody: "SMOKE TEST — AM daily digest sample block.",
+      digestBody: [
+        formatCountLine("New Profiles Added for your action", 2),
+        formatCountLine("Profiles Pending your action", 5),
+        "",
+        "Profiles Recommended:",
+        "",
+        "Test Client",
+        formatTable(
+          ["Designation", "Count"],
+          [["Senior Developer", "2"], ["Product Manager", "1"]],
+        ),
+      ].join("\n"),
       dashboardUrl: `${base}/account-manager`,
     },
   },
@@ -267,7 +282,18 @@ const TEMPLATE_SAMPLES: Array<{
     to: RECIPIENTS.admin,
     data: {
       name: "Partner",
-      digestBody: "SMOKE TEST — Partner daily digest sample block.",
+      digestBody: [
+        "Jobs Assigned",
+        formatTable(
+          [
+            "Super High Priority Jobs",
+            "Candidates Pending Review",
+            "Candidates Internal Screening in Progress",
+            "Being Submitted to Client",
+          ],
+          [["1", "3", "2", "1"]],
+        ),
+      ].join("\n"),
       dashboardUrl: `${base}/partner`,
     },
   },
@@ -276,7 +302,17 @@ const TEMPLATE_SAMPLES: Array<{
     to: RECIPIENTS.superAdmin,
     data: {
       name: "Chief",
-      digestBody: "SMOKE TEST — Admin daily digest sample block.",
+      digestBody: [
+        formatTable(
+          [
+            "Pending Review: Total Count",
+            "Being Submitted to Client: Total Count",
+            "Interviewing: Total Count",
+            "Selects: Total Count",
+          ],
+          [["12", "8", "4", "2"]],
+        ),
+      ].join("\n"),
       dashboardUrl: `${base}/admin`,
     },
   },
