@@ -84,7 +84,7 @@ export async function assignAccountManagerToJobAction(input: {
   accountManagerIds?: string[];
 }): Promise<ActionResult> {
   try {
-    await requireRole(["admin", "super_admin"]);
+    const session = await requireRole(["admin", "super_admin"]);
     if (!input.jobId) {
       return { success: false, message: "Job is required" };
     }
@@ -116,10 +116,19 @@ export async function assignAccountManagerToJobAction(input: {
       ),
     );
 
-    await updateJob(input.jobId, {
-      accountManagerId: accountManagerIds[0] ?? "",
-      accountManagerIds,
-    });
+    await updateJob(
+      input.jobId,
+      {
+        accountManagerId: accountManagerIds[0] ?? "",
+        accountManagerIds,
+      },
+      {
+        notificationContext: {
+          actorUserId: session.userId,
+          actorRole: session.role,
+        },
+      },
+    );
 
     revalidateAmPaths(job.clientId ?? undefined);
     revalidatePath("/admin/jobs");

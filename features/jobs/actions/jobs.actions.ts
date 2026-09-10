@@ -222,6 +222,10 @@ export async function createJobAction(
       jdUpload,
       sampleResumeUpload,
       commentAttachmentUpload,
+      notificationContext: {
+        actorUserId: session.userId,
+        actorRole: session.role,
+      },
     });
 
     revalidatePath("/admin/jobs");
@@ -312,6 +316,10 @@ export async function updateJobAction(
       jdUpload,
       sampleResumeUpload,
       commentAttachmentUpload,
+      notificationContext: {
+        actorUserId: session.userId,
+        actorRole: session.role,
+      },
     });
 
     revalidatePath("/admin/jobs");

@@ -4,7 +4,7 @@ import { getOptionalEnv } from "@/lib/api/env";
 import { sendDailyDigests } from "@/services/email/digests/daily-digest.service";
 
 /**
- * Vercel Cron — daily digest emails (Section 9 of requirements doc).
+ * Vercel Cron — daily digest emails at 7:00 AM IST (01:30 UTC).
  * Schedule in vercel.json. Protect with CRON_SECRET.
  */
 export async function GET(request: Request) {

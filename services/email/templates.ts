@@ -3,6 +3,7 @@ import {
   formatOvatoDate,
   formatOvatoEmailBody,
   formatOvatoSubject,
+  formatTable,
   OVATO_SIGNATURE,
 } from "@/services/email/layout";
 import type { EmailTemplateId } from "@/services/email/types";
@@ -232,7 +233,14 @@ export function renderBody(
       return formatOvatoEmailBody({
         sections: [
           `${data.clientName ?? "A client"}${data.clientCode ? ` (${data.clientCode})` : ""} has been updated. Do have a look.`,
-          data.changeTable ?? data.changedSummary ?? "",
+          data.changeTable?.trim()
+            ? data.changeTable
+            : data.changedSummary?.trim()
+              ? formatTable(
+                  ["Client ID", "Field Updated", "Present Value"],
+                  [[data.clientCode ?? "—", "Details", data.changedSummary]],
+                )
+              : "",
         ],
         dashboardUrl: data.clientsUrl,
         closing: "Happy Hiring!!!",
@@ -342,7 +350,14 @@ export function renderBody(
       return formatOvatoEmailBody({
         sections: [
           `Job ${data.jobCode ?? data.jobTitle ?? "update"} has been updated. Do have a look.`,
-          data.changeTable ?? data.changedSummary ?? "",
+          data.changeTable?.trim()
+            ? data.changeTable
+            : data.changedSummary?.trim()
+              ? formatTable(
+                  ["Job ID", "Field Updated", "Present Value"],
+                  [[data.jobCode ?? data.jobTitle ?? "—", "Details", data.changedSummary]],
+                )
+              : "",
         ],
         dashboardUrl: data.jobsUrl,
         closing: "Happy Hiring!!!",

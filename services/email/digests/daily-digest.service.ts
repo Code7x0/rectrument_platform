@@ -16,6 +16,7 @@ import {
   formatCountLine,
   formatOvatoDate,
   formatTable,
+  getDigestWindow,
 } from "@/services/email/layout";
 import { sendEmailSafe } from "@/services/email";
 import { listUsers } from "@/services/users";
@@ -31,9 +32,7 @@ function appBaseUrl(): string {
 }
 
 function rollingWindowStart(now: Date): Date {
-  const start = new Date(now);
-  start.setUTCHours(start.getUTCHours() - 24);
-  return start;
+  return getDigestWindow(now).start;
 }
 
 function parseSubmissionDate(value: string | null | undefined): Date | null {
@@ -183,15 +182,22 @@ function buildPartnerSnapshot(rows: Submission[]): string {
 
   return [
     "Jobs Assigned",
-    formatCountLine("Super High Priority Jobs", superHigh),
-    formatCountLine("Candidates Pending Review", count("pending_review")),
-    formatCountLine(
-      "Candidates Internal Screening in Progress",
-      count("internal_screening"),
+    formatTable(
+      [
+        "Super High Priority Jobs",
+        "Candidates Pending Review",
+        "Candidates Internal Screening in Progress",
+        "Being Submitted to Client",
+      ],
+      [
+        [
+          String(superHigh),
+          String(count("pending_review")),
+          String(count("internal_screening")),
+          String(count("being_submitted")),
+        ],
+      ],
     ),
-    formatCountLine("Being Submitted to Client", count("being_submitted")),
-    formatCountLine("Interviewing", count("interviewing")),
-    formatCountLine("Selected", count("selected")),
   ].join("\n");
 }
 
@@ -368,12 +374,21 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     const digestBody = [
       digestDate,
       "",
-      formatCountLine("New Roles Activated – Available to be claimed", newRoleTitles.length),
+      "New Accounts Activated",
+      "No new accounts activated in the last 24 hours.",
+      "",
+      formatCountLine(
+        "New Roles Activated – Available to be claimed",
+        newRoleTitles.length,
+      ),
       newRoleTitles.length === 0
         ? "No new open roles in the last 24 hours."
         : newRoleTitles.map((title) => `  • ${title}`).join("\n"),
       "",
       buildPartnerSnapshot(owned),
+      "",
+      "Job Changes",
+      "No job changes in the last 24 hours.",
       "",
       buildPartnerCandidateUpdates(owned),
     ].join("\n");
@@ -402,46 +417,81 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     : await getAdminNotificationEmails();
 
   if (fallbackAdmins.length > 0) {
+    const pendingReview = submissions.filter((row) =>
+      matchesSubmissionStatusGroup(row, "pending_review"),
+    ).length;
+    const beingSubmitted = submissions.filter((row) =>
+      matchesSubmissionStatusGroup(row, "being_submitted"),
+    ).length;
+    const interviewing = submissions.filter((row) =>
+      matchesSubmissionStatusGroup(row, "interviewing"),
+    ).length;
+    const selects = submissions.filter((row) =>
+      matchesSubmissionStatusGroup(row, "selected"),
+    ).length;
+    const freshProfiles = submissions.filter((row) =>
+      inWindow(row.submissionDate, windowStart, now),
+    ).length;
+    const rolesWithProfiles = new Set(
+      submissions
+        .filter((row) => inWindow(row.submissionDate, windowStart, now))
+        .map((row) => row.jobId)
+        .filter(Boolean),
+    ).size;
+
+    const amSlaCounts = new Map<string, number>();
+    for (const am of amUsers) {
+      const amId = am.accountManagerId ?? am.id;
+      if (!amId) {
+        continue;
+      }
+      const owned = submissions.filter((row) =>
+        submissionOwnedByAm(row, jobMap, amId),
+      );
+      const breached = owned.filter((row) => {
+        if (
+          !matchesSubmissionStatusGroup(row, "pending_review") &&
+          !matchesSubmissionStatusGroup(row, "internal_screening")
+        ) {
+          return false;
+        }
+        const submitted = parseSubmissionDate(row.submissionDate);
+        const cutoff = new Date(now.getTime() - SLA_HOURS * 60 * 60 * 1000);
+        return submitted != null && submitted <= cutoff;
+      }).length;
+      amSlaCounts.set(am.fullName?.trim() || am.email || amId, breached);
+    }
+
+    const amNames = [...amSlaCounts.keys()];
+    const amCounts = [...amSlaCounts.values()];
+
     const digestBody = [
-      formatCountLine(
-        "Pending Review",
-        submissions.filter((row) =>
-          matchesSubmissionStatusGroup(row, "pending_review"),
-        ).length,
-      ),
-      formatCountLine(
-        "Being Submitted to Client",
-        submissions.filter((row) =>
-          matchesSubmissionStatusGroup(row, "being_submitted"),
-        ).length,
-      ),
-      formatCountLine(
-        "Interviewing",
-        submissions.filter((row) =>
-          matchesSubmissionStatusGroup(row, "interviewing"),
-        ).length,
-      ),
-      formatCountLine(
-        "Selects",
-        submissions.filter((row) => matchesSubmissionStatusGroup(row, "selected"))
-          .length,
+      formatTable(
+        [
+          "Pending Review: Total Count",
+          "Being Submitted to Client: Total Count",
+          "Interviewing: Total Count",
+          "Selects: Total Count",
+        ],
+        [[String(pendingReview), String(beingSubmitted), String(interviewing), String(selects)]],
       ),
       "",
       digestDate,
-      formatCountLine(
-        "Count of fresh profiles added in 24 hours",
-        submissions.filter((row) => inWindow(row.submissionDate, windowStart, now))
-          .length,
+      formatTable(
+        [
+          "Count of Roles where profiles were added",
+          "Count of fresh profiles added in 24 hours",
+        ],
+        [[String(rolesWithProfiles), String(freshProfiles)]],
       ),
-      formatCountLine(
-        "Count of Roles where profiles were added",
-        new Set(
-          submissions
-            .filter((row) => inWindow(row.submissionDate, windowStart, now))
-            .map((row) => row.jobId)
-            .filter(Boolean),
-        ).size,
-      ),
+      "",
+      "SLA Breach Count (ONLY ACTIVE PARTNERS)",
+      amNames.length > 0
+        ? formatTable(
+            ["Name", ...amNames],
+            [["SLA Breach Count", ...amCounts.map(String)]],
+          )
+        : "No active account managers.",
       "",
       buildSlaSection(submissions, now),
     ].join("\n");

@@ -19,6 +19,7 @@ import {
   getAdminNotificationEmails,
   getSuperAdminNotificationEmails,
 } from "@/lib/email/recipients";
+import { shouldNotifyAccountManagerJobAssignment } from "@/features/notifications/lib/account-manager-assignment-notifications";
 import { sendEmailSafe } from "@/services/email";
 
 function safe(promise: Promise<unknown>): void {
@@ -53,7 +54,6 @@ export async function notifyAdminCandidateSelected(input: {
     sendEmailSafe({
       to,
       template: "admin_candidate_selected",
-      subject: "New Select – TalentSocio",
       data: {
         candidateName: input.candidateName,
         jobTitle: input.jobTitle,
@@ -118,7 +118,6 @@ export async function notifyPartnerQuerySubmitted(input: {
     sendEmailSafe({
       to,
       template: "partner_query_submitted",
-      subject: "Partner question / request – TalentSocio",
       data: {
         partnerCode: input.partnerCode,
         feedbackType: input.type,
@@ -456,7 +455,12 @@ export async function notifyAccountManagerAssignedToJob(input: {
   jobTitle: string;
   jobId: string;
   jobCode?: string | null;
+  actorRole?: UserRole | null;
 }): Promise<void> {
+  if (!shouldNotifyAccountManagerJobAssignment(input.actorRole)) {
+    return;
+  }
+
   const userId = await findAccountManagerUserId(input.accountManagerId);
   if (!userId) {
     return;
@@ -487,7 +491,12 @@ export async function notifyAccountManagerRemovedFromJob(input: {
   jobTitle: string;
   jobId: string;
   jobCode?: string | null;
+  actorRole?: UserRole | null;
 }): Promise<void> {
+  if (!shouldNotifyAccountManagerJobAssignment(input.actorRole)) {
+    return;
+  }
+
   const userId = await findAccountManagerUserId(input.accountManagerId);
   if (!userId) {
     return;

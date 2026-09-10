@@ -8,14 +8,20 @@ import {
 } from "@/lib/airtable/fields";
 import { isClientCompatMode } from "@/lib/airtable/compat";
 import { buildRecordIdOrFormula } from "@/lib/airtable/record-id-formula";
-import { allocateNextJobCodeForClient } from "@/features/shared/services/business-ids.service";
+import type { UserRole } from "@/types";
 import { listAccountManagerOptions } from "@/services/lookups";
+import { allocateNextJobCodeForClient } from "@/features/shared/services/business-ids.service";
 import type {
   CreateJobInput,
   Job,
   JobListFilters,
   UpdateJobInput,
 } from "@/features/jobs/types";
+
+export interface JobNotificationContext {
+  actorUserId?: string | null;
+  actorRole?: UserRole | null;
+}
 import {
   destroyJob,
   findJobById,
@@ -250,6 +256,7 @@ export async function createJob(
     sampleResumeUpload?: UploadedFile | null;
     /** Screenshots / client updates — appended to Job Description attachments. */
     commentAttachmentUpload?: UploadedFile | null;
+    notificationContext?: JobNotificationContext;
   },
 ): Promise<Job> {
   const { jobCode } = await allocateNextJobCodeForClient(input.clientId);
@@ -315,12 +322,14 @@ export async function createJob(
     const { notifyAccountManagerAssignedToJob } = await import(
       "@/features/notifications/services/notification-events"
     );
+    const actorRole = options?.notificationContext?.actorRole ?? null;
     for (const accountManagerId of amIds) {
       void notifyAccountManagerAssignedToJob({
         accountManagerId,
         jobTitle: job.title,
         jobId: job.id,
         jobCode: job.jobCode,
+        actorRole,
       }).catch((error) => {
         console.error("[notifications] AM job assign failed", error);
       });
@@ -417,6 +426,7 @@ export async function updateJob(
     jdUpload?: UploadedFile | null;
     sampleResumeUpload?: UploadedFile | null;
     commentAttachmentUpload?: UploadedFile | null;
+    notificationContext?: JobNotificationContext;
   },
 ): Promise<Job> {
   const existing = await findJobById(jobId);
@@ -563,12 +573,14 @@ export async function updateJob(
       );
       const jobTitle = updated.title || existing?.title || "Job";
       const jobCode = updated.jobCode || existing?.jobCode || null;
+      const actorRole = options?.notificationContext?.actorRole ?? null;
       for (const accountManagerId of removed) {
         void notifyAccountManagerRemovedFromJob({
           accountManagerId,
           jobTitle,
           jobId,
           jobCode,
+          actorRole,
         }).catch((error) => {
           console.error("[notifications] AM job unassign failed", error);
         });
@@ -579,6 +591,7 @@ export async function updateJob(
           jobTitle,
           jobId,
           jobCode,
+          actorRole,
         }).catch((error) => {
           console.error("[notifications] AM job assign failed", error);
         });
