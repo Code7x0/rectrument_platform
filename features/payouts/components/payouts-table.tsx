@@ -148,7 +148,10 @@ export function PayoutsTable({
         header: "Recruitment",
         cell: (row) =>
           row.recruitmentStatus ? (
-            <SubmissionStatusBadge status={row.recruitmentStatus} />
+            <SubmissionStatusBadge
+              status={row.recruitmentStatus}
+              density="compact"
+            />
           ) : (
             "—"
           ),

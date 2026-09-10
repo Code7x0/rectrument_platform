@@ -33,7 +33,7 @@ export function MobileSidebar({ items }: MobileSidebarProps) {
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="border-b border-border px-4 py-4 text-left">
           <SheetTitle className="text-base">
-            <BrandLogo compact />
+            <BrandLogo size="sm" />
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 p-3">

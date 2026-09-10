@@ -7,50 +7,79 @@ import {
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
+type BrandLogoSize = "sm" | "md" | "lg";
+
 interface BrandLogoProps {
+  /** @deprecated Prefer `size="sm"` */
   compact?: boolean;
   iconOnly?: boolean;
+  size?: BrandLogoSize;
   className?: string;
   onDark?: boolean;
 }
+
+const WORDMARK_SIZE: Record<
+  BrandLogoSize,
+  { width: number; height: number; className: string }
+> = {
+  sm: {
+    width: 108,
+    height: 28,
+    className: "max-h-7 max-w-[108px]",
+  },
+  md: {
+    width: 140,
+    height: 36,
+    className: "max-h-9 max-w-[140px]",
+  },
+  lg: {
+    width: 156,
+    height: 44,
+    className: "max-h-11 max-w-[156px]",
+  },
+};
 
 /** Official OVATO.ai wordmark — tagline is baked into the logo asset. */
 export function BrandLogo({
   compact = false,
   iconOnly = false,
+  size,
   className,
   onDark = false,
 }: BrandLogoProps) {
+  const resolvedSize: BrandLogoSize = size ?? (compact ? "sm" : "md");
+  const wordmark = WORDMARK_SIZE[resolvedSize];
+
   if (iconOnly) {
     return (
       <Image
         src={BRAND_ICON_PATH}
         alt={`${APP_BRAND_MARK} logo`}
-        width={40}
-        height={40}
-        className={cn("shrink-0 rounded-[8px] object-contain", className)}
+        width={32}
+        height={32}
+        className={cn("h-8 w-8 shrink-0 rounded-[6px] object-contain", className)}
         priority
       />
     );
   }
 
-  const width = compact ? 156 : 200;
-  const height = compact ? 52 : 66;
-
   return (
     <div
       className={cn(
         "inline-flex shrink-0 items-center",
-        onDark && "rounded-xl bg-white px-2.5 py-1.5 shadow-sm",
+        onDark && "rounded-lg bg-white px-2 py-1 shadow-sm",
         className,
       )}
     >
       <Image
         src={BRAND_LOGO_PATH}
         alt={APP_BRAND_MARK}
-        width={width}
-        height={height}
-        className="h-auto w-auto max-h-[66px] max-w-[200px] object-contain object-left"
+        width={wordmark.width}
+        height={wordmark.height}
+        className={cn(
+          "h-auto w-auto object-contain object-left",
+          wordmark.className,
+        )}
         priority
       />
     </div>

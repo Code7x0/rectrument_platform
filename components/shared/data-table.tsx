@@ -159,7 +159,7 @@ export function DataTable<T>({
                       <td
                         key={column.id}
                         className={cn(
-                          "px-4 py-3 text-foreground",
+                          "px-4 py-3 align-middle text-foreground",
                           alignClass(column.align),
                           stickyClass(column.sticky, false),
                           column.className,

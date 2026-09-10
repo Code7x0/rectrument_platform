@@ -204,7 +204,7 @@ export function PartnerRegistrationForm() {
   return (
     <div className="mx-auto w-full max-w-2xl">
       <div className="mb-8 space-y-4">
-        <BrandLogo />
+        <BrandLogo size="md" />
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A]">
             Become a Talent Partner

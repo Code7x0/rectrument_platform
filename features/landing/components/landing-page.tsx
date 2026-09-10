@@ -63,7 +63,7 @@ const BOARD_ROWS = [
 ];
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  return <BrandLogo compact={compact} onDark />;
+  return <BrandLogo size={compact ? "sm" : "lg"} onDark />;
 }
 
 function SignInPanel({ className }: { className?: string }) {
@@ -75,7 +75,7 @@ function SignInPanel({ className }: { className?: string }) {
       )}
     >
       <div className="mb-4 flex justify-center">
-        <BrandLogo compact onDark className="justify-center" />
+        <BrandLogo size="md" onDark className="justify-center" />
       </div>
       <p className="mb-1 text-center text-[13px] font-semibold tracking-wide text-[#F6F4FF] uppercase">
         Partner sign in

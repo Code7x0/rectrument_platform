@@ -499,11 +499,14 @@ export function ReviewQueuePageClient({
       {
         id: "status",
         header: "Current Status",
+        headerClassName: "min-w-[9.5rem]",
+        className: "align-middle whitespace-nowrap",
         cell: (row) => (
           <SubmissionStatusBadge
             status={row.status}
             airtableStatus={row.airtableStatus}
             label={row.airtableStatus}
+            density="compact"
           />
         ),
       },
