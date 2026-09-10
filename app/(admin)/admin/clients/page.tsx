@@ -5,7 +5,11 @@ import { ClientsPageClient } from "@/features/clients/components";
 import { listClients } from "@/features/clients/services";
 import { listAccountManagerOptions } from "@/services/lookups";
 
-export default async function AdminClientsPage() {
+export default async function AdminClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const session = await getAppSession();
   if (!session) {
     redirect("/unauthorized");
@@ -16,6 +20,15 @@ export default async function AdminClientsPage() {
   if (!isAdmin(session)) {
     redirect("/forbidden");
   }
+
+  const params = await searchParams;
+  const statusParam = params.status?.trim();
+  const initialStatus =
+    statusParam === "active" ||
+    statusParam === "inactive" ||
+    statusParam === "archived"
+      ? statusParam
+      : undefined;
 
   const [clients, accountManagers] = await Promise.all([
     listClients({ includeArchived: true }),
@@ -35,6 +48,7 @@ export default async function AdminClientsPage() {
       canArchive={roleHasPermission(session.role, "archive_clients")}
       canDelete={isAdmin(session)}
       basePath="/admin/clients"
+      initialStatus={initialStatus}
       breadcrumbs={[
         { label: homeLabel, href: homeHref },
         { label: "Clients" },

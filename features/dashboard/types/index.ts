@@ -37,7 +37,9 @@ export interface DashboardActivityItem {
 }
 
 export interface SuperAdminDashboardData {
-  metrics: DashboardMetric[];
+  clientsAndPartners: DashboardMetric[];
+  jobs: DashboardMetric[];
+  candidates: DashboardMetric[];
   companyHealth: DashboardMetric[];
   quickActions: DashboardQuickActionItem[];
   recentInvitations: DashboardListItem[];

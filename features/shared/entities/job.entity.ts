@@ -93,12 +93,12 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   cancelled: "Inactive",
   hold_by_us: "Hold by us",
   hold_by_client: "Hold by Client",
-  closed_by_us: "Closed by us",
+  closed_by_us: "Fulfilled by us",
   closed_alternatively: "Closed Alternatively",
   on_hold: "Hold by us",
-  closed: "Closed by us",
-  filled: "Closed by us",
-  archived: "Closed by us",
+  closed: "Fulfilled by us",
+  filled: "Fulfilled by us",
+  archived: "Fulfilled by us",
 };
 
 /** Statuses Partners can still work (Assigned Jobs queue). */

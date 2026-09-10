@@ -17,8 +17,10 @@ import { listRecentActivities } from "@/features/workflows/services/activity.ser
 import { listUsers } from "@/services/users/users.service";
 import { getUsersSummary } from "@/features/users/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
+import { jobsListHref } from "@/features/jobs/lib/job-list-links";
 import { JOB_PRIORITY_LABELS, JOB_STATUS_LABELS } from "@/features/jobs/types";
 import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
+import { requireRole } from "@/lib/auth";
 import {
   submissionStatusDisplayLabel,
 } from "@/features/shared/entities";
@@ -70,6 +72,8 @@ async function settledSource<T>(
  * Super Admin command center — users, approvals, invitations, health.
  */
 export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardData> {
+  await requireRole("super_admin");
+
   const { unstable_noStore: noStore } = await import("next/cache");
   noStore();
 
@@ -129,9 +133,31 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
   const totalPartners = partners.length;
   const activePartners = partners.filter((p) => p.status === "active").length;
   const totalJobs = jobs.length;
-  const activeJobs = jobs.filter((j) => isAssignableJobStatus(j.status)).length;
-  // Same source of truth as Admin Candidates list.
+  const superHighPriorityJobs = jobs.filter((j) => j.priority === "urgent").length;
+  const highPriorityJobs = jobs.filter((j) => j.priority === "high").length;
+  const fulfilledByUsJobs = jobs.filter(
+    (j) =>
+      j.status === "closed_by_us" ||
+      j.status === "closed" ||
+      j.status === "filled" ||
+      j.status === "archived",
+  ).length;
   const candidateCount = submissions.length;
+  const pendingReviewCount = submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, "pending_review"),
+  ).length;
+  const internalScreeningCount = submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, "internal_screening"),
+  ).length;
+  const beingSubmittedCount = submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, "being_submitted"),
+  ).length;
+  const selectsCount = submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, "selected"),
+  ).length;
+  const joinedCount = submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, "joined"),
+  ).length;
 
   const recentInvitations = users
     .filter((u) => u.registrationStatus === "invitation_pending")
@@ -169,7 +195,7 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
     }));
 
   return {
-    metrics: [
+    clientsAndPartners: [
       {
         id: "clients-total",
         label: "Total Clients",
@@ -180,22 +206,24 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
         id: "clients-active",
         label: "Active Clients",
         value: activeClients,
-        href: "/admin/clients",
+        href: "/admin/clients?status=active",
         tone: "positive",
       },
       {
         id: "partners-total",
-        label: "Total Talent Partners",
+        label: "Total Partners",
         value: totalPartners,
         href: "/admin/partners",
       },
       {
         id: "partners-active",
-        label: "Active Talent Partners",
+        label: "Active Partners",
         value: activePartners,
-        href: "/admin/partners",
+        href: "/admin/partners?status=active",
         tone: "positive",
       },
+    ],
+    jobs: [
       {
         id: "jobs-total",
         label: "Total Jobs",
@@ -203,17 +231,74 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
         href: "/admin/jobs",
       },
       {
-        id: "jobs-active",
-        label: "Active Jobs",
-        value: activeJobs,
-        href: "/admin/jobs",
-        hint: "Open or on hold",
+        id: "jobs-super-high",
+        label: "Super High Priority",
+        value: superHighPriorityJobs,
+        href: jobsListHref("/admin/jobs", { priority: "urgent" }),
+        tone: superHighPriorityJobs > 0 ? "attention" : "default",
       },
       {
-        id: "candidates",
-        label: "Total Candidates Submitted",
+        id: "jobs-high",
+        label: "High Priority",
+        value: highPriorityJobs,
+        href: jobsListHref("/admin/jobs", { priority: "high" }),
+        tone: highPriorityJobs > 0 ? "attention" : "default",
+      },
+      {
+        id: "jobs-fulfilled",
+        label: "Fulfilled by us",
+        value: fulfilledByUsJobs,
+        href: jobsListHref("/admin/jobs", { status: "closed_by_us" }),
+        tone: "positive",
+      },
+    ],
+    candidates: [
+      {
+        id: "candidates-total",
+        label: "Total Candidates",
         value: candidateCount,
         href: "/admin/candidates",
+      },
+      {
+        id: "candidates-pending-review",
+        label: "Pending Review",
+        value: pendingReviewCount,
+        href: candidatesListHref(ADMIN_CANDIDATES, {
+          statusGroup: "pending_review",
+        }),
+        tone: pendingReviewCount > 0 ? "attention" : "default",
+      },
+      {
+        id: "candidates-internal-screening",
+        label: "Internal Screening Pending",
+        value: internalScreeningCount,
+        href: candidatesListHref(ADMIN_CANDIDATES, {
+          statusGroup: "internal_screening",
+        }),
+        tone: internalScreeningCount > 0 ? "attention" : "default",
+      },
+      {
+        id: "candidates-being-submitted",
+        label: "Being Submitted",
+        value: beingSubmittedCount,
+        href: candidatesListHref(ADMIN_CANDIDATES, {
+          statusGroup: "being_submitted",
+        }),
+        tone: beingSubmittedCount > 0 ? "attention" : "default",
+      },
+      {
+        id: "candidates-selects",
+        label: "Selects",
+        value: selectsCount,
+        href: candidatesListHref(ADMIN_CANDIDATES, { statusGroup: "selected" }),
+        tone: selectsCount > 0 ? "positive" : "default",
+      },
+      {
+        id: "candidates-joined",
+        label: "Joined",
+        value: joinedCount,
+        href: candidatesListHref(ADMIN_CANDIDATES, { statusGroup: "joined" }),
+        tone: joinedCount > 0 ? "positive" : "default",
       },
     ],
     companyHealth: [
@@ -287,6 +372,8 @@ export async function getSuperAdminDashboardData(): Promise<SuperAdminDashboardD
  * Admin business operations command center.
  */
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
+  await requireRole(["admin", "super_admin"]);
+
   const { unstable_noStore: noStore } = await import("next/cache");
   noStore();
 

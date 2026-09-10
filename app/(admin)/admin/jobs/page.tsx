@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getAppSession, isAdmin, roleHasPermission } from "@/lib/auth";
 import { JobsPageClient } from "@/features/jobs/components";
+import type { JobListFilters } from "@/features/jobs/types";
 import { listJobs } from "@/features/jobs/services";
 import { listSubmissions } from "@/features/submissions/services";
 import {
@@ -70,10 +71,33 @@ async function loadJobsPageData() {
   };
 }
 
+const JOB_STATUSES = new Set<JobListFilters["status"]>([
+  "open",
+  "cancelled",
+  "hold_by_us",
+  "hold_by_client",
+  "closed_by_us",
+  "closed_alternatively",
+  "archived",
+  "all",
+]);
+
+const JOB_PRIORITIES = new Set<JobListFilters["priority"]>([
+  "low",
+  "medium",
+  "high",
+  "urgent",
+  "all",
+]);
+
 export default async function AdminJobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ jobId?: string }>;
+  searchParams: Promise<{
+    jobId?: string;
+    status?: string;
+    priority?: string;
+  }>;
 }) {
   const {
     session,
@@ -88,8 +112,16 @@ export default async function AdminJobsPage({
     canDelete,
     submittedByJobId,
   } = await loadJobsPageData();
-  const { jobId: jobIdParam } = await searchParams;
-  const initialJobId = jobIdParam?.trim() || null;
+  const params = await searchParams;
+  const initialJobId = params.jobId?.trim() || null;
+  const statusParam = params.status?.trim() as JobListFilters["status"];
+  const priorityParam = params.priority?.trim() as JobListFilters["priority"];
+  const initialStatus =
+    statusParam && JOB_STATUSES.has(statusParam) ? statusParam : undefined;
+  const initialPriority =
+    priorityParam && JOB_PRIORITIES.has(priorityParam)
+      ? priorityParam
+      : undefined;
 
   const homeLabel = session.role === "super_admin" ? "Super Admin" : "Admin";
   const homeHref = session.role === "super_admin" ? "/super-admin" : "/admin";
@@ -108,6 +140,8 @@ export default async function AdminJobsPage({
       submittedByJobId={submittedByJobId}
       submittedProfilesBasePath="/admin/candidates"
       initialJobId={initialJobId}
+      initialStatus={initialStatus}
+      initialPriority={initialPriority}
       breadcrumbs={[
         { label: homeLabel, href: homeHref },
         { label: "Jobs" },

@@ -43,7 +43,7 @@ export function JobFilters({
         <option value="cancelled">Inactive</option>
         <option value="hold_by_us">Hold by us</option>
         <option value="hold_by_client">Hold by Client</option>
-        <option value="closed_by_us">Closed by us</option>
+        <option value="closed_by_us">Fulfilled by us</option>
         <option value="closed_alternatively">Closed Alternatively</option>
       </Select>
 

@@ -24,6 +24,7 @@ interface PartnersPageClientProps {
   canUpdate: boolean;
   canArchive: boolean;
   canDelete?: boolean;
+  initialStatus?: PartnerListFilters["status"];
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
@@ -76,11 +77,12 @@ export function PartnersPageClient({
   canUpdate,
   canArchive,
   canDelete = false,
+  initialStatus,
   breadcrumbs,
 }: PartnersPageClientProps) {
   const router = useRouter();
   const [filters, setFilters] = useState<PartnerListFilters>({
-    status: "all",
+    status: initialStatus ?? "all",
     verificationStatus: "all",
   });
   const [createOpen, setCreateOpen] = useState(false);

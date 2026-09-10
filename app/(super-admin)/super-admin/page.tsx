@@ -27,7 +27,7 @@ export default async function SuperAdminHomePage() {
     <Suspense
       fallback={
         <ContentContainer>
-          <DashboardSkeleton metricCount={6} />
+          <DashboardSkeleton metricCount={14} />
         </ContentContainer>
       }
     >

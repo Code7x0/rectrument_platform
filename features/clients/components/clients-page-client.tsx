@@ -28,6 +28,7 @@ interface ClientsPageClientProps {
   canArchive: boolean;
   canDelete?: boolean;
   basePath: "/admin/clients" | "/account-manager/clients";
+  initialStatus?: ClientListFilters["status"];
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
 
@@ -79,11 +80,12 @@ export function ClientsPageClient({
   canArchive,
   canDelete = false,
   basePath,
+  initialStatus,
   breadcrumbs,
 }: ClientsPageClientProps) {
   const router = useRouter();
   const [filters, setFilters] = useState<ClientListFilters>({
-    status: "all",
+    status: initialStatus ?? "all",
   });
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);

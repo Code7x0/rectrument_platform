@@ -18,13 +18,38 @@ export function SuperAdminDashboard({ data }: SuperAdminDashboardProps) {
       <div className="space-y-8">
         <DashboardHeader
           title="Command Center"
-          description="Platform health across clients, talent partners, jobs, and submitted candidates."
+          description="At-a-glance counts across clients, partners, jobs, and candidates — click any metric to jump to the filtered list."
           breadcrumbs={[{ label: "Super Admin" }, { label: "Dashboard" }]}
         />
 
-        <DashboardSection title="Platform health">
-          <DashboardGrid columns={7}>
-            {data.metrics.map((metric) => (
+        <DashboardSection
+          title="Clients & partners"
+          description="Account footprint and active recruiting partners."
+        >
+          <DashboardGrid columns={4}>
+            {data.clientsAndPartners.map((metric) => (
+              <DashboardMetricCard key={metric.id} {...metric} />
+            ))}
+          </DashboardGrid>
+        </DashboardSection>
+
+        <DashboardSection
+          title="Jobs"
+          description="Requisition volume and priority focus areas."
+        >
+          <DashboardGrid columns={4}>
+            {data.jobs.map((metric) => (
+              <DashboardMetricCard key={metric.id} {...metric} />
+            ))}
+          </DashboardGrid>
+        </DashboardSection>
+
+        <DashboardSection
+          title="Candidates"
+          description="Pipeline stages where the team may need to act."
+        >
+          <DashboardGrid columns={6}>
+            {data.candidates.map((metric) => (
               <DashboardMetricCard key={metric.id} {...metric} />
             ))}
           </DashboardGrid>

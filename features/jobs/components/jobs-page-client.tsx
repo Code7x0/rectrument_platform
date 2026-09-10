@@ -43,6 +43,9 @@ interface JobsPageClientProps {
   breadcrumbs: Array<{ label: string; href?: string }>;
   /** Deep-link from Candidates / Job Claims — open this job in the drawer. */
   initialJobId?: string | null;
+  /** Deep-link from dashboards — pre-filter the jobs list. */
+  initialStatus?: JobListFilters["status"];
+  initialPriority?: JobListFilters["priority"];
 }
 
 function jobOpenTimestamp(job: Job): number {
@@ -170,12 +173,14 @@ export function JobsPageClient({
   submittedProfilesBasePath,
   breadcrumbs,
   initialJobId = null,
+  initialStatus,
+  initialPriority,
 }: JobsPageClientProps) {
   const router = useRouter();
   const [filters, setFilters] = useState<JobListFilters>({
-    status: "all",
+    status: initialStatus ?? "all",
     clientId: "all",
-    priority: "all",
+    priority: initialPriority ?? "all",
     location: "all",
     employmentType: "all",
   });
