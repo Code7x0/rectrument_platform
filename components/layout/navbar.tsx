@@ -56,7 +56,7 @@ export function Navbar({
         )}
       </Button>
 
-      <div className="flex h-9 shrink-0 items-center">
+      <div className="flex h-10 shrink-0 items-center">
         <BrandLogo size="sm" iconOnly={collapsed} className="min-w-0" />
       </div>
 
