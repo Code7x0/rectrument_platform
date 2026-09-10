@@ -20,7 +20,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden h-[calc(100vh-3.75rem)] shrink-0 border-r border-border bg-card md:flex md:flex-col",
+        "hidden h-[calc(100vh-4rem)] shrink-0 border-r border-border bg-card md:flex md:flex-col",
         collapsed ? "w-[4.5rem]" : "w-[15.5rem]",
         className,
       )}

@@ -38,7 +38,7 @@ export function Navbar({
     "Signed in user";
 
   return (
-    <header className="sticky top-0 z-40 flex h-[3.75rem] items-center gap-3 border-b border-border bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:px-6">
       <MobileSidebar items={items} />
 
       <Button
@@ -56,7 +56,7 @@ export function Navbar({
         )}
       </Button>
 
-      <div className="flex h-10 shrink-0 items-center">
+      <div className="flex shrink-0 items-center">
         <BrandLogo size="sm" iconOnly={collapsed} className="min-w-0" />
       </div>
 

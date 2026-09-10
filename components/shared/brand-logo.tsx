@@ -23,9 +23,9 @@ const WORDMARK_SIZE: Record<
   { width: number; height: number; className: string }
 > = {
   sm: {
-    width: 146,
-    height: 38,
-    className: "max-h-[38px] max-w-[146px]",
+    width: 204,
+    height: 53,
+    className: "max-h-[53px] max-w-[204px]",
   },
   md: {
     width: 140,
@@ -55,9 +55,12 @@ export function BrandLogo({
       <Image
         src={BRAND_ICON_PATH}
         alt={`${APP_BRAND_MARK} logo`}
-        width={44}
-        height={44}
-        className={cn("h-11 w-11 shrink-0 rounded-[6px] object-contain", className)}
+        width={62}
+        height={62}
+        className={cn(
+          "h-[62px] w-[62px] shrink-0 rounded-[6px] object-contain",
+          className,
+        )}
         priority
       />
     );
