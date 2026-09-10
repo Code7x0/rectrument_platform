@@ -56,7 +56,11 @@ export function Navbar({
         )}
       </Button>
 
-      <BrandLogo compact showTagline={!collapsed} className="min-w-0" />
+      <BrandLogo
+        compact
+        iconOnly={collapsed}
+        className="min-w-0"
+      />
 
       <div className="ml-2 hidden max-w-md flex-1 items-center md:flex">
         <SearchTrigger />

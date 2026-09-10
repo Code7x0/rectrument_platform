@@ -8,6 +8,7 @@ import {
   APP_BRAND_MARK,
   APP_NAME,
   APP_TAGLINE,
+  BRAND_ICON_PATH,
   BRAND_LOGO_PATH,
 } from "@/lib/constants";
 
@@ -38,9 +39,12 @@ export const metadata: Metadata = {
   description: `${APP_BRAND_MARK} ${APP_TAGLINE} — referral-led hiring platform`,
   applicationName: APP_BRAND_MARK,
   icons: {
-    icon: [{ url: BRAND_LOGO_PATH, type: "image/png" }],
-    apple: BRAND_LOGO_PATH,
-    shortcut: BRAND_LOGO_PATH,
+    icon: [
+      { url: BRAND_ICON_PATH, type: "image/png", sizes: "512x512" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: BRAND_ICON_PATH,
+    shortcut: "/favicon.ico",
   },
   openGraph: {
     type: "website",
@@ -50,8 +54,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: BRAND_LOGO_PATH,
-        width: 113,
-        height: 109,
+        width: 1024,
+        height: 341,
         alt: `${APP_BRAND_MARK} ${APP_TAGLINE}`,
       },
     ],
