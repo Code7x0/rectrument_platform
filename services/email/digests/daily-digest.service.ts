@@ -9,6 +9,7 @@ import { listSubmissions } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
 import {
   fanOutEmail,
+  getActiveAccountManagerDigestRecipients,
   getAdminNotificationEmails,
   getSuperAdminNotificationEmails,
 } from "@/lib/email/recipients";
@@ -239,12 +240,12 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
   const windowStart = rollingWindowStart(now);
   const digestDate = formatOvatoDate(now);
 
-  const [submissions, jobs, queries, amUsers, partnerUsers, allAllocations] =
+  const [submissions, jobs, queries, amRecipients, partnerUsers, allAllocations] =
     await Promise.all([
       listSubmissions({ includePartnerIdentity: true }),
       listJobs({ includeArchived: false }),
       listPartnerQueries(),
-      listUsers({ role: "account_manager", status: "active" }),
+      getActiveAccountManagerDigestRecipients(),
       listUsers({ role: "partner", status: "active" }),
       listAllocations({ includePartnerIdentity: false }),
     ]);
@@ -279,9 +280,12 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
   const result: DailyDigestResult = { attempted: 0, sent: 0, errors: [] };
   const baseUrl = appBaseUrl();
 
-  for (const am of amUsers) {
-    const amId = am.accountManagerId ?? am.id;
+  for (const am of amRecipients) {
+    const amId = am.accountManagerId;
     if (!am.email?.trim() || !amId) {
+      result.errors.push(
+        `AM digest skipped: missing email or id for ${am.fullName}`,
+      );
       continue;
     }
 
@@ -453,8 +457,8 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     ).size;
 
     const amSlaCounts = new Map<string, number>();
-    for (const am of amUsers) {
-      const amId = am.accountManagerId ?? am.id;
+    for (const am of amRecipients) {
+      const amId = am.accountManagerId;
       if (!amId) {
         continue;
       }

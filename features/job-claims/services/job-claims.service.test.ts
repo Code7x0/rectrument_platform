@@ -82,6 +82,28 @@ test("toPartnerAvailableJob strips client identity fields", () => {
   assert.equal(json.includes("clientName"), false);
 });
 
+test("toPartnerAvailableJob preserves sort dates for client-side ordering", () => {
+  const sanitized = toPartnerAvailableJob(
+    sampleJob({
+      postedDate: "2026-03-01T00:00:00.000Z",
+      startDate: "2026-03-05T00:00:00.000Z",
+      createdAt: "2026-02-20T00:00:00.000Z",
+    }),
+    {
+      daysOfWorking: "5 days",
+      claimState: "available",
+      claimId: null,
+      claimRequestedAt: null,
+      claimRejectionReason: null,
+      claimReclaimAvailableAt: null,
+    },
+  );
+
+  assert.equal(sanitized.postedDate, "2026-03-01T00:00:00.000Z");
+  assert.equal(sanitized.startDate, "2026-03-05T00:00:00.000Z");
+  assert.equal(sanitized.createdAt, "2026-02-20T00:00:00.000Z");
+});
+
 test("claim store read does not throw when file is missing", async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "job-claims-missing-"));
   process.env.JOB_CLAIMS_STORE_PATH = path.join(

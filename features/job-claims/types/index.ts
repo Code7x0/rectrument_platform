@@ -52,6 +52,10 @@ export interface PartnerAvailableJob {
   salary: string | null;
   possiblePayout: string | null;
   priority: JobPriority | null;
+  /** Used for priority+date sorting on the client (no client identity). */
+  postedDate: string | null;
+  startDate: string | null;
+  createdAt: string | null;
   status: JobStatus;
   description: string | null;
   interviewProcess: string | null;

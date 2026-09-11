@@ -3,9 +3,8 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
-import { PageHeader } from "@/components/shared/page-header";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
-import { PartnerWorkQueue } from "@/features/tasks/components";
+import { PartnerJobsPageClient } from "@/features/tasks/components/partner-jobs-page-client";
 import { listPartnerWorkTasks } from "@/features/tasks/services";
 
 export default async function PartnerJobsPage() {
@@ -39,11 +38,7 @@ export default async function PartnerJobsPage() {
           { label: "My Jobs" },
         ]}
       />
-      <PageHeader
-        title={`My Jobs (${tasks.length})`}
-        description="Active and On Hold jobs allocated to you. Open a job for details and comments. Use Submit Profile to pick a JD and submit in one step."
-      />
-      <PartnerWorkQueue tasks={tasks} />
+      <PartnerJobsPageClient tasks={tasks} />
     </ContentContainer>
   );
 }

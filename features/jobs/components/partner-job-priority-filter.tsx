@@ -38,7 +38,7 @@ export function PartnerJobPriorityFilter({
       </Select>
       {value !== "all" ? (
         <p className="mt-1 text-xs text-muted-foreground">
-          Showing {JOB_PRIORITY_LABELS[value]} roles first.
+          Showing only {JOB_PRIORITY_LABELS[value]} priority roles.
         </p>
       ) : null}
     </div>

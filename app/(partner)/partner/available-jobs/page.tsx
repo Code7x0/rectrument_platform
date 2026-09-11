@@ -3,7 +3,6 @@ import { unstable_noStore as noStore } from "next/cache";
 
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
-import { PageHeader } from "@/components/shared/page-header";
 import { PartnerAvailableJobsPageClient } from "@/features/job-claims/components";
 import { listPartnerAvailableJobs } from "@/features/job-claims/services/job-claims.service";
 import type { PartnerAvailableJob } from "@/features/job-claims/types";
@@ -44,16 +43,12 @@ export default async function PartnerAvailableJobsPage() {
           { label: "Available Jobs" },
         ]}
       />
-      <PageHeader
-        title={`Available Jobs (${jobs.length})`}
-        description="Browse open jobs and request to work on them. Pending claims stay highlighted until approval, then move to Assigned Jobs. Client details unlock only after approval."
-      />
       {loadError ? (
         <p className="mb-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
           {loadError}
         </p>
       ) : null}
-      <PartnerAvailableJobsPageClient jobs={jobs} />
+      <PartnerAvailableJobsPageClient jobs={jobs} showPageHeader />
     </ContentContainer>
   );
 }

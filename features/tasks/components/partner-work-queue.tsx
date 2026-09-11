@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Briefcase } from "lucide-react";
 
@@ -18,13 +18,17 @@ import type { PartnerWorkTask } from "@/features/tasks/types";
 
 interface PartnerWorkQueueProps {
   tasks: PartnerWorkTask[];
+  onVisibleCountChange?: (count: number) => void;
 }
 
 /**
  * Partner daily work screen — card queue, not a dashboard.
  * Includes Active and On Hold allocations; filter by client when needed.
  */
-export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
+export function PartnerWorkQueue({
+  tasks,
+  onVisibleCountChange,
+}: PartnerWorkQueueProps) {
   const [clientFilter, setClientFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] =
     useState<PartnerJobPriorityFilterValue>("all");
@@ -55,6 +59,10 @@ export function PartnerWorkQueue({ tasks }: PartnerWorkQueueProps) {
       compareJobsByPriorityThenOpenDate(a.job, b.job),
     );
   }, [clientFilter, priorityFilter, tasks]);
+
+  useEffect(() => {
+    onVisibleCountChange?.(filteredTasks.length);
+  }, [filteredTasks.length, onVisibleCountChange]);
 
   if (tasks.length === 0) {
     return (

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Briefcase, Clock3 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   PartnerJobPriorityFilter,
@@ -17,10 +18,12 @@ import type { PartnerAvailableJob } from "@/features/job-claims/types";
 
 interface PartnerAvailableJobsPageClientProps {
   jobs: PartnerAvailableJob[];
+  showPageHeader?: boolean;
 }
 
 export function PartnerAvailableJobsPageClient({
   jobs: initialJobs,
+  showPageHeader = false,
 }: PartnerAvailableJobsPageClientProps) {
   const router = useRouter();
   const [jobs, setJobs] = useState(initialJobs);
@@ -62,6 +65,12 @@ export function PartnerAvailableJobsPageClient({
       sortJobs(filterByPriority(jobs.filter((job) => job.claimState === "available"))),
     [jobs, priorityFilter],
   );
+
+  const visibleCount = pendingJobs.length + openJobs.length + rejectedJobs.length;
+  const headerTitle =
+    priorityFilter === "all" || visibleCount === jobs.length
+      ? `Available Jobs (${jobs.length})`
+      : `Available Jobs (${visibleCount} of ${jobs.length})`;
 
   async function handleClaim(job: PartnerAvailableJob) {
     if (claimingId) {
@@ -114,9 +123,17 @@ export function PartnerAvailableJobsPageClient({
 
   return (
     <>
+      {showPageHeader ? (
+        <PageHeader
+          title={headerTitle}
+          description="Browse open jobs and request to work on them. Pending claims stay highlighted until approval, then move to Assigned Jobs. Client details unlock only after approval."
+        />
+      ) : null}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <p className="text-sm text-[#64748B]">
-          Filter by priority to surface Super High and High roles first.
+          {priorityFilter === "all"
+            ? `Showing all ${jobs.length} open roles sorted by priority, then posted date.`
+            : `Showing ${visibleCount} of ${jobs.length} roles matching your priority filter.`}
         </p>
         <PartnerJobPriorityFilter
           value={priorityFilter}

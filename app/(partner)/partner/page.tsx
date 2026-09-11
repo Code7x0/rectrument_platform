@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 
 import { ContentContainer } from "@/components/shared/content-container";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
@@ -22,6 +23,8 @@ async function PartnerDashboardLoader({
 }
 
 export default async function PartnerMyWorkPage() {
+  noStore();
+
   const session = await getAppSession();
 
   if (!session) {
