@@ -146,12 +146,11 @@ export function toAirtableCreateFields(
       DOMAIN_IDENTITY_VISIBILITY_TO_AIRTABLE[
         input.identityVisibility ?? "private"
       ];
+    fields[PARTNERS_TABLE_FIELDS.verificationStatus] =
+      DOMAIN_PARTNER_VERIFICATION_TO_AIRTABLE[
+        input.verificationStatus ?? "pending"
+      ];
   }
-
-  fields[PARTNERS_TABLE_FIELDS.verificationStatus] =
-    DOMAIN_PARTNER_VERIFICATION_TO_AIRTABLE[
-      input.verificationStatus ?? "pending"
-    ];
 
   if (input.contactName) {
     fields[PARTNERS_TABLE_FIELDS.name] = input.contactName;
@@ -237,7 +236,7 @@ export function toAirtableUpdateFields(
     fields[PARTNERS_TABLE_FIELDS.status] =
       DOMAIN_PARTNER_STATUS_TO_AIRTABLE[input.status];
   }
-  if (input.verificationStatus !== undefined) {
+  if (!clientMode && input.verificationStatus !== undefined) {
     fields[PARTNERS_TABLE_FIELDS.verificationStatus] =
       DOMAIN_PARTNER_VERIFICATION_TO_AIRTABLE[input.verificationStatus];
   }
