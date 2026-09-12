@@ -121,7 +121,7 @@ const PARTNER_NAV: AppNavItem[] = [
   { title: "Feedback", href: "/partner/feedback", icon: MessageSquare },
   { title: "Activity", href: "/activities", icon: History },
   { title: "Notifications", href: "/notifications", icon: Bell },
-  { title: "Profile", href: "/partner/profile", icon: UserCircle },
+  { title: "Partner Profile", href: "/partner/profile", icon: UserCircle },
 ];
 
 export function getNavigationForRole(role: UserRole): AppNavItem[] {

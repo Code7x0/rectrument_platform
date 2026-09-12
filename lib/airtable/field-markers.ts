@@ -7,10 +7,12 @@ export const INVITE_MARKER_PREFIX = "invite:";
 export const PAYOUT_MARKER_PREFIX = "[RP_PAYOUT]";
 export const DOC_MARKER_PREFIX = "[RP_DOC]";
 export const ROLE_MARKER_PREFIX = "[RP_ROLE:";
+export const PROMOTED_MARKER_PREFIX = "[RP_PROMOTED:";
 
 export type StoredRoleMarker = "admin" | "account_manager" | "partner";
 
 const ROLE_MARKER_RE = /\[RP_ROLE:(admin|account_manager|partner)\]/;
+const PROMOTED_MARKER_RE = /\[RP_PROMOTED:(admin|account_manager)\]/;
 
 export function parseRoleMarker(
   text: string | null | undefined,
@@ -23,6 +25,32 @@ export function parseRoleMarker(
     return null;
   }
   return match[1] as StoredRoleMarker;
+}
+
+export function parsePromotedRoleMarker(
+  text: string | null | undefined,
+): StoredRoleMarker | null {
+  if (!text?.trim()) {
+    return null;
+  }
+  const match = PROMOTED_MARKER_RE.exec(text);
+  if (!match?.[1] || match[1] === "partner") {
+    return null;
+  }
+  return match[1] as StoredRoleMarker;
+}
+
+export function upsertPromotedRoleMarker(
+  existing: string | null | undefined,
+  role: "admin" | "account_manager",
+): string {
+  const lines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith(PROMOTED_MARKER_PREFIX));
+  lines.push(`${PROMOTED_MARKER_PREFIX}${role}]`);
+  return lines.join("\n");
 }
 
 export function upsertRoleMarker(
@@ -171,7 +199,9 @@ export function stripSystemMarkers(
     .filter(
       (line) =>
         !line.startsWith(DOC_MARKER_PREFIX) &&
-        !line.startsWith(PAYOUT_MARKER_PREFIX),
+        !line.startsWith(PAYOUT_MARKER_PREFIX) &&
+        !line.startsWith(ROLE_MARKER_PREFIX) &&
+        !line.startsWith(PROMOTED_MARKER_PREFIX),
     )
     .join("\n");
 }
@@ -190,7 +220,9 @@ export function mergeNotesPreservingMarkers(
     .filter(
       (line) =>
         line.startsWith(DOC_MARKER_PREFIX) ||
-        line.startsWith(PAYOUT_MARKER_PREFIX),
+        line.startsWith(PAYOUT_MARKER_PREFIX) ||
+        line.startsWith(ROLE_MARKER_PREFIX) ||
+        line.startsWith(PROMOTED_MARKER_PREFIX),
     );
   const notes = (userNotes ?? "").trim();
   if (!notes) {

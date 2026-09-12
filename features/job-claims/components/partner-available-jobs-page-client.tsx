@@ -7,6 +7,8 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   PartnerJobPriorityFilter,
   type PartnerJobPriorityFilterValue,
@@ -30,6 +32,7 @@ export function PartnerAvailableJobsPageClient({
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] =
     useState<PartnerJobPriorityFilterValue>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setJobs(initialJobs);
@@ -38,37 +41,61 @@ export function PartnerAvailableJobsPageClient({
   const sortJobs = (rows: PartnerAvailableJob[]) =>
     [...rows].sort((a, b) => compareJobsByPriorityThenOpenDate(a, b));
 
-  const filterByPriority = (rows: PartnerAvailableJob[]) => {
-    if (priorityFilter === "all") {
-      return rows;
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+
+  const filterJobs = (rows: PartnerAvailableJob[]) => {
+    let next = rows;
+    if (priorityFilter !== "all") {
+      next = next.filter((job) => job.priority === priorityFilter);
     }
-    return rows.filter((job) => job.priority === priorityFilter);
+    if (!normalizedSearch) {
+      return next;
+    }
+    return next.filter((job) => {
+      const haystack = [
+        job.title,
+        job.jobCode,
+        job.location,
+        job.experience,
+        job.workMode,
+        job.salary,
+        job.description,
+        job.interviewProcess,
+        job.skills.join(" "),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalizedSearch);
+    });
   };
 
   const pendingJobs = useMemo(
-    () => sortJobs(filterByPriority(jobs.filter((job) => job.claimState === "pending"))),
-    [jobs, priorityFilter],
+    () => sortJobs(filterJobs(jobs.filter((job) => job.claimState === "pending"))),
+    [jobs, priorityFilter, normalizedSearch],
   );
   const rejectedJobs = useMemo(
     () =>
       sortJobs(
-        filterByPriority(
+        filterJobs(
           jobs.filter(
             (job) => job.claimState === "rejected" || job.claimState === "cooling",
           ),
         ),
       ),
-    [jobs, priorityFilter],
+    [jobs, priorityFilter, normalizedSearch],
   );
   const openJobs = useMemo(
     () =>
-      sortJobs(filterByPriority(jobs.filter((job) => job.claimState === "available"))),
-    [jobs, priorityFilter],
+      sortJobs(filterJobs(jobs.filter((job) => job.claimState === "available"))),
+    [jobs, priorityFilter, normalizedSearch],
   );
 
   const visibleCount = pendingJobs.length + openJobs.length + rejectedJobs.length;
+  const filtersActive =
+    priorityFilter !== "all" || normalizedSearch.length > 0;
   const headerTitle =
-    priorityFilter === "all" || visibleCount === jobs.length
+    !filtersActive || visibleCount === jobs.length
       ? `Available Jobs (${jobs.length})`
       : `Available Jobs (${visibleCount} of ${jobs.length})`;
 
@@ -129,19 +156,40 @@ export function PartnerAvailableJobsPageClient({
           description="Browse open jobs and request to work on them. Pending claims stay highlighted until approval, then move to Assigned Jobs. Client details unlock only after approval."
         />
       ) : null}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-6 space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-available-search">
+              Search roles (skills, title, tech)
+            </Label>
+            <Input
+              id="partner-available-search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="e.g. .NET, Java, React, Bangalore"
+            />
+          </div>
+          <PartnerJobPriorityFilter
+            value={priorityFilter}
+            onChange={setPriorityFilter}
+            id="partner-available-priority-filter"
+            className="space-y-1.5"
+          />
+        </div>
         <p className="text-sm text-[#64748B]">
-          {priorityFilter === "all"
+          {!filtersActive
             ? `Showing all ${jobs.length} open roles sorted by priority, then posted date.`
-            : `Showing ${visibleCount} of ${jobs.length} roles matching your priority filter.`}
+            : `Showing ${visibleCount} of ${jobs.length} roles matching your filters.`}
         </p>
-        <PartnerJobPriorityFilter
-          value={priorityFilter}
-          onChange={setPriorityFilter}
-          id="partner-available-priority-filter"
-          className="w-full max-w-xs space-y-1.5"
-        />
       </div>
+
+      {visibleCount === 0 && filtersActive ? (
+        <EmptyState
+          title="No roles match your search"
+          description="Try a different skill, technology, or location. Clear filters to see all open roles again."
+          icon={<Briefcase className="h-5 w-5" />}
+        />
+      ) : null}
 
       <div className="space-y-8">
         {pendingJobs.length > 0 ? (

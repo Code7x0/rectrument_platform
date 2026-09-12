@@ -22,6 +22,8 @@ interface CurrentUserContextValue {
   partnerId: string | null;
   accountManagerId: string | null;
   status: UserStatus | null;
+  displayName: string | null;
+  email: string | null;
   permissions: Permission[];
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -51,6 +53,8 @@ export function CurrentUserProvider({
       partnerId: session?.partnerId ?? null,
       accountManagerId: session?.accountManagerId ?? null,
       status: session?.status ?? null,
+      displayName: session?.displayName ?? null,
+      email: session?.email ?? null,
       permissions,
       isAuthenticated: session !== null,
       isAdmin: checkAdmin(role),

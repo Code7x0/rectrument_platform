@@ -9,7 +9,6 @@ import {
   PartnerDashboard,
 } from "@/features/dashboard/components";
 import { getPartnerDashboardData } from "@/features/dashboard/services";
-import { getUserById } from "@/services/users/users.service";
 
 async function PartnerDashboardLoader({
   partnerId,
@@ -44,8 +43,7 @@ export default async function PartnerMyWorkPage() {
     redirect("/unauthorized");
   }
 
-  const user = await getUserById(session.userId);
-  const partnerName = user?.fullName ?? "Partner";
+  const partnerName = session.displayName ?? "Partner";
 
   return (
     <Suspense

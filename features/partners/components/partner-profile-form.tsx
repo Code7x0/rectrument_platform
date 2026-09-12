@@ -14,6 +14,7 @@ import {
   stripSystemMarkers,
 } from "@/lib/airtable/field-markers";
 import { updateOwnPartnerProfileAction } from "@/features/partners/actions/partners.actions";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import {
   partnerSelfProfileSchema,
   type PartnerSelfProfileValues,
@@ -60,6 +61,7 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
         return;
       }
       toast.success("Profile updated");
+      signalLiveDataChange();
       router.refresh();
     });
   }
@@ -130,10 +132,11 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
               disabled
               readOnly
             />
-            <p className="text-xs text-[#64748B]">
-              Login email cannot be changed here. Contact TalentSocio support if
-              it needs updating.
-            </p>
+          <p className="text-xs text-[#64748B]">
+            Login email cannot be changed here. Update your display name under
+            Contact Person — that is what My Work and the header use. The Clerk
+            menu (top-right avatar) is only for sign-in security.
+          </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone</Label>

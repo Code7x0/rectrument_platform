@@ -2,6 +2,7 @@
 
 import { actionErrorMessage } from "@/lib/actions/errors";
 
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 
 import { requirePermission, requireRole } from "@/lib/auth";
@@ -188,8 +189,26 @@ export async function updateOwnPartnerProfileAction(
       ),
     });
 
+    const contactName = parsed.data.contactName?.trim();
+    if (contactName) {
+      try {
+        const { userId } = await auth();
+        if (userId) {
+          const parts = contactName.split(/\s+/).filter(Boolean);
+          const client = await clerkClient();
+          await client.users.updateUser(userId, {
+            firstName: parts[0] ?? contactName,
+            lastName: parts.length > 1 ? parts.slice(1).join(" ") : undefined,
+          });
+        }
+      } catch (error) {
+        console.warn("[partner-profile] Clerk name sync skipped", error);
+      }
+    }
+
     revalidatePath("/partner/profile");
     revalidatePath("/partner");
+    revalidatePath("/", "layout");
     return { success: true, data: partner };
   } catch (error) {
     return {

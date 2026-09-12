@@ -30,6 +30,7 @@ import {
   buildInviteMarker,
   parseInviteMarker,
   parseRoleMarker,
+  upsertPromotedRoleMarker,
   upsertRoleMarker,
 } from "@/lib/airtable/field-markers";
 import { classifyPartnerAirtableStatus } from "@/lib/auth/partner-login";
@@ -971,10 +972,22 @@ async function createPartnerFromUser(user: User): Promise<User> {
   return mapped;
 }
 
-async function deactivatePartnerRecord(partnerId: string): Promise<void> {
-  await updateRecord(partnersTable(), partnerId, {
+async function deactivatePartnerRecord(
+  partnerId: string,
+  options?: { promotedTo?: "admin" | "account_manager" },
+): Promise<void> {
+  const record = await findRecord(partnersTable(), partnerId);
+  const notes = asString(record.fields[PARTNERS_TABLE_FIELDS.notes]);
+  const nextNotes = options?.promotedTo
+    ? upsertPromotedRoleMarker(notes, options.promotedTo)
+    : notes;
+  const patch: AirtableFields = {
     [PARTNERS_TABLE_FIELDS.status]: "Inactive",
-  });
+  };
+  if (nextNotes && nextNotes !== notes) {
+    patch[PARTNERS_TABLE_FIELDS.notes] = nextNotes;
+  }
+  await updateRecord(partnersTable(), partnerId, patch);
 }
 
 async function deactivateAccountManagerRecord(amId: string): Promise<void> {
@@ -1024,7 +1037,7 @@ export async function clientConvertUserRole(
         ),
       });
       if (user.partnerId) {
-        await deactivatePartnerRecord(user.partnerId);
+        await deactivatePartnerRecord(user.partnerId, { promotedTo: "admin" });
       }
       const updated = await clientGetUserById(user.accountManagerId);
       if (!updated) {
@@ -1035,7 +1048,7 @@ export async function clientConvertUserRole(
 
     if (user.partnerId) {
       const am = await createAccountManagerFromUser(user, { adminMarker: true });
-      await deactivatePartnerRecord(user.partnerId);
+      await deactivatePartnerRecord(user.partnerId, { promotedTo: "admin" });
       return am;
     }
 
@@ -1056,7 +1069,9 @@ export async function clientConvertUserRole(
         ),
       });
       if (user.partnerId) {
-        await deactivatePartnerRecord(user.partnerId);
+        await deactivatePartnerRecord(user.partnerId, {
+          promotedTo: "account_manager",
+        });
       }
       const updated = await clientGetUserById(user.accountManagerId);
       if (!updated) {
@@ -1067,7 +1082,9 @@ export async function clientConvertUserRole(
 
     if (user.partnerId) {
       const am = await createAccountManagerFromUser(user);
-      await deactivatePartnerRecord(user.partnerId);
+      await deactivatePartnerRecord(user.partnerId, {
+        promotedTo: "account_manager",
+      });
       return am;
     }
 

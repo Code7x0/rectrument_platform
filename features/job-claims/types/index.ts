@@ -59,6 +59,7 @@ export interface PartnerAvailableJob {
   status: JobStatus;
   description: string | null;
   interviewProcess: string | null;
+  skills: string[];
   documents: JobDocument[];
   claimState: PartnerJobClaimUiState;
   claimId: string | null;

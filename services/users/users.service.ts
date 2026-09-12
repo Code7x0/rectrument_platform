@@ -71,6 +71,8 @@ function buildSession(user: User, clerkId: string): AppSession {
     status: user.status,
     partnerId: user.partnerId,
     accountManagerId: user.accountManagerId,
+    displayName: user.fullName?.trim() || user.email,
+    email: user.email,
   };
 }
 

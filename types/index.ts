@@ -61,6 +61,9 @@ export interface AppSession {
   status: UserStatus;
   partnerId: string | null;
   accountManagerId: string | null;
+  /** Canonical display name from Airtable identity (not Clerk). */
+  displayName: string;
+  email: string;
 }
 
 export type Permission =

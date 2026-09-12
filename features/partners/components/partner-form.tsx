@@ -13,6 +13,10 @@ import {
   type PartnerFormValues,
 } from "@/features/partners/schemas/partner.schema";
 import type { Partner } from "@/features/partners/types";
+import {
+  parsePromotedRoleMarker,
+  stripSystemMarkers,
+} from "@/lib/airtable/field-markers";
 
 interface PartnerFormProps {
   initialPartner?: Partner | null;
@@ -49,8 +53,24 @@ function toDefaults(partner?: Partner | null): PartnerFormValues {
     rating: partner.rating ?? undefined,
     status: partner.status === "archived" ? "pending" : partner.status,
     verificationStatus: partner.verificationStatus,
-    notes: partner.notes ?? "",
+    notes: stripSystemMarkers(partner.notes),
   };
+}
+
+function promotedRoleLabel(
+  partner: Partner | null | undefined,
+): string | null {
+  if (!partner) {
+    return null;
+  }
+  const promoted = parsePromotedRoleMarker(partner.notes);
+  if (promoted === "admin") {
+    return "Platform Admin";
+  }
+  if (promoted === "account_manager") {
+    return "Account Manager";
+  }
+  return null;
 }
 
 export function PartnerForm({
@@ -70,8 +90,17 @@ export function PartnerForm({
     defaultValues: toDefaults(initialPartner),
   });
 
+  const promotedLabel = promotedRoleLabel(initialPartner);
+
   return (
     <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      {promotedLabel ? (
+        <div className="rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 text-sm text-[#1E3A8A]">
+          This person was promoted to <strong>{promotedLabel}</strong>. This
+          screen is the historical Talent Partner record only — manage their
+          current access in Role Management.
+        </div>
+      ) : null}
       <div className="space-y-2">
         <Label htmlFor="companyName">Partner Name (optional)</Label>
         <Input id="companyName" {...register("companyName")} />

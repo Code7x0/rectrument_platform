@@ -75,6 +75,7 @@ export function toPartnerAvailableJob(
     status: job.status,
     description: job.description,
     interviewProcess: job.interviewProcess,
+    skills: job.skills ?? [],
     documents: filterPartnerVisibleJobDocuments(job.documents),
     claimState: options.claimState,
     claimId: options.claimId,

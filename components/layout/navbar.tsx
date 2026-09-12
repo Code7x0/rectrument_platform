@@ -1,8 +1,6 @@
 "use client";
 
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
-
 import { ClientUserButton } from "@/components/auth/client-clerk-auth";
 import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 import { BrandLogo } from "@/components/shared/brand-logo";
@@ -29,13 +27,9 @@ export function Navbar({
   notificationUnreadCount = 0,
   recentNotifications = [],
 }: NavbarProps) {
-  const { role } = useCurrentUser();
-  const { user } = useUser();
+  const { role, displayName, email } = useCurrentUser();
 
-  const displayName =
-    user?.fullName ??
-    user?.primaryEmailAddress?.emailAddress ??
-    "Signed in user";
+  const headerName = displayName ?? email ?? "Signed in user";
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-border bg-card/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:px-6">
@@ -75,7 +69,7 @@ export function Navbar({
         <div className="hidden items-center gap-2 sm:flex">
           <div className="text-right">
             <p className="max-w-[140px] truncate text-sm font-medium text-foreground">
-              {displayName}
+              {headerName}
             </p>
             {role ? <RoleBadge role={role} /> : null}
           </div>
