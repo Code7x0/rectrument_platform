@@ -44,7 +44,11 @@ process.env.APP_URL =
   process.env.APP_URL?.replace(/\/$/, "") || process.env.NEXT_PUBLIC_APP_URL;
 
 import type { EmailTemplateId } from "../services/email/types";
-import { formatCountLine, formatTable } from "../services/email/layout";
+import {
+  formatCountLine,
+  formatDigestDayHeading,
+  formatTable,
+} from "../services/email/layout";
 import { DEFAULT_SUBJECTS, renderBody } from "../services/email/templates";
 import { sendEmail } from "../services/email";
 
@@ -294,15 +298,58 @@ const TEMPLATE_SAMPLES: Array<{
     data: {
       name: "Partner",
       digestBody: [
-        "Jobs Assigned",
+        formatDigestDayHeading(new Date()),
+        "",
         formatTable(
           [
+            "New Accounts Activated",
+            "New Roles Activated – Available to be claimed (Job title only, last 24 hours)",
+          ],
+          [["Siemens", "Software Engineer / Data Engineer / Sales Manager"]],
+        ),
+        "",
+        formatTable(
+          [
+            "Jobs Assigned",
             "Super High Priority Jobs",
             "Candidates Pending Review",
             "Candidates Internal Screening in Progress",
             "Being Submitted to Client",
           ],
-          [["1", "3", "2", "1"]],
+          [["12", "5", "5", "3", "2"]],
+        ),
+        "",
+        "Job Changes",
+        formatTable(
+          ["Jobs ID", "Field Updated", "Present Value"],
+          [
+            ["APD_001", "Status", "Being Submitted to Client"],
+            ["SIE_002", "Comments", "This job is fully remote"],
+          ],
+        ),
+        "",
+        "Candidate Updates:",
+        formatTable(
+          [
+            "Candidate ID",
+            "Field Updated",
+            "Present Value",
+            "Internal Feedback",
+          ],
+          [
+            [
+              "ru_2456",
+              "Submission Status",
+              "Being Submitted to Client",
+              "Strong Java profile",
+            ],
+            [
+              "Su_5678",
+              "Interview Status",
+              "Interview L1",
+              "—",
+            ],
+          ],
         ),
       ].join("\n"),
       dashboardUrl: `${base}/partner`,
@@ -321,10 +368,51 @@ const TEMPLATE_SAMPLES: Array<{
             "Interviewing",
             "Selects",
           ],
-          [["12", "8", "4", "2"]],
+          [["8", "29", "6", "0"]],
+        ),
+        "",
+        formatDigestDayHeading(new Date()),
+        formatTable(
+          [
+            "No of Roles Worked",
+            'Candidates sourced by Partners "Pending Review"',
+            "Candidates moved to Internal Screening Pending",
+            'Candidates moved to "Being Submitted to Client"',
+            'Candidates moved to "Interviewing"',
+            'Candidates Moving to "Select"',
+          ],
+          [["2", "2", "1", "3", "2", "1"]],
+        ),
+        "",
+        "SLA Breach Count (ONLY ACTIVE PARTNERS)",
+        formatTable(
+          ["Account Manager", "AM1", "AM2", "AM3"],
+          [["SLA Breach", "1", "3", "2"]],
+        ),
+        "",
+        "SLA alert",
+        "",
+        "Client Name: Exponents",
+        formatTable(
+          [
+            "Role",
+            "Candidate Name",
+            "Date Recommended",
+            "SLA Breach (In Days)",
+            "Status",
+          ],
+          [
+            [
+              "Director Design",
+              "NUPUR SHARMA",
+              "7 Sept",
+              "2",
+              "Internal Screening In Progress",
+            ],
+          ],
         ),
       ].join("\n"),
-      dashboardUrl: `${base}/admin`,
+      dashboardUrl: `${base}/super-admin`,
     },
   },
 ];

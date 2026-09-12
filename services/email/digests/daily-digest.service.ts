@@ -17,6 +17,7 @@ import {
 } from "@/lib/email/recipients";
 import {
   formatCountLine,
+  formatDigestDayHeading,
   formatOvatoDate,
   formatTable,
   getDigestWindow,
@@ -25,6 +26,7 @@ import { sendEmailSafe } from "@/services/email";
 import { listUsers } from "@/services/users";
 
 import {
+  activityMovedToPipelineStage,
   buildAmSlaClockStartMap,
   countActivityTransitions,
   countSlaBreachesForPrimaryAm,
@@ -152,13 +154,13 @@ function buildSlaSection(
   return lines.join("\n");
 }
 
-function buildPartnerNewAccountsSection(
+function listPartnerNewAccountNames(
   partnerId: string,
   allocations: Allocation[],
   jobs: Awaited<ReturnType<typeof listJobs>>,
   windowStart: Date,
   now: Date,
-): string {
+): string[] {
   const jobById = new Map(jobs.map((job) => [job.id, job]));
   const clientNames = new Set<string>();
 
@@ -183,11 +185,25 @@ function buildPartnerNewAccountsSection(
     }
   }
 
-  if (clientNames.size === 0) {
-    return "No new account allocations in the last 24 hours.";
-  }
+  return [...clientNames];
+}
 
-  return [...clientNames].map((name) => `  • ${name}`).join("\n");
+function buildPartnerActivationsTable(
+  accountNames: string[],
+  newRoleTitles: string[],
+): string {
+  return formatTable(
+    [
+      "New Accounts Activated",
+      "New Roles Activated – Available to be claimed (Job title only, last 24 hours)",
+    ],
+    [
+      [
+        accountNames.length > 0 ? accountNames.join(" / ") : "—",
+        newRoleTitles.length > 0 ? newRoleTitles.join(" / ") : "—",
+      ],
+    ],
+  );
 }
 
 function countSecondLevelReviewsInWindow(
@@ -231,7 +247,7 @@ function buildSuperAdminDigest(
   activities: Activity[],
   windowStart: Date,
   now: Date,
-  digestDate: string,
+  _digestDate: string,
   slaClockStarts: Map<string, Date>,
 ): string {
   const jobMap = new Map<string, JobAmLookup>(
@@ -287,10 +303,6 @@ function buildSuperAdminDigest(
       rolesWorked.add(submission.jobId);
     }
   }
-
-  const pendingReviewSourced = freshInWindow.filter((row) =>
-    matchesSubmissionStatusGroup(row, "pending_review"),
-  ).length;
 
   const movedInternal = countActivityTransitions(
     activities,
@@ -351,6 +363,14 @@ function buildSuperAdminDigest(
     isSlaBreachedSubmission(row, now, jobMap, slaClockStarts.get(row.id)),
   );
 
+  const selectDetails = buildSelectProgressionSection(
+    activities,
+    submissionMap,
+    jobMap,
+    windowStart,
+    now,
+  );
+
   return [
     formatTable(
       [
@@ -362,29 +382,20 @@ function buildSuperAdminDigest(
       [[String(pendingReview), String(beingSubmitted), String(interviewing), String(selects)]],
     ),
     "",
-    digestDate,
-    "Partner activity (last 24 hours)",
+    formatDigestDayHeading(now),
     formatTable(
       [
-        "Profiles Uploaded",
-        "Pending Review (new)",
-        "Roles with new profiles",
-      ],
-      [[String(freshProfiles), String(pendingReviewSourced), String(rolesWithProfiles)]],
-    ),
-    "",
-    "Account Manager performance (last 24 hours)",
-    formatTable(
-      [
-        "Roles Worked",
-        "Pending Review Progression",
-        "Internal Screening Submissions",
-        "Interview Stage Movements",
-        "Select Progressions",
+        "No of Roles Worked",
+        'Candidates sourced by Partners "Pending Review"',
+        "Candidates moved to Internal Screening Pending",
+        'Candidates moved to "Being Submitted to Client"',
+        'Candidates moved to "Interviewing"',
+        'Candidates Moving to "Select"',
       ],
       [
         [
           String(rolesWorked.size),
+          String(freshProfiles),
           String(movedInternal),
           String(movedSubmitted),
           String(movedInterviewing),
@@ -392,8 +403,9 @@ function buildSuperAdminDigest(
         ],
       ],
     ),
+    ...(selectDetails ? ["", selectDetails] : []),
     "",
-    "SLA Breach Count (Account Managers)",
+    "SLA Breach Count (ONLY ACTIVE PARTNERS)",
     amNames.length > 0
       ? formatTable(
           ["Account Manager", ...amNames],
@@ -401,9 +413,55 @@ function buildSuperAdminDigest(
         )
       : "No active account managers.",
     "",
-    buildSlaSection(uniqueBreachedSubmissions, now, jobMap, slaClockStarts, {
-      includeJob: true,
-    }),
+    buildSlaSection(uniqueBreachedSubmissions, now, jobMap, slaClockStarts),
+  ].join("\n");
+}
+
+function buildSelectProgressionSection(
+  activities: Activity[],
+  submissionMap: Map<string, Submission>,
+  jobMap: Map<string, JobAmLookup>,
+  windowStart: Date,
+  now: Date,
+): string {
+  const seen = new Set<string>();
+  const rows: string[][] = [];
+
+  for (const activity of activities) {
+    if (activity.entityType !== "submission") {
+      continue;
+    }
+    if (!inDigestWindow(activity.createdAt, windowStart, now)) {
+      continue;
+    }
+    if (!activityMovedToPipelineStage(activity, "selected")) {
+      continue;
+    }
+    const dedupeKey = `${activity.entityId}:${activity.createdAt ?? ""}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+
+    const submission = submissionMap.get(activity.entityId);
+    if (!submission) {
+      continue;
+    }
+    const job = jobMap.get(submission.jobId);
+    rows.push([
+      submission.candidateName?.trim() || "Candidate",
+      submission.clientName?.trim() || job?.clientName?.trim() || "Client",
+      submission.jobTitle?.trim() || job?.title?.trim() || "Role",
+    ]);
+  }
+
+  if (rows.length === 0) {
+    return "";
+  }
+
+  return [
+    'Candidates Moving to "Select" (details)',
+    formatTable(["Name", "Client Name", "Job"], rows),
   ].join("\n");
 }
 
@@ -420,25 +478,24 @@ function buildPartnerSnapshot(
       allocatedJobIds.has(job.id) && job.priority === "urgent" && job.status === "open",
   ).length;
 
-  return [
-    "Jobs Assigned",
-    formatTable(
+  return formatTable(
+    [
+      "Jobs Assigned",
+      "Super High Priority Jobs",
+      "Candidates Pending Review",
+      "Candidates Internal Screening in Progress",
+      "Being Submitted to Client",
+    ],
+    [
       [
-        "Super High Priority Jobs",
-        "Candidates Pending Review",
-        "Candidates Internal Screening in Progress",
-        "Being Submitted to Client",
+        String(allocatedJobIds.size),
+        String(superHighJobs),
+        String(count("pending_review")),
+        String(count("internal_screening")),
+        String(count("being_submitted")),
       ],
-      [
-        [
-          String(superHighJobs),
-          String(count("pending_review")),
-          String(count("internal_screening")),
-          String(count("being_submitted")),
-        ],
-      ],
-    ),
-  ].join("\n");
+    ],
+  );
 }
 
 function buildPartnerJobChanges(
@@ -467,7 +524,13 @@ function buildPartnerJobChanges(
     });
 
   if (rows.length === 0) {
-    return "Job Changes\nNo job changes in the last 24 hours.";
+    return [
+      "Job Changes",
+      formatTable(
+        ["Jobs ID", "Field Updated", "Present Value"],
+        [["—", "—", "No job changes in the last 24 hours."]],
+      ),
+    ].join("\n");
   }
 
   return [
@@ -482,43 +545,93 @@ function buildPartnerCandidateUpdates(
   windowStart: Date,
   now: Date,
 ): string {
-  const changedIds = new Set(
-    activities
-      .filter(
-        (activity) =>
-          activity.entityType === "submission" &&
-          inDigestWindow(activity.createdAt, windowStart, now),
-      )
-      .map((activity) => activity.entityId),
-  );
+  const rowById = new Map(rows.map((row) => [row.id, row]));
+  const tableRows: string[][] = [];
+  const seen = new Set<string>();
 
-  const recent = rows
-    .filter(
-      (row) =>
-        inDigestWindow(row.submissionDate, windowStart, now) ||
-        changedIds.has(row.id),
-    )
-    .sort(
-      (a, b) =>
-        (parseDigestDate(b.submissionDate)?.getTime() ?? 0) -
-        (parseDigestDate(a.submissionDate)?.getTime() ?? 0),
-    )
-    .slice(0, 12);
+  for (const activity of activities) {
+    if (activity.entityType !== "submission") {
+      continue;
+    }
+    if (!inDigestWindow(activity.createdAt, windowStart, now)) {
+      continue;
+    }
+    const submission = rowById.get(activity.entityId);
+    if (!submission) {
+      continue;
+    }
 
-  if (recent.length === 0) {
-    return "Candidate Updates:\nNo candidate updates in the last 24 hours.";
+    const dedupeKey = `${activity.entityId}:${activity.createdAt ?? ""}:${activity.note ?? ""}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+
+    let fieldUpdated = "Submission Status";
+    let presentValue = submissionExactStatusLabel(submission);
+
+    if (activity.note === "interview_stage_updated") {
+      fieldUpdated = "Interview Status";
+      presentValue =
+        submission.interviewStage?.trim() ||
+        activity.toStatus?.trim() ||
+        "—";
+    } else if (activity.action === "status_change" && activity.toStatus) {
+      presentValue = submissionExactStatusLabel(submission);
+    }
+
+    tableRows.push([
+      submission.submissionCode?.trim() || submission.id.slice(0, 8),
+      fieldUpdated,
+      presentValue,
+      submission.internalFeedback?.trim() || "—",
+    ]);
+  }
+
+  for (const submission of rows) {
+    if (!inDigestWindow(submission.submissionDate, windowStart, now)) {
+      continue;
+    }
+    const dedupeKey = `new:${submission.id}`;
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+    seen.add(dedupeKey);
+    tableRows.push([
+      submission.submissionCode?.trim() || submission.id.slice(0, 8),
+      "Submission Status",
+      submissionExactStatusLabel(submission),
+      submission.internalFeedback?.trim() || "—",
+    ]);
+  }
+
+  tableRows.sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""));
+
+  if (tableRows.length === 0) {
+    return [
+      "Candidate Updates:",
+      formatTable(
+        [
+          "Candidate ID",
+          "Field Updated",
+          "Present Value",
+          "Internal Feedback",
+        ],
+        [["—", "—", "No candidate updates in the last 24 hours.", "—"]],
+      ),
+    ].join("\n");
   }
 
   return [
     "Candidate Updates:",
     formatTable(
-      ["Candidate ID", "Field Updated", "Present Value", "Internal Feedback"],
-      recent.map((row) => [
-        row.submissionCode?.trim() || row.id.slice(0, 8),
-        "Submission Status",
-        submissionExactStatusLabel(row),
-        row.internalFeedback?.trim() || row.interviewStage?.trim() || "—",
-      ]),
+      [
+        "Candidate ID",
+        "Field Updated",
+        "Present Value",
+        "Internal Feedback",
+      ],
+      tableRows.slice(0, 20),
     ),
   ].join("\n");
 }
@@ -548,7 +661,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     getActiveAccountManagerDigestRecipients(),
     listUsers({ role: "partner", status: "active" }),
     listAllocations({ includePartnerIdentity: false }),
-    listActivities({ maxRecords: 500 }).catch(() => [] as Activity[]),
+    listActivities({ maxRecords: 2000 }).catch(() => [] as Activity[]),
   ]);
 
   const activeAllocationsByPartner = new Map<string, Set<string>>();
@@ -696,25 +809,18 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       .map((job) => job.title)
       .filter(Boolean);
 
+    const newAccountNames = listPartnerNewAccountNames(
+      partner.partnerId,
+      allAllocations,
+      jobs,
+      windowStart,
+      now,
+    );
+
     const digestBody = [
-      digestDate,
+      formatDigestDayHeading(now),
       "",
-      "New Accounts Activated",
-      buildPartnerNewAccountsSection(
-        partner.partnerId,
-        allAllocations,
-        jobs,
-        windowStart,
-        now,
-      ),
-      "",
-      formatCountLine(
-        "New Roles Activated – Available to be claimed",
-        newRoleTitles.length,
-      ),
-      newRoleTitles.length === 0
-        ? "No new open roles in the last 24 hours."
-        : newRoleTitles.map((title) => `  • ${title}`).join("\n"),
+      buildPartnerActivationsTable(newAccountNames, newRoleTitles),
       "",
       buildPartnerSnapshot(owned, allocatedJobIds, jobs),
       "",

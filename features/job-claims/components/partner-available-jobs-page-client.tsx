@@ -70,8 +70,16 @@ export function PartnerAvailableJobsPageClient({
     });
   };
 
-  const pendingJobs = useMemo(
-    () => sortJobs(filterJobs(jobs.filter((job) => job.claimState === "pending"))),
+  const activeJobs = useMemo(
+    () =>
+      sortJobs(
+        filterJobs(
+          jobs.filter(
+            (job) =>
+              job.claimState === "pending" || job.claimState === "available",
+          ),
+        ),
+      ),
     [jobs, priorityFilter, normalizedSearch],
   );
   const rejectedJobs = useMemo(
@@ -85,13 +93,8 @@ export function PartnerAvailableJobsPageClient({
       ),
     [jobs, priorityFilter, normalizedSearch],
   );
-  const openJobs = useMemo(
-    () =>
-      sortJobs(filterJobs(jobs.filter((job) => job.claimState === "available"))),
-    [jobs, priorityFilter, normalizedSearch],
-  );
 
-  const visibleCount = pendingJobs.length + openJobs.length + rejectedJobs.length;
+  const visibleCount = activeJobs.length + rejectedJobs.length;
   const filtersActive =
     priorityFilter !== "all" || normalizedSearch.length > 0;
   const headerTitle =
@@ -178,7 +181,7 @@ export function PartnerAvailableJobsPageClient({
         </div>
         <p className="text-sm text-[#64748B]">
           {!filtersActive
-            ? `Showing all ${jobs.length} open roles sorted by priority, then posted date.`
+            ? `Showing all ${jobs.length} open roles sorted by priority (Super High first), then newest posted date.`
             : `Showing ${visibleCount} of ${jobs.length} roles matching your filters.`}
         </p>
       </div>
@@ -192,50 +195,28 @@ export function PartnerAvailableJobsPageClient({
       ) : null}
 
       <div className="space-y-8">
-        {pendingJobs.length > 0 ? (
-          <section className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Clock3 className="h-4 w-4 text-[#C2410C]" />
-              <div>
-                <h2 className="text-sm font-semibold text-[#0F172A]">
-                  Pending claims ({pendingJobs.length})
-                </h2>
-                <p className="text-xs text-[#64748B]">
-                  Waiting for Account Manager / Admin review.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-4">
-              {pendingJobs.map((job) => (
-                <AvailableJobCard
-                  key={job.id}
-                  job={job}
-                  claiming={claimingId === job.id}
-                  onClaim={handleClaim}
-                />
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         <section className="space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-[#0F172A]">
-              Open jobs to claim ({openJobs.length})
-            </h2>
-            <p className="text-xs text-[#64748B]">
-              Request access here. Approved jobs move to Assigned Jobs.
-            </p>
+          <div className="flex items-center gap-2">
+            <Clock3 className="h-4 w-4 text-[#C2410C]" />
+            <div>
+              <h2 className="text-sm font-semibold text-[#0F172A]">
+                Available roles ({activeJobs.length})
+              </h2>
+              <p className="text-xs text-[#64748B]">
+                Sorted by priority, then newest date. Pending claims stay in
+                this list until approved.
+              </p>
+            </div>
           </div>
-          {openJobs.length === 0 ? (
+          {activeJobs.length === 0 ? (
             <EmptyState
               title="No open jobs to claim"
-              description="Check pending or rejected claims below, or your Assigned Jobs."
+              description="Check rejected claims below, or your Assigned Jobs."
               icon={<Briefcase className="h-5 w-5" />}
             />
           ) : (
             <div className="space-y-4">
-              {openJobs.map((job) => (
+              {activeJobs.map((job) => (
                 <AvailableJobCard
                   key={job.id}
                   job={job}

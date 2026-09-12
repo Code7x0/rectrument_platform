@@ -21,6 +21,26 @@ export function formatOvatoDate(date: Date): string {
   return `${day} ${month} ${year}`;
 }
 
+/** Digest body date line, e.g. "12th September 2026". */
+export function formatDigestDayHeading(date: Date): string {
+  const ist = new Date(date.getTime() + IST_OFFSET_MINUTES * 60_000);
+  const day = ist.getUTCDate();
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+  const month = ist.toLocaleString("en-GB", {
+    month: "long",
+    timeZone: "UTC",
+  });
+  const year = ist.getUTCFullYear();
+  return `${day}${suffix} ${month} ${year}`;
+}
+
 /** Daily digest capture window: previous 24h ending at send time (7 AM IST cron). */
 export function getDigestWindow(now = new Date()): { start: Date; end: Date } {
   const end = now;
@@ -172,8 +192,9 @@ function isSectionHeading(line: string): boolean {
     trimmed === "Job Changes" ||
     trimmed === "Candidate Updates:" ||
     trimmed === "Profiles Recommended:" ||
-    trimmed.startsWith("New Accounts Activated") ||
-    trimmed.startsWith("New Roles Activated")
+    trimmed.startsWith("SLA Breach Count") ||
+    trimmed.startsWith("Candidates Moving to") ||
+    /^[0-9]{1,2}(st|nd|rd|th)\s/.test(trimmed)
   );
 }
 

@@ -14,12 +14,12 @@ import {
  * Pulse hits Clerk + lightweight identity + notification fingerprint only.
  * An 8s cadence across all open dashboards dominated Vercel Fluid Active CPU.
  */
-const PULSE_INTERVAL_MS = 30_000;
+const PULSE_INTERVAL_MS = 20_000;
 /**
  * Safety-net full RSC refresh for CRM edits outside the app or missed
  * notification publishes. Pulse + mutation `rpms:data` cover normal updates.
  */
-const FULL_REFRESH_INTERVAL_MS = 3 * 60_000;
+const FULL_REFRESH_INTERVAL_MS = 90_000;
 const MIN_FULL_REFRESH_GAP_MS = 2_000;
 
 /**

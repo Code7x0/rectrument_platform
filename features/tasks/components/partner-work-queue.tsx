@@ -84,7 +84,8 @@ export function PartnerWorkQueue({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="text-sm text-[#64748B]">
           Showing {filteredTasks.length} of {tasks.length} assigned job
-          {tasks.length === 1 ? "" : "s"} (includes Active and On Hold).
+          {tasks.length === 1 ? "" : "s"} sorted by priority (Super High first),
+          then newest date.
         </p>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
           <PartnerJobPriorityFilter

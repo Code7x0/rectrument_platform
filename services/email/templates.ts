@@ -390,8 +390,8 @@ export function renderBody(
       });
     case "daily_digest_admin":
       return formatOvatoEmailBody({
-        greeting: "Hey",
-        intro: "Is team working well … If not, send a note or tinker them!!",
+        greeting: "Super Admin/Admin",
+        intro: "Hey\n\nIs team working well … If not, send a note or tinker them!!",
         sections: [data.digestBody ?? "No activity to report today."],
         dashboardUrl: data.dashboardUrl,
       });

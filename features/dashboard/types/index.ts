@@ -26,6 +26,7 @@ export interface DashboardListItem {
   meta?: string;
   href?: string;
   badge?: string;
+  badgeTone?: "urgent" | "high" | "default";
 }
 
 export interface DashboardActivityItem {

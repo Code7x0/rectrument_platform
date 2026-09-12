@@ -21,7 +21,7 @@ export function PartnerDashboard({ data }: PartnerDashboardProps) {
       <div className="space-y-8">
         <DashboardHeader
           title={`Welcome back${data.partnerName ? `, ${data.partnerName.split(" ")[0]}` : ""}`}
-          description="What should I work on today? Jobs, candidates, and earnings — transparent and up to date."
+          description="What should I work on today? Super High roles stay on top — your list updates as jobs and candidates change."
           breadcrumbs={[{ label: "Talent Partner" }, { label: "My Work" }]}
         />
 

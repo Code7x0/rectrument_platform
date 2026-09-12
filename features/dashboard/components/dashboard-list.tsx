@@ -52,7 +52,17 @@ export function DashboardList({
               </div>
               <div className="shrink-0 text-right">
                 {item.badge ? (
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                      item.badgeTone === "urgent" &&
+                        "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200",
+                      item.badgeTone === "high" &&
+                        "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100",
+                      (!item.badgeTone || item.badgeTone === "default") &&
+                        "bg-muted text-muted-foreground",
+                    )}
+                  >
                     {item.badge}
                   </span>
                 ) : null}

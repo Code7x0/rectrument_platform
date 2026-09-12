@@ -26,7 +26,7 @@ function jobOpenDateMs(
 }
 
 /**
- * Canonical Partner job ordering: Priority (Super High→Low), then open/posted date.
+ * Canonical Partner job ordering: Priority (Super High→Low), then newest open/posted date.
  */
 export function compareJobsByPriorityThenOpenDate(
   a: Pick<Job, "priority" | "title"> &
@@ -38,7 +38,7 @@ export function compareJobsByPriorityThenOpenDate(
   if (byPriority !== 0) {
     return byPriority;
   }
-  const byDate = jobOpenDateMs(a) - jobOpenDateMs(b);
+  const byDate = jobOpenDateMs(b) - jobOpenDateMs(a);
   if (byDate !== 0) {
     return byDate;
   }

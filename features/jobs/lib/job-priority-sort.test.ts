@@ -71,6 +71,6 @@ test("sorts by priority then posted date", () => {
   const sorted = [...jobs].sort(compareJobsByPriorityThenOpenDate);
   assert.deepEqual(
     sorted.map((row) => row.id),
-    ["urgent-old", "urgent-new", "high", "low-old"],
+    ["urgent-new", "urgent-old", "high", "low-old"],
   );
 });

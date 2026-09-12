@@ -18,7 +18,12 @@ import { listUsers } from "@/services/users/users.service";
 import { getUsersSummary } from "@/features/users/services";
 import { DOCUMENT_TYPE_LABELS } from "@/features/partner-documents/types";
 import { jobsListHref } from "@/features/jobs/lib/job-list-links";
-import { JOB_PRIORITY_LABELS, JOB_STATUS_LABELS } from "@/features/jobs/types";
+import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
+import {
+  JOB_PRIORITY_LABELS,
+  JOB_STATUS_LABELS,
+  type JobPriority,
+} from "@/features/jobs/types";
 import { isAssignableJobStatus } from "@/features/shared/entities/job.entity";
 import { requireRole } from "@/lib/auth";
 import {
@@ -866,6 +871,59 @@ export async function getAccountManagerDashboardData(
   };
 }
 
+function priorityBadgeTone(
+  priority: JobPriority | null | undefined,
+): "urgent" | "high" | "default" {
+  if (priority === "urgent") {
+    return "urgent";
+  }
+  if (priority === "high") {
+    return "high";
+  }
+  return "default";
+}
+
+function formatJobPostedLabel(
+  postedDate: string | null | undefined,
+  createdAt: string | null | undefined,
+): string | undefined {
+  const raw = postedDate || createdAt;
+  if (!raw) {
+    return undefined;
+  }
+  const parsed = Date.parse(raw);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+  return formatDate(new Date(parsed));
+}
+
+function sortPartnerSubmissionsForDashboard<
+  T extends {
+    jobId: string;
+    jobTitle?: string | null;
+    submissionDate?: string | null;
+    jobPriority?: JobPriority | null;
+  },
+>(rows: T[], jobPriorityByJobId: Map<string, JobPriority | null | undefined>) {
+  return [...rows].sort((a, b) => {
+    const byJobPriority = compareJobsByPriorityThenOpenDate(
+      {
+        priority: jobPriorityByJobId.get(a.jobId) ?? a.jobPriority ?? null,
+        title: a.jobTitle ?? "",
+      },
+      {
+        priority: jobPriorityByJobId.get(b.jobId) ?? b.jobPriority ?? null,
+        title: b.jobTitle ?? "",
+      },
+    );
+    if (byJobPriority !== 0) {
+      return byJobPriority;
+    }
+    return (b.submissionDate ?? "").localeCompare(a.submissionDate ?? "");
+  });
+}
+
 /**
  * Talent Partner daily work + earnings command center.
  */
@@ -900,6 +958,19 @@ export async function getPartnerDashboardData(
   );
   const joined = submissions.filter((s) =>
     matchesSubmissionStatusGroup(s, "joined"),
+  );
+
+  const jobPriorityByJobId = new Map(
+    tasks.map((task) => [task.jobId, task.priority]),
+  );
+  const priorityWorkTasks = tasks.filter(
+    (task) => task.priority === "urgent" || task.priority === "high",
+  );
+  const todaysWorkTasks =
+    priorityWorkTasks.length > 0 ? priorityWorkTasks : tasks;
+  const sortedSubmissions = sortPartnerSubmissionsForDashboard(
+    submissions,
+    jobPriorityByJobId,
   );
 
   return {
@@ -985,13 +1056,19 @@ export async function getPartnerDashboardData(
         tone: "positive",
       },
     ],
-    todaysWork: tasks.slice(0, 6).map((task) => ({
+    todaysWork: todaysWorkTasks.slice(0, 6).map((task) => ({
       id: task.id,
       title: task.jobTitle,
       subtitle: task.jobCode ?? "Job",
       badge: task.priority ? JOB_PRIORITY_LABELS[task.priority] : undefined,
+      badgeTone: priorityBadgeTone(task.priority),
       href: `/partner/jobs/${encodeURIComponent(task.jobId)}`,
-      meta: task.clientName ?? undefined,
+      meta: [
+        task.clientName?.trim(),
+        formatJobPostedLabel(task.job.postedDate, task.job.createdAt),
+      ]
+        .filter(Boolean)
+        .join(" · "),
     })),
     recentEarnings: payouts.slice(0, 6).map((payout) => ({
       id: payout.id,
@@ -1004,15 +1081,18 @@ export async function getPartnerDashboardData(
           ? formatCurrency(payout.amount, payout.currency)
           : undefined,
     })),
-    recentCandidateUpdates: submissions.slice(0, 6).map((row) => ({
+    recentCandidateUpdates: sortedSubmissions.slice(0, 6).map((row) => ({
       id: row.id,
       title: row.candidateName ?? "Candidate",
       subtitle: row.jobTitle ?? "Job",
       badge: submissionStatusDisplayLabel(row),
+      badgeTone: priorityBadgeTone(
+        jobPriorityByJobId.get(row.jobId) ?? row.jobPriority,
+      ),
       href: `${PARTNER_CANDIDATES}?submissionId=${encodeURIComponent(row.id)}`,
     })),
     // Own submissions only — never the global activity feed.
-    recentActivity: submissions.slice(0, 8).map((row) => ({
+    recentActivity: sortedSubmissions.slice(0, 8).map((row) => ({
       id: `sub_${row.id}`,
       title: row.candidateName ?? "Candidate",
       subtitle: `${row.jobTitle ?? "Job"} · ${submissionStatusDisplayLabel(row)}`,
