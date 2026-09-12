@@ -27,6 +27,11 @@ import type {
   CreateClientInput,
   UpdateClientInput,
 } from "@/features/clients/types";
+import { CLIENT_STATUS_LABELS } from "@/features/shared/entities";
+import {
+  formatEntityChangeTable,
+  type FieldChangeRow,
+} from "@/lib/email/change-table";
 import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   CLIENTS_TABLE_FIELDS,
@@ -271,6 +276,56 @@ export async function updateClient(
     (key) => key !== "accountManagerId" && key !== "accountManagerIds",
   );
   if (detailKeys.length > 0) {
+    const changes: FieldChangeRow[] = [];
+    if (input.status !== undefined && input.status !== existing?.status) {
+      changes.push({
+        field: "Status",
+        value: CLIENT_STATUS_LABELS[input.status] ?? input.status,
+      });
+    }
+    if (input.name !== undefined && input.name !== existing?.name) {
+      changes.push({ field: "Name", value: input.name });
+    }
+    if (input.industry !== undefined && input.industry !== existing?.industry) {
+      changes.push({ field: "Industry", value: input.industry ?? "" });
+    }
+    if (input.website !== undefined && input.website !== existing?.website) {
+      changes.push({ field: "Website", value: input.website ?? "" });
+    }
+    if (
+      input.primaryContact !== undefined &&
+      input.primaryContact !== existing?.primaryContact
+    ) {
+      changes.push({
+        field: "Primary Contact",
+        value: input.primaryContact ?? "",
+      });
+    }
+    if (
+      input.primaryAddress !== undefined &&
+      input.primaryAddress !== existing?.primaryAddress
+    ) {
+      changes.push({
+        field: "Primary Address",
+        value: input.primaryAddress ?? "",
+      });
+    }
+    if (
+      input.modeOfWork !== undefined &&
+      input.modeOfWork !== existing?.modeOfWork
+    ) {
+      changes.push({ field: "Mode of Work", value: input.modeOfWork ?? "" });
+    }
+    if (
+      input.employeeSize !== undefined &&
+      input.employeeSize !== existing?.employeeSize
+    ) {
+      changes.push({ field: "Employee Size", value: input.employeeSize ?? "" });
+    }
+    const changeTable = formatEntityChangeTable(
+      client.clientCode || clientId,
+      changes,
+    );
     const { notifyClientDetailsUpdated } = await import(
       "@/features/notifications/services/notification-events"
     );
@@ -287,6 +342,11 @@ export async function updateClient(
       clientName: client.name,
       clientCode: client.clientCode,
       accountManagerIds: amIds,
+      changeTable,
+      changedSummary:
+        changes.length > 0
+          ? changes.map((row) => `${row.field}: ${row.value}`).join("; ")
+          : undefined,
     }).catch((error) => {
       console.error("[notifications] client update notify failed", error);
     });

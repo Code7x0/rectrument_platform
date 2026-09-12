@@ -161,6 +161,17 @@ const TEMPLATE_SAMPLES: Array<{
     },
   },
   {
+    template: "candidate_status_changed",
+    to: RECIPIENTS.admin,
+    data: {
+      name: "Account Manager",
+      candidateName: "Jane Doe",
+      jobTitle: "Senior Developer",
+      statusLabel: "2nd Level Review Requested",
+      candidatesUrl: `${base}/account-manager/candidates?submissionId=sub_test`,
+    },
+  },
+  {
     template: "candidate_joined",
     to: RECIPIENTS.admin,
     data: {
@@ -270,7 +281,7 @@ const TEMPLATE_SAMPLES: Array<{
         "",
         "Test Client",
         formatTable(
-          ["Designation", "Count"],
+          ["Designation", "Profiles"],
           [["Senior Developer", "2"], ["Product Manager", "1"]],
         ),
       ].join("\n"),
@@ -305,10 +316,10 @@ const TEMPLATE_SAMPLES: Array<{
       digestBody: [
         formatTable(
           [
-            "Pending Review: Total Count",
-            "Being Submitted to Client: Total Count",
-            "Interviewing: Total Count",
-            "Selects: Total Count",
+            "Pending Review",
+            "Being Submitted to Client",
+            "Interviewing",
+            "Selects",
           ],
           [["12", "8", "4", "2"]],
         ),

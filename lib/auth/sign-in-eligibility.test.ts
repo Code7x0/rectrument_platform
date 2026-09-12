@@ -45,24 +45,37 @@ test("resolveSignInEligibility allows active approved partners", () => {
   );
 });
 
+function ineligibleCode(
+  result: ReturnType<typeof resolveSignInEligibility>,
+): string {
+  assert.equal(result.ok, false);
+  return result.code;
+}
+
 test("resolveSignInEligibility blocks pending and missing identities", () => {
-  assert.equal(resolveSignInEligibility(null).code, "not_found");
+  assert.equal(ineligibleCode(resolveSignInEligibility(null)), "not_found");
   assert.equal(
-    resolveSignInEligibility(
-      partnerUser({ status: "inactive", registrationStatus: "pending" }),
-    ).code,
+    ineligibleCode(
+      resolveSignInEligibility(
+        partnerUser({ status: "inactive", registrationStatus: "pending" }),
+      ),
+    ),
     "pending",
   );
   assert.equal(
-    resolveSignInEligibility(
-      partnerUser({ registrationStatus: "invitation_pending" }),
-    ).code,
+    ineligibleCode(
+      resolveSignInEligibility(
+        partnerUser({ registrationStatus: "invitation_pending" }),
+      ),
+    ),
     "pending",
   );
   assert.equal(
-    resolveSignInEligibility(
-      partnerUser({ registrationStatus: "rejected", status: "inactive" }),
-    ).code,
+    ineligibleCode(
+      resolveSignInEligibility(
+        partnerUser({ registrationStatus: "rejected", status: "inactive" }),
+      ),
+    ),
     "rejected",
   );
   assert.deepEqual(
@@ -72,9 +85,11 @@ test("resolveSignInEligibility blocks pending and missing identities", () => {
     { ok: true },
   );
   assert.equal(
-    resolveSignInEligibility(
-      partnerUser({ status: "inactive", registrationStatus: "inactive" }),
-    ).code,
+    ineligibleCode(
+      resolveSignInEligibility(
+        partnerUser({ status: "inactive", registrationStatus: "inactive" }),
+      ),
+    ),
     "inactive",
   );
 });

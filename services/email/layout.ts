@@ -80,8 +80,12 @@ export function formatTable(
       ...rows.map((row) => (row[index] ?? "").length),
     ),
   );
-  const pad = (value: string, width: number) =>
-    value.padEnd(width, " ").slice(0, width);
+  const pad = (value: string, width: number) => {
+    if (value.length <= width) {
+      return value.padEnd(width, " ");
+    }
+    return value;
+  };
 
   const headerLine = headers
     .map((header, index) => pad(header, colWidths[index]!))

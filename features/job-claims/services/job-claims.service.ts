@@ -4,6 +4,7 @@ import { getClientsByIds } from "@/features/clients/services";
 import { getJobById, listJobs } from "@/features/jobs/services";
 import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
 import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
+import { filterPartnerVisibleJobDocuments } from "@/features/jobs/lib/partner-visible-documents";
 import {
   findActiveClaimForPartnerJob,
   findJobClaimById,
@@ -74,10 +75,7 @@ export function toPartnerAvailableJob(
     status: job.status,
     description: job.description,
     interviewProcess: job.interviewProcess,
-    documents: job.documents.filter(
-      (doc) =>
-        doc.label === "Job Description" || doc.label === "Sample Profiling",
-    ),
+    documents: filterPartnerVisibleJobDocuments(job.documents),
     claimState: options.claimState,
     claimId: options.claimId,
     claimRequestedAt: options.claimRequestedAt,

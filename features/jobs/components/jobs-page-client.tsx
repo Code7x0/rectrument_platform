@@ -20,6 +20,7 @@ import { JobDialog } from "@/features/jobs/components/job-dialog";
 import { JobDrawer } from "@/features/jobs/components/job-drawer";
 import { JobFilters } from "@/features/jobs/components/job-filters";
 import { JobTable } from "@/features/jobs/components/job-table";
+import { compareJobsByPriorityThenOpenDate } from "@/features/jobs/lib/job-priority-sort";
 import type { Job, JobListFilters } from "@/features/jobs/types";
 import type { LookupOption } from "@/services/lookups";
 import { signalLiveDataChange } from "@/lib/live-sync";
@@ -132,6 +133,10 @@ function applyClientFilters(jobs: Job[], filters: JobListFilters): Job[] {
   });
 
   return [...filtered].sort((a, b) => {
+    const byPriority = compareJobsByPriorityThenOpenDate(a, b);
+    if (byPriority !== 0) {
+      return byPriority;
+    }
     const clientA = (a.clientCode || a.clientName || a.clientId || "").toLowerCase();
     const clientB = (b.clientCode || b.clientName || b.clientId || "").toLowerCase();
     if (clientA !== clientB) {

@@ -10,6 +10,8 @@ export interface CandidateEntity {
   phone: string | null;
   resumeUrl: string | null;
   resumeFilename: string | null;
+  /** All Resume field attachments (initial + 2nd review append). */
+  resumeUrls: string[];
   currentCompany: string | null;
   currentLocation: string | null;
   experience: string | null;

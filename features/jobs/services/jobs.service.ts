@@ -23,6 +23,14 @@ export interface JobNotificationContext {
   actorRole?: UserRole | null;
 }
 import {
+  formatEntityChangeTable,
+  type FieldChangeRow,
+} from "@/lib/email/change-table";
+import {
+  JOB_PRIORITY_LABELS,
+  JOB_STATUS_LABELS,
+} from "@/features/shared/entities";
+import {
   destroyJob,
   findJobById,
   findJobs,
@@ -614,6 +622,35 @@ export async function updateJob(
     (key) => key !== "accountManagerId" && key !== "accountManagerIds",
   );
   if (detailKeys.length > 0) {
+    const changes: FieldChangeRow[] = [];
+    if (input.status !== undefined && input.status !== existing?.status) {
+      changes.push({
+        field: "Status",
+        value: JOB_STATUS_LABELS[input.status] ?? input.status,
+      });
+    }
+    if (input.priority !== undefined && input.priority !== existing?.priority) {
+      changes.push({
+        field: "Priority",
+        value: JOB_PRIORITY_LABELS[input.priority] ?? input.priority,
+      });
+    }
+    if (input.title !== undefined && input.title !== existing?.title) {
+      changes.push({ field: "Title", value: input.title });
+    }
+    if (
+      input.description !== undefined &&
+      input.description !== existing?.description
+    ) {
+      changes.push({
+        field: "Comments",
+        value: input.description.slice(0, 120),
+      });
+    }
+    const changeTable = formatEntityChangeTable(
+      job.jobCode || jobId,
+      changes,
+    );
     const { notifyJobDetailsUpdated } = await import(
       "@/features/notifications/services/notification-events"
     );
@@ -626,6 +663,11 @@ export async function updateJob(
         : job.accountManagerId
           ? [job.accountManagerId]
           : [],
+      changeTable,
+      changedSummary:
+        changes.length > 0
+          ? changes.map((row) => `${row.field}: ${row.value}`).join("; ")
+          : undefined,
     }).catch((error) => {
       console.error("[notifications] job update notify failed", error);
     });

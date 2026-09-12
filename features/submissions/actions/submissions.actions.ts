@@ -25,7 +25,7 @@ import {
   updatePartnerSubmissionProfile,
 } from "@/features/submissions/services";
 import { parseScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
-import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
+import { canPartnerEditSubmission } from "@/features/submissions/lib/partner-edit-eligibility";
 import type { Candidate } from "@/features/candidates/types";
 import type { Submission } from "@/features/submissions/types";
 import type { CandidateFormValues } from "@/features/candidates/schemas/candidate.schema";
@@ -296,7 +296,7 @@ export async function getOwnSubmissionForEditAction(
     if (!submission || submission.partnerId !== session.partnerId) {
       return { success: false, message: "Candidate not found" };
     }
-    if (!isUnreviewedByStaff(submission)) {
+    if (!canPartnerEditSubmission(submission)) {
       return {
         success: false,
         message: "This profile is locked after internal review",

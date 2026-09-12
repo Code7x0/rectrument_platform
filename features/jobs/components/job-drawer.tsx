@@ -224,7 +224,7 @@ export function JobDrawer({
             )}
           </div>
 
-          {otherDocs.length > 0 ? (
+          {!partnerView && otherDocs.length > 0 ? (
             <div>
               <p className="partner-section-label">Other documents</p>
               <ul className="mt-2 space-y-2">

@@ -74,8 +74,56 @@ export async function updateSubmissionReviewFieldsAction(
 /**
  * Partner (owner) or staff can request 2nd-level review after rejection.
  */
+async function parseSecondReviewAttachments(
+  formData: FormData,
+): Promise<import("@/services/uploads").UploadedFile[]> {
+  const files = formData
+    .getAll("attachments")
+    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+  if (files.length === 0) {
+    return [];
+  }
+  if (files.length > 3) {
+    throw new Error("Attach up to 3 supporting files");
+  }
+
+  const { normalizeUploadContentType, validateResumeFileMeta } = await import(
+    "@/lib/files/document-types"
+  );
+  const { stageResumeFile } = await import(
+    "@/features/submissions/services/submissions.service"
+  );
+
+  const uploads: import("@/services/uploads").UploadedFile[] = [];
+  for (const file of files) {
+    const metaError = validateResumeFileMeta({
+      filename: file.name || "attachment.pdf",
+      contentType: file.type,
+      size: file.size,
+    });
+    if (metaError) {
+      throw new Error(metaError);
+    }
+    const contentType = normalizeUploadContentType(
+      file.name || "attachment.pdf",
+      file.type,
+    );
+    const buffer = Buffer.from(await file.arrayBuffer());
+    uploads.push(
+      await stageResumeFile({
+        filename: file.name || "attachment.pdf",
+        contentType,
+        data: buffer,
+        size: file.size,
+      }),
+    );
+  }
+  return uploads;
+}
+
 export async function requestSecondLevelReviewAction(
   submissionId: string,
+  formData?: FormData,
 ): Promise<ActionResult<Submission>> {
   try {
     const session = await getAppSession();
@@ -103,9 +151,18 @@ export async function requestSecondLevelReviewAction(
       }
     }
 
+    const rawNote = formData?.get("note");
+    const note = typeof rawNote === "string" ? rawNote.trim() : "";
+    const attachmentUploads = formData
+      ? await parseSecondReviewAttachments(formData)
+      : [];
+
     const submission = await requestSecondLevelReview(submissionId, {
       partnerId: session.partnerId,
       isStaff,
+    }, {
+      note: note || null,
+      attachmentUploads,
     });
     revalidateReviewPaths();
     return { success: true, data: submission };

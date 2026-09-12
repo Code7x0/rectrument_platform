@@ -78,18 +78,39 @@ export async function createCandidate(
 export async function attachResumeToCandidate(
   candidateId: string,
   upload: UploadedFile,
+  options?: { mode?: "replace" | "append"; filenamePrefix?: string },
 ): Promise<Candidate> {
   const uploader = getUploadService();
-  await uploader.bindToEntity(upload, {
-    entityId: candidateId,
-    fieldName: CANDIDATES_TABLE_FIELDS.resume,
-  });
+  const filename = options?.filenamePrefix
+    ? `${options.filenamePrefix}${upload.filename}`
+    : upload.filename;
+  await uploader.bindToEntity(
+    { ...upload, filename },
+    {
+      entityId: candidateId,
+      fieldName: CANDIDATES_TABLE_FIELDS.resume,
+      mode: options?.mode,
+    },
+  );
 
   const refreshed = await findCandidateById(candidateId);
   if (!refreshed) {
     throw new Error("Candidate not found after resume upload");
   }
   return refreshed;
+}
+
+/** Append supporting files for a 2nd-level review request without replacing resume. */
+export async function attachSecondReviewFilesToCandidate(
+  candidateId: string,
+  uploads: UploadedFile[],
+): Promise<void> {
+  for (const upload of uploads) {
+    await attachResumeToCandidate(candidateId, upload, {
+      mode: "append",
+      filenamePrefix: "2ndReview_",
+    });
+  }
 }
 
 /** Clear the Resume attachment field on a Candidates row. */

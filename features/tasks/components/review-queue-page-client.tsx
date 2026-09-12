@@ -201,8 +201,28 @@ function submissionStatusRank(row: Submission): number {
   return index >= 0 ? index : AIRTABLE_SUBMISSION_STATUS_OPTIONS.length;
 }
 
+function jobPriorityRank(priority: Submission["jobPriority"]): number {
+  switch (priority) {
+    case "urgent":
+      return 0;
+    case "high":
+      return 1;
+    case "medium":
+      return 2;
+    case "low":
+      return 3;
+    default:
+      return 99;
+  }
+}
+
 function sortSubmissionsForReview(rows: Submission[]): Submission[] {
   return [...rows].sort((a, b) => {
+    const priorityDiff =
+      jobPriorityRank(a.jobPriority) - jobPriorityRank(b.jobPriority);
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
     const rankDiff = submissionStatusRank(a) - submissionStatusRank(b);
     if (rankDiff !== 0) {
       return rankDiff;

@@ -376,12 +376,14 @@ export function renderBody(
       });
     case "daily_digest_am":
       return formatOvatoEmailBody({
+        greeting: data.name?.trim() ? `Hey ${data.name.trim()}` : "Hey",
         intro: "Below is your snapshot for the day. Let's hire fast!!",
         sections: [data.digestBody ?? "No activity to report today."],
         dashboardUrl: data.dashboardUrl,
       });
     case "daily_digest_partner":
       return formatOvatoEmailBody({
+        greeting: data.name?.trim() ? `Hey ${data.name.trim()}` : "Hey",
         intro: "Below is your snapshot for the day. Let's make it happen!!",
         sections: [data.digestBody ?? "No activity to report today."],
         dashboardUrl: data.dashboardUrl,

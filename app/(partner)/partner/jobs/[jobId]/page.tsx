@@ -13,6 +13,7 @@ import {
   JOB_PRIORITY_LABELS,
 } from "@/features/jobs/types";
 import { deriveJobWorkMode } from "@/features/jobs/lib/work-mode";
+import { filterPartnerVisibleJobDocuments } from "@/features/jobs/lib/partner-visible-documents";
 import { getPartnerWorkTask } from "@/features/tasks/services";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
@@ -65,15 +66,11 @@ export default async function PartnerAssignedJobDetailPage({
 
   const job = task.job;
   const workMode = deriveJobWorkMode(job.location, job.workMode);
+  const partnerDocuments = filterPartnerVisibleJobDocuments(job.documents);
   const jdDocs =
-    job.documents.filter((doc) => doc.label === "Job Description") ?? [];
+    partnerDocuments.filter((doc) => doc.label === "Job Description") ?? [];
   const sampleDocs =
-    job.documents.filter((doc) => doc.label === "Sample Profiling") ?? [];
-  const otherDocs =
-    job.documents.filter(
-      (doc) =>
-        doc.label !== "Job Description" && doc.label !== "Sample Profiling",
-    ) ?? [];
+    partnerDocuments.filter((doc) => doc.label === "Sample Profiling") ?? [];
   const openDate = job.postedDate || job.startDate || job.createdAt;
 
   return (
@@ -178,26 +175,6 @@ export default async function PartnerAssignedJobDetailPage({
             <p className="mt-1 text-sm text-foreground">—</p>
           )}
         </div>
-
-        {otherDocs.length > 0 ? (
-          <div>
-            <p className="partner-section-label">Other documents</p>
-            <ul className="mt-2 space-y-2">
-              {otherDocs.map((doc) => (
-                <li key={`${doc.label}-${doc.url}`}>
-                  <FilePreviewLink
-                    url={doc.url}
-                    filename={doc.filename}
-                    title={`${doc.label}: ${doc.filename}`}
-                    className="text-sm font-medium text-success underline-offset-2 hover:underline"
-                  >
-                    {doc.label}: {doc.filename}
-                  </FilePreviewLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-[#E2E8F0] pt-4">
           <Button asChild variant="outline">

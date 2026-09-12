@@ -31,7 +31,10 @@ import {
 } from "@/features/submissions/repositories/submissions.repository";
 import { buildScreeningMatrixNotes } from "@/features/submissions/lib/build-screening-matrix-notes";
 import { INTERNAL_SOURCE_LABEL } from "@/features/submissions/lib/internal-sourcing";
-import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
+import {
+  canPartnerEditSubmission,
+  isUnreviewedByStaff,
+} from "@/features/submissions/lib/partner-edit-eligibility";
 import { updateCandidateRecord } from "@/features/candidates/repositories/candidates.repository";
 import { toAirtableUpdateFields } from "@/features/candidates/services/candidates.mapper";
 import {
@@ -365,7 +368,7 @@ export const listPartnerSubmissions = cache(async function listPartnerSubmission
     if (linkedCandidateIds.has(row.id) || linkedCandidateIds.has(row.candidateId)) {
       return true;
     }
-    return !row.partnerId && allocatedJobIds.has(row.jobId);
+    return false;
   });
 
   if (extras.length === 0) {
@@ -966,6 +969,22 @@ export async function submitCandidateForAllocation(
   }
 
   try {
+    const { recordActivity } = await import(
+      "@/features/workflows/services/activity.service"
+    );
+    await recordActivity({
+      entityType: "submission",
+      entityId: submission.id,
+      action: "status_change",
+      fromStatus: null,
+      toStatus: "submitted",
+      note: DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE.submitted,
+    });
+  } catch (error) {
+    console.error("Failed to record submission activity", error);
+  }
+
+  try {
     const { notifyCandidateSubmitted } = await import(
       "@/features/notifications/services/notification-events"
     );
@@ -1175,6 +1194,7 @@ export async function updateSubmissionReviewFields(
           submissionId: enriched.id,
           toStatus: nextDomainStatus,
           statusLabel: enriched.airtableStatus,
+          internalFeedback: enriched.internalFeedback,
         });
       } else {
         console.warn("[notifications] status change skipped — no partner id", {
@@ -1237,6 +1257,10 @@ export async function updateSubmissionReviewFields(
 export async function requestSecondLevelReview(
   submissionId: string,
   actor: { partnerId?: string | null; isStaff: boolean },
+  options?: {
+    note?: string | null;
+    attachmentUploads?: import("@/services/uploads").UploadedFile[];
+  },
 ): Promise<Submission> {
   const current = await getSubmissionById(submissionId);
   if (!current) {
@@ -1259,13 +1283,38 @@ export async function requestSecondLevelReview(
     return current;
   }
 
-  const updated = await patchSubmission(submissionId, {
+  const patchFields: {
+    [SUBMISSIONS_TABLE_FIELDS.wantsSecondLevelReview]: string;
+    [SUBMISSIONS_TABLE_FIELDS.remarks]?: string;
+  } = {
     [SUBMISSIONS_TABLE_FIELDS.wantsSecondLevelReview]:
       AIRTABLE_SECOND_LEVEL_REVIEW_YES,
-  });
-  const [enriched] = await withEnrichment([updated]);
+  };
+  const note = options?.note?.trim();
+  if (note) {
+    const existing = current.remarks?.trim() ?? "";
+    const block = `[2nd Level Review Request @ ${new Date().toISOString()}]\n${note}`;
+    patchFields[SUBMISSIONS_TABLE_FIELDS.remarks] = existing
+      ? `${existing}\n\n${block}`
+      : block;
+  }
+
+  const updated = await patchSubmission(submissionId, patchFields);
+  let [enriched] = await withEnrichment([updated]);
   if (!enriched) {
     throw new Error("Failed to request second level review");
+  }
+
+  const uploads = options?.attachmentUploads ?? [];
+  if (uploads.length > 0 && enriched.candidateId) {
+    const { attachSecondReviewFilesToCandidate } = await import(
+      "@/features/candidates/services/candidates.service"
+    );
+    await attachSecondReviewFilesToCandidate(enriched.candidateId, uploads);
+    [enriched] = await withEnrichment([enriched]);
+    if (!enriched) {
+      throw new Error("Failed to refresh submission after attachments");
+    }
   }
 
   try {
@@ -1320,12 +1369,12 @@ export async function updatePartnerSubmissionProfile(input: {
   if (current.partnerId !== input.partnerId) {
     throw new Error("You can only edit candidates you submitted");
   }
-  if (!isUnreviewedByStaff(current)) {
+  if (!canPartnerEditSubmission(current)) {
     throw new Error("This profile is locked after internal review");
   }
 
   const fresh = await findSubmissionById(input.submissionId);
-  if (!fresh || !isUnreviewedByStaff(fresh)) {
+  if (!fresh || !canPartnerEditSubmission(fresh)) {
     throw new Error("This profile is locked after internal review");
   }
 
@@ -1552,7 +1601,7 @@ export async function deleteOwnUnreviewedSubmission(input: {
   if (current.partnerId !== input.partnerId) {
     throw new Error("You can only remove candidates you submitted");
   }
-  if (!isUnreviewedByStaff(current)) {
+  if (!canPartnerEditSubmission(current)) {
     throw new Error("This profile is locked after internal review");
   }
   await deleteSubmission(input.submissionId);

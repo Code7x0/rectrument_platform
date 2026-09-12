@@ -30,6 +30,12 @@ function revalidateJobMutationPaths(options?: {
   invalidateCrmAfterJobMutation();
   revalidatePath("/admin/jobs");
   revalidatePath("/account-manager/jobs");
+  revalidatePath("/account-manager");
+  revalidatePath("/partner/jobs");
+  revalidatePath("/partner/available-jobs");
+  revalidatePath("/partner");
+  revalidatePath("/admin");
+  revalidatePath("/super-admin");
   if (options?.notifications) {
     revalidatePath("/notifications");
   }

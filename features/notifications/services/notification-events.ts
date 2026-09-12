@@ -625,6 +625,7 @@ export async function notifySubmissionStatusChanged(input: {
   toStatus: SubmissionStatus;
   /** Exact Airtable label when available (Hold, Candidate Backed Out, …). */
   statusLabel?: string | null;
+  internalFeedback?: string | null;
 }): Promise<void> {
   const config = STATUS_NOTIFICATION[input.toStatus];
   if (!config) {
@@ -657,6 +658,7 @@ export async function notifySubmissionStatusChanged(input: {
       candidateName: input.candidateName,
       jobTitle: input.jobTitle,
       statusLabel,
+      internalFeedback: input.internalFeedback?.trim() ?? "",
       candidatesUrl,
     },
   });
@@ -715,7 +717,14 @@ export async function notifySecondLevelReviewRequested(input: {
         entityType: "submission",
         entityId: input.submissionId,
         actionUrl: amPath,
-        sendEmail: false,
+        sendEmail: true,
+        emailTemplate: "candidate_status_changed",
+        emailData: {
+          candidateName: input.candidateName,
+          jobTitle: input.jobTitle,
+          statusLabel: "2nd Level Review Requested",
+          candidatesUrl: `${appBaseUrl()}${amPath}`,
+        },
       });
     }
   }
@@ -855,6 +864,7 @@ export async function notifyPayoutStatusChanged(input: {
       emailData: {
         candidateName: input.candidateName,
         amount: input.amountLabel ?? "",
+        dashboardUrl: `${appBaseUrl()}/partner/payments`,
       },
     });
     await notifyRole("admin", {
@@ -1103,6 +1113,7 @@ export async function notifyJobDetailsUpdated(input: {
   jobCode?: string | null;
   accountManagerIds?: string[];
   changedSummary?: string;
+  changeTable?: string;
 }): Promise<void> {
   const label = input.jobCode?.trim() || input.jobTitle;
   const description =
@@ -1144,7 +1155,7 @@ export async function notifyJobDetailsUpdated(input: {
         jobTitle: label,
         jobCode: input.jobCode?.trim() ?? "",
         changedSummary: description,
-        changeTable: description,
+        changeTable: input.changeTable?.trim() ?? "",
         jobsUrl,
       },
     });
@@ -1168,6 +1179,15 @@ export async function notifyJobDetailsUpdated(input: {
       entityType: "job",
       entityId: input.jobId,
       actionUrl: `/account-manager/jobs?jobId=${encodeURIComponent(input.jobId)}`,
+      sendEmail: true,
+      emailTemplate: "job_updated",
+      emailData: {
+        jobTitle: label,
+        jobCode: input.jobCode?.trim() ?? "",
+        changedSummary: description,
+        changeTable: input.changeTable?.trim() ?? "",
+        jobsUrl: `${appBaseUrl()}/account-manager/jobs?jobId=${encodeURIComponent(input.jobId)}`,
+      },
     });
   }
 }
@@ -1178,6 +1198,7 @@ export async function notifyClientDetailsUpdated(input: {
   clientCode?: string | null;
   accountManagerIds?: string[];
   changedSummary?: string;
+  changeTable?: string;
 }): Promise<void> {
   const label = input.clientCode?.trim() || input.clientName;
   const description =
@@ -1208,7 +1229,7 @@ export async function notifyClientDetailsUpdated(input: {
         clientName: input.clientName,
         clientCode: input.clientCode?.trim() ?? "",
         changedSummary: description,
-        changeTable: input.changedSummary?.trim() ?? "",
+        changeTable: input.changeTable?.trim() ?? "",
         clientsUrl: `${appBaseUrl()}/account-manager/clients/${input.clientId}`,
       },
     });

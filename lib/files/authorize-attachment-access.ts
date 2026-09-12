@@ -45,6 +45,19 @@ function collectJobDocuments(
   }
 }
 
+function collectCandidateResumeUrls(
+  urls: Set<string>,
+  candidate: {
+    resumeUrl?: string | null;
+    resumeUrls?: string[];
+  },
+): void {
+  collectUrl(urls, candidate.resumeUrl ?? null);
+  for (const url of candidate.resumeUrls ?? []) {
+    collectUrl(urls, url);
+  }
+}
+
 async function collectPartnerVisibleUrls(
   partnerId: string,
   urls: Set<string>,
@@ -70,8 +83,38 @@ async function collectPartnerVisibleUrls(
     listPartnerAvailableJobs(partnerId),
   ]);
 
+  const candidateIds = [
+    ...new Set(
+      submissions
+        .map((submission) => submission.candidateId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const candidateMap = new Map<
+    string,
+    { resumeUrl: string | null; resumeUrls: string[] }
+  >();
+  if (candidateIds.length > 0) {
+    const { findCandidates } = await import(
+      "@/features/candidates/repositories/candidates.repository"
+    );
+    const candidates = await findCandidates({
+      filterByFormula: `OR(${candidateIds
+        .map((id) => `RECORD_ID()='${id.replace(/'/g, "\\'")}'`)
+        .join(",")})`,
+    });
+    for (const candidate of candidates) {
+      candidateMap.set(candidate.id, candidate);
+    }
+  }
+
   for (const submission of submissions) {
-    collectUrl(urls, submission.resumeUrl);
+    const candidate = candidateMap.get(submission.candidateId);
+    if (candidate) {
+      collectCandidateResumeUrls(urls, candidate);
+    } else {
+      collectUrl(urls, submission.resumeUrl);
+    }
   }
 
   for (const document of documents) {
@@ -129,11 +172,28 @@ async function collectAccountManagerVisibleUrls(
     }
   }
 
-  for (const submission of submissions) {
-    if (!submission.jobId || !ownedJobIds.has(submission.jobId)) {
-      continue;
+  const ownedSubmissions = submissions.filter(
+    (submission) => submission.jobId && ownedJobIds.has(submission.jobId),
+  );
+  const candidateIds = [
+    ...new Set(
+      ownedSubmissions
+        .map((submission) => submission.candidateId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  if (candidateIds.length > 0) {
+    const { findCandidates } = await import(
+      "@/features/candidates/repositories/candidates.repository"
+    );
+    const candidates = await findCandidates({
+      filterByFormula: `OR(${candidateIds
+        .map((id) => `RECORD_ID()='${id.replace(/'/g, "\\'")}'`)
+        .join(",")})`,
+    });
+    for (const candidate of candidates) {
+      collectCandidateResumeUrls(urls, candidate);
     }
-    collectUrl(urls, submission.resumeUrl);
   }
 
   for (const document of documents) {

@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ClipboardList,
   ExternalLink,
@@ -24,14 +23,14 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
 import type { Payout } from "@/features/payouts/types";
-import { requestSecondLevelReviewAction } from "@/features/submissions/actions/review-fields.actions";
 import { deleteOwnUnreviewedSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { EditCandidateDialog } from "@/features/submissions/components/edit-candidate-dialog";
 import { ExportCandidatesButton } from "@/features/submissions/components/export-candidates-button";
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
+import { SecondLevelReviewDialog } from "@/features/submissions/components/second-level-review-dialog";
 import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
 import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
-import { isUnreviewedByStaff } from "@/features/submissions/lib/partner-edit-eligibility";
+import { canPartnerEditSubmission } from "@/features/submissions/lib/partner-edit-eligibility";
 import type { Submission } from "@/features/submissions/types";
 import {
   AIRTABLE_SUBMISSION_STATUS_OPTIONS,
@@ -131,7 +130,6 @@ export function PartnerSubmissionsPageClient({
   initialStatusGroup = null,
   initialSubmissionId = null,
 }: PartnerSubmissionsPageClientProps) {
-  const router = useRouter();
   const [rows, setRows] = useState(initialSubmissions);
   const [selected, setSelected] = useState<Submission | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(() => {
@@ -144,7 +142,8 @@ export function PartnerSubmissionsPageClient({
     return "all";
   });
   const [jobTitleFilter, setJobTitleFilter] = useState("");
-  const [requestingReview, setRequestingReview] = useState(false);
+  const [reviewRequestSubmission, setReviewRequestSubmission] =
+    useState<Submission | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -212,24 +211,14 @@ export function PartnerSubmissionsPageClient({
     return next;
   }, [rows, statusFilter, jobTitleFilter]);
 
-  async function requestReview(row: Submission) {
-    setRequestingReview(true);
-    try {
-      const result = await requestSecondLevelReviewAction(row.id);
-      if (!result.success) {
-        toast.error(result.message);
-        return;
-      }
-      toast.success("Second level review requested");
-      setRows((current) =>
-        current.map((item) => (item.id === row.id ? result.data : item)),
-      );
-      setSelected(result.data);
-      signalLiveDataChange();
-      router.refresh();
-    } finally {
-      setRequestingReview(false);
-    }
+  function handleReviewSubmitted(submission: Submission) {
+    setRows((current) =>
+      current.map((item) => (item.id === submission.id ? submission : item)),
+    );
+    setSelected((current) =>
+      current?.id === submission.id ? submission : current,
+    );
+    signalLiveDataChange();
   }
 
   async function confirmDelete() {
@@ -250,7 +239,6 @@ export function PartnerSubmissionsPageClient({
       );
       setDeletingId(null);
       signalLiveDataChange();
-      router.refresh();
     } finally {
       setDeleting(false);
     }
@@ -417,7 +405,7 @@ export function PartnerSubmissionsPageClient({
                   >
                     View progress
                   </Button>
-                  {isUnreviewedByStaff(row) ? (
+                  {canPartnerEditSubmission(row) ? (
                     <>
                       <Button
                         type="button"
@@ -440,8 +428,7 @@ export function PartnerSubmissionsPageClient({
                     <Button
                       type="button"
                       size="sm"
-                      disabled={requestingReview}
-                      onClick={() => void requestReview(row)}
+                      onClick={() => setReviewRequestSubmission(row)}
                     >
                       Request 2nd Level Review
                     </Button>
@@ -479,7 +466,7 @@ export function PartnerSubmissionsPageClient({
               </p>
             </div>
             <SubmissionReviewPanel submission={selected} canEdit={false} />
-            {isUnreviewedByStaff(selected) ? (
+            {canPartnerEditSubmission(selected) ? (
               <>
                 <Button
                   type="button"
@@ -503,8 +490,7 @@ export function PartnerSubmissionsPageClient({
               <Button
                 type="button"
                 className="w-full"
-                disabled={requestingReview}
-                onClick={() => void requestReview(selected)}
+                onClick={() => setReviewRequestSubmission(selected)}
               >
                 Request 2nd Level Review
               </Button>
@@ -551,6 +537,17 @@ export function PartnerSubmissionsPageClient({
         variant="destructive"
         loading={deleting}
         onConfirm={() => void confirmDelete()}
+      />
+
+      <SecondLevelReviewDialog
+        submission={reviewRequestSubmission}
+        open={Boolean(reviewRequestSubmission)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReviewRequestSubmission(null);
+          }
+        }}
+        onSubmitted={handleReviewSubmitted}
       />
     </ContentContainer>
   );

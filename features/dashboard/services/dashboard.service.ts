@@ -924,7 +924,9 @@ export async function getPartnerDashboardData(
         href: candidatesListHref(PARTNER_CANDIDATES, {
           status: [
             "Pending Review",
+            "Submitted",
             "Internal Screening in Progress",
+            "Internal Review",
           ],
         }),
         hint: "Awaiting candidate review",

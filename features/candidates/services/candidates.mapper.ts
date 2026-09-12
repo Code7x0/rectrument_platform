@@ -23,14 +23,34 @@ function asAttachment(value: unknown): {
   url: string | null;
   filename: string | null;
 } {
-  if (!Array.isArray(value) || value.length === 0) {
-    return { url: null, filename: null };
-  }
-  const first = value[0] as { url?: string; filename?: string };
+  const attachments = asResumeAttachments(value);
+  const first = attachments[0];
   return {
-    url: typeof first.url === "string" ? first.url : null,
-    filename: typeof first.filename === "string" ? first.filename : null,
+    url: first?.url ?? null,
+    filename: first?.filename ?? null,
   };
+}
+
+export function asResumeAttachments(
+  value: unknown,
+): Array<{ url: string; filename: string | null }> {
+  if (!Array.isArray(value) || value.length === 0) {
+    return [];
+  }
+  const out: Array<{ url: string; filename: string | null }> = [];
+  for (const item of value) {
+    const row = item as { url?: string; filename?: string };
+    if (typeof row.url === "string" && row.url.trim()) {
+      out.push({
+        url: row.url,
+        filename:
+          typeof row.filename === "string" && row.filename.trim()
+            ? row.filename
+            : null,
+      });
+    }
+  }
+  return out;
 }
 
 /** Client field has trailing space: "Current CTC ". */
@@ -46,6 +66,9 @@ export function mapCandidateRecord(record: {
   fields: AirtableFields;
 }): Candidate {
   const fields = record.fields;
+  const resumeAttachments = asResumeAttachments(
+    fields[CANDIDATES_TABLE_FIELDS.resume],
+  );
   const resume = asAttachment(fields[CANDIDATES_TABLE_FIELDS.resume]);
   const fullName =
     asString(fields[CANDIDATES_TABLE_FIELDS.fullName]) ??
@@ -62,6 +85,7 @@ export function mapCandidateRecord(record: {
       asString(fields["Phone"]),
     resumeUrl: resume.url,
     resumeFilename: resume.filename,
+    resumeUrls: resumeAttachments.map((item) => item.url),
     currentCompany: asString(fields[CANDIDATES_TABLE_FIELDS.currentCompany]),
     currentLocation: asString(fields[CANDIDATES_TABLE_FIELDS.currentLocation]),
     experience: asString(fields[CANDIDATES_TABLE_FIELDS.experience]),
