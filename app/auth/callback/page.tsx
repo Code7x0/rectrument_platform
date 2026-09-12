@@ -7,6 +7,7 @@ import {
   getDashboardRouteForRole,
   redirectToRoleDashboard,
 } from "@/lib/auth";
+import { preparePartnerSignIn } from "@/lib/auth/sync-partner-sign-in";
 import { canUserAuthenticate, getCurrentUser } from "@/services/users.service";
 
 /**
@@ -93,6 +94,12 @@ export default async function AuthCallbackPage() {
         redirect("/unauthorized?reason=rejected");
       }
       redirect("/unauthorized?reason=inactive");
+    }
+
+    // Manual Airtable partners may never hit eligibility check — sync + provision here.
+    const loginEmail = foundUser.email || primaryEmail;
+    if (loginEmail) {
+      await preparePartnerSignIn(loginEmail);
     }
 
     // Eligible partner/staff — do not fall through to not_found.

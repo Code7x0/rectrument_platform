@@ -14,6 +14,7 @@ import {
 } from "@/lib/airtable/fields";
 import { isClientIdentityMode } from "@/lib/airtable/identity-mode";
 import { getAirtableTableName } from "@/lib/airtable/tables";
+import { canPartnerAuthenticate } from "@/lib/auth/partner-login";
 import { getPermissionsForRole } from "@/lib/auth/permissions";
 import type {
   AppSession,
@@ -75,6 +76,9 @@ function buildSession(user: User, clerkId: string): AppSession {
 
 /** Login gate: Active status + approved/active registration. */
 export function canUserAuthenticate(user: User): boolean {
+  if (user.role === "partner") {
+    return canPartnerAuthenticate(user);
+  }
   if (user.status !== "active") {
     return false;
   }

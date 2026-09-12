@@ -7,12 +7,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { checkSignInEligibilityAction } from "@/lib/auth/check-sign-in-eligibility";
+import { clerkErrorMessage } from "@/lib/auth/clerk-auth-errors";
 import { ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface GoogleSignInButtonProps {
   /** Where to land after Google OAuth completes. */
   completeRedirectUrl?: string;
+  /** When set, provisions Clerk for manual Airtable partners before OAuth. */
+  emailHint?: string;
   className?: string;
   label?: string;
   size?: "default" | "sm" | "lg" | "icon";
@@ -47,23 +51,6 @@ function GoogleGlyph({ className }: { className?: string }) {
   );
 }
 
-function clerkErrorMessage(error: unknown): string {
-  if (!error || typeof error !== "object") {
-    return "Unable to start Google sign-in. Try again.";
-  }
-  const err = error as {
-    errors?: Array<{ longMessage?: string; message?: string; code?: string }>;
-    message?: string;
-  };
-  const first = err.errors?.[0];
-  const detail =
-    first?.longMessage || first?.message || err.message || first?.code;
-  if (detail?.trim()) {
-    return detail.trim();
-  }
-  return "Unable to start Google sign-in. Try again.";
-}
-
 /**
  * Google-only sign-in — email/password is not offered in the product UI.
  * Enable Google OAuth in the Clerk dashboard for this to work.
@@ -73,6 +60,7 @@ function clerkErrorMessage(error: unknown): string {
  */
 export function GoogleSignInButton({
   completeRedirectUrl = ROUTES.authCallback,
+  emailHint,
   className,
   label = "Continue with Google",
   size = "lg",
@@ -118,6 +106,16 @@ export function GoogleSignInButton({
         return;
       }
 
+      const hintedEmail = emailHint?.trim().toLowerCase();
+      if (hintedEmail) {
+        const eligibility = await checkSignInEligibilityAction(hintedEmail);
+        if (!eligibility.ok) {
+          toast.error(eligibility.message);
+          setPending(false);
+          return;
+        }
+      }
+
       await startGoogleOAuth();
     } catch (error) {
       console.error("[auth] Google sign-in failed", error);
@@ -139,7 +137,9 @@ export function GoogleSignInButton({
         return;
       }
 
-      toast.error(clerkErrorMessage(error));
+      toast.error(
+        clerkErrorMessage(error, "Unable to start Google sign-in. Try again."),
+      );
       setPending(false);
     }
   }

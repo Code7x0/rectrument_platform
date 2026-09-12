@@ -32,6 +32,7 @@ import {
   parseRoleMarker,
   upsertRoleMarker,
 } from "@/lib/airtable/field-markers";
+import { classifyPartnerAirtableStatus } from "@/lib/auth/partner-login";
 import { getOptionalEnv } from "@/lib/api/env";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import type {
@@ -76,35 +77,7 @@ function mapPartnerStatus(raw: string | null): {
   status: UserStatus;
   registrationStatus: RegistrationStatus;
 } {
-  const normalized = (raw ?? "").trim().toLowerCase();
-  // Do not use includes("active") — that matches "inactive".
-  if (
-    normalized === "active" ||
-    normalized === "preferred" ||
-    normalized === "approved" ||
-    normalized === "verified" ||
-    normalized.includes("preferred")
-  ) {
-    return { status: "active", registrationStatus: "active" };
-  }
-  if (
-    normalized === "probation" ||
-    normalized === "pending" ||
-    normalized === "under review" ||
-    normalized.includes("pending") ||
-    normalized.includes("probation")
-  ) {
-    return { status: "inactive", registrationStatus: "pending" };
-  }
-  if (normalized === "rejected" || normalized.includes("reject")) {
-    return { status: "inactive", registrationStatus: "rejected" };
-  }
-  // Empty / unknown → treat as pending so approved rows with odd labels
-  // are easier to diagnose via the pending-auth message, not "not configured".
-  if (!normalized) {
-    return { status: "inactive", registrationStatus: "pending" };
-  }
-  return { status: "inactive", registrationStatus: "inactive" };
+  return classifyPartnerAirtableStatus(raw);
 }
 
 function syntheticElevatedUser(
@@ -401,6 +374,38 @@ async function findPartnerByEmailScan(
     console.error("[client-identity] Partner email scan failed", error);
   }
   return null;
+}
+
+/**
+ * When a partner signs in with an email that only lives in Personal Email
+ * (common for manual Airtable entry), persist it as Official Email ID so
+ * future lookups and ops tooling stay consistent.
+ */
+export async function clientSyncPartnerOfficialEmail(
+  partnerId: string,
+  loginEmail: string,
+): Promise<void> {
+  const normalized = normalizeEmail(loginEmail);
+  if (!normalized) {
+    return;
+  }
+
+  const record = await findRecord(partnersTable(), partnerId);
+  const fields = record.fields as AirtableFields;
+  const official = normalizeEmail(
+    asString(fields[PARTNERS_TABLE_FIELDS.email]),
+  );
+  if (official) {
+    return;
+  }
+
+  await updateRecord(partnersTable(), partnerId, {
+    [PARTNERS_TABLE_FIELDS.email]: normalized,
+  });
+  console.info("[client-identity] synced partner Official Email ID from login", {
+    partnerId,
+    email: normalized,
+  });
 }
 
 export async function clientFindUserByEmail(email: string): Promise<User | null> {

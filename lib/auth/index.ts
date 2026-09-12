@@ -13,9 +13,59 @@ import {
 } from "@/lib/auth/permissions";
 import {
   buildAppSession,
+  canUserAuthenticate,
+  getCurrentUser,
   updateLastLogin,
 } from "@/services/users.service";
 import type { AppSession, Permission, UserRole } from "@/types";
+
+function clerkEmails(
+  user: NonNullable<Awaited<ReturnType<typeof currentUser>>>,
+): string[] {
+  const emails = user.emailAddresses
+    .map((row) => row.emailAddress?.trim().toLowerCase())
+    .filter((value): value is string => Boolean(value));
+  const primary = user.primaryEmailAddress?.emailAddress
+    ?.trim()
+    .toLowerCase();
+  if (primary && !emails.includes(primary)) {
+    emails.unshift(primary);
+  }
+  return [...new Set(emails)];
+}
+
+async function redirectUnauthorizedWithReason(
+  clerkUserId: string,
+): Promise<never> {
+  const clerkUser = await currentUser();
+  const emails = clerkUser ? clerkEmails(clerkUser) : [];
+
+  for (const email of emails) {
+    const user = await getCurrentUser(clerkUserId, email);
+    if (!user) {
+      continue;
+    }
+    if (
+      user.registrationStatus === "pending" ||
+      user.registrationStatus === "invitation_pending"
+    ) {
+      redirect("/unauthorized?reason=pending");
+    }
+    if (user.registrationStatus === "rejected") {
+      redirect("/unauthorized?reason=rejected");
+    }
+    if (!canUserAuthenticate(user)) {
+      redirect("/unauthorized?reason=inactive");
+    }
+    redirect("/unauthorized?reason=error");
+  }
+
+  redirect(
+    emails.length > 0
+      ? "/unauthorized?reason=not_found"
+      : "/unauthorized?reason=error",
+  );
+}
 
 export class AuthError extends Error {
   constructor(
@@ -84,11 +134,11 @@ export async function requireAuth(): Promise<AppSession> {
   const session = await getAppSession();
 
   if (!session) {
-    redirect("/unauthorized");
+    return await redirectUnauthorizedWithReason(userId);
   }
 
   if (session.status !== "active") {
-    redirect("/unauthorized");
+    redirect("/unauthorized?reason=inactive");
   }
 
   return session;

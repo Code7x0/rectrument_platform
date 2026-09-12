@@ -336,8 +336,15 @@ export async function approvePartnerApplication(
   if (user.role !== "partner") {
     throw new Error("Only Talent Partner applications can be approved here");
   }
-  if (user.registrationStatus !== "pending") {
-    throw new Error("Application is not pending approval");
+  if (user.registrationStatus === "rejected") {
+    throw new Error("Rejected applications cannot be approved");
+  }
+  if (
+    user.status === "active" &&
+    (user.registrationStatus === "active" ||
+      user.registrationStatus === "approved")
+  ) {
+    throw new Error("Partner is already active");
   }
 
   const updated = await updateUserRecord(userId, {
@@ -360,13 +367,11 @@ export async function approvePartnerApplication(
       const partnerCode = await ensurePartnerHasBusinessCode(partnerRecord);
       await updatePartner(user.partnerId, {
         status: "active",
-        verificationStatus: "verified",
         ...(partnerCode ? { partnerCode } : {}),
       });
     } else {
       await updatePartner(user.partnerId, {
         status: "active",
-        verificationStatus: "verified",
       });
     }
 
@@ -410,6 +415,12 @@ export async function approvePartnerApplication(
     user.fullName;
 
   const loginUrl = `${appBaseUrl()}/sign-in`;
+  if (recipientEmail) {
+    const { ensureClerkUserForEmail } = await import(
+      "@/lib/clerk/provision-clerk-user"
+    );
+    await ensureClerkUserForEmail(recipientEmail, partnerName);
+  }
   if (recipientEmail) {
     const approvalEmail = await sendEmailSafe({
       to: recipientEmail,

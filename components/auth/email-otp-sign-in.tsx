@@ -9,6 +9,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { checkSignInEligibilityAction } from "@/lib/auth/check-sign-in-eligibility";
+import {
+  clerkErrorMessage,
+  isExistingClerkAccountError,
+  isMissingClerkAccountError,
+  isSignUpRestrictedError,
+} from "@/lib/auth/clerk-auth-errors";
 import { ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -19,48 +25,27 @@ type EmailOtpSignInProps = {
   layout?: "inline" | "stacked";
   /** Visual treatment for dark landing page. */
   tone?: "light" | "dark";
+  email?: string;
+  onEmailChange?: (email: string) => void;
 };
 
-function isMissingClerkAccountError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false;
-  }
-  const err = error as {
-    errors?: Array<{ code?: string; message?: string; longMessage?: string }>;
-    message?: string;
-  };
-  const first = err.errors?.[0];
-  const text = [
-    first?.code,
-    first?.message,
-    first?.longMessage,
-    err.message,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return (
-    first?.code === "form_identifier_not_found" ||
-    text.includes("couldn't find your account") ||
-    text.includes("could not find your account")
-  );
-}
+type SignInResource = NonNullable<ReturnType<typeof useSignIn>["signIn"]>;
 
-function clerkErrorMessage(error: unknown): string {
-  if (!error || typeof error !== "object") {
-    return "Unable to sign in with email. Try again.";
+async function prepareSignInEmailCode(signIn: SignInResource, email: string) {
+  const created = await signIn.create({ identifier: email });
+  const emailFactor = created.supportedFirstFactors?.find(
+    (factor) => factor.strategy === "email_code",
+  );
+  if (!emailFactor || !("emailAddressId" in emailFactor)) {
+    throw new Error(
+      "Email sign-in is not enabled for this address. Try Google sign-in or contact support.",
+    );
   }
-  const err = error as {
-    errors?: Array<{ longMessage?: string; message?: string; code?: string }>;
-    message?: string;
-  };
-  const first = err.errors?.[0];
-  const detail =
-    first?.longMessage || first?.message || err.message || first?.code;
-  if (detail?.trim()) {
-    return detail.trim();
-  }
-  return "Unable to sign in with email. Try again.";
+
+  await signIn.prepareFirstFactor({
+    strategy: "email_code",
+    emailAddressId: emailFactor.emailAddressId,
+  });
 }
 
 export function EmailOtpSignIn({
@@ -68,12 +53,17 @@ export function EmailOtpSignIn({
   className,
   layout = "stacked",
   tone = "light",
+  email: controlledEmail,
+  onEmailChange,
 }: EmailOtpSignInProps) {
   const router = useRouter();
   const { setActive } = useClerk();
   const { signIn, isLoaded: signInLoaded } = useSignIn();
   const { signUp, isLoaded: signUpLoaded } = useSignUp();
-  const [email, setEmail] = useState("");
+  const [internalEmail, setInternalEmail] = useState("");
+  const email = controlledEmail ?? internalEmail;
+  const setEmail = onEmailChange ?? setInternalEmail;
+  const isControlledEmail = controlledEmail !== undefined;
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
   const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
@@ -88,6 +78,22 @@ export function EmailOtpSignIn({
     ? "border-[rgba(255,255,255,0.18)] bg-transparent text-[#F6F4FF] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#F6F4FF]"
     : undefined;
 
+  async function startSignInOtp(normalized: string) {
+    if (!signIn) {
+      throw new Error("Sign-in is not ready. Refresh and try again.");
+    }
+    const eligibility = await checkSignInEligibilityAction(normalized);
+    if (!eligibility.ok) {
+      toast.error(eligibility.message);
+      return false;
+    }
+    await prepareSignInEmailCode(signIn, normalized);
+    setFlow("signIn");
+    setStep("code");
+    toast.message("Check your email for the sign-in code");
+    return true;
+  }
+
   async function startSignUpOtp(normalized: string) {
     if (!signUp) {
       throw new Error("Sign-up is not ready. Refresh and try again.");
@@ -95,14 +101,30 @@ export function EmailOtpSignIn({
     const eligibility = await checkSignInEligibilityAction(normalized);
     if (!eligibility.ok) {
       toast.error(eligibility.message);
-      return;
+      return false;
     }
 
-    await signUp.create({ emailAddress: normalized });
-    await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+    try {
+      await signUp.create({ emailAddress: normalized });
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+    } catch (error) {
+      if (isExistingClerkAccountError(error)) {
+        await startSignInOtp(normalized);
+        return true;
+      }
+      if (isSignUpRestrictedError(error)) {
+        toast.error(
+          "Email sign-up is restricted. Use Continue with Google, or ask your Administrator to enable email sign-up in Clerk.",
+        );
+        return false;
+      }
+      throw error;
+    }
+
     setFlow("signUp");
     setStep("code");
     toast.message("Check your email for the verification code");
+    return true;
   }
 
   async function sendCode() {
@@ -117,23 +139,10 @@ export function EmailOtpSignIn({
 
     setPending(true);
     try {
-      const created = await signIn.create({ identifier: normalized });
-      const emailFactor = created.supportedFirstFactors?.find(
-        (factor) => factor.strategy === "email_code",
-      );
-      if (!emailFactor || !("emailAddressId" in emailFactor)) {
-        throw new Error(
-          "Email sign-in is not enabled for this address. Try Google sign-in or contact support.",
-        );
+      const started = await startSignInOtp(normalized);
+      if (started === false) {
+        return;
       }
-
-      await signIn.prepareFirstFactor({
-        strategy: "email_code",
-        emailAddressId: emailFactor.emailAddressId,
-      });
-      setFlow("signIn");
-      setStep("code");
-      toast.message("Check your email for the sign-in code");
     } catch (error) {
       if (isMissingClerkAccountError(error)) {
         try {
@@ -171,6 +180,11 @@ export function EmailOtpSignIn({
         const result = await signUp.attemptEmailAddressVerification({
           code: trimmed,
         });
+        if (result.status === "missing_requirements") {
+          throw new Error(
+            "Additional sign-up steps are required. Try Continue with Google or contact support.",
+          );
+        }
         if (result.status !== "complete") {
           throw new Error("Sign-up could not be completed. Try again.");
         }
@@ -207,16 +221,24 @@ export function EmailOtpSignIn({
   const fields =
     step === "email" ? (
       <>
-        <Input
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="you@company.com"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className={cn(inputClass, layout === "inline" ? "min-w-[220px]" : "")}
-          disabled={pending || !isLoaded}
-        />
+        {!isControlledEmail ? (
+          <Input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="you@company.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void sendCode();
+              }
+            }}
+            className={cn(inputClass, layout === "inline" ? "min-w-[220px]" : "")}
+            disabled={pending || !isLoaded}
+          />
+        ) : null}
         <Button
           type="button"
           variant={dark ? "outline" : "secondary"}
@@ -236,6 +258,12 @@ export function EmailOtpSignIn({
           placeholder="6-digit code"
           value={code}
           onChange={(event) => setCode(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void verifyCode();
+            }
+          }}
           className={cn(inputClass, layout === "inline" ? "min-w-[160px]" : "")}
           disabled={pending || !isLoaded}
         />

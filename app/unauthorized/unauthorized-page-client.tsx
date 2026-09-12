@@ -17,7 +17,7 @@ const REASON_COPY: Record<
   pending: {
     title: "Approval pending",
     description:
-      "Your Talent Partner application is still pending approval. Once an Admin sets your Partners Status to Active, sign in again with the same email used at registration (Official Email ID in Airtable).",
+      "Your Talent Partner application is still pending approval. Once an Admin sets your Partners Status to Active, sign in again with the same email used at registration (Official Email ID in Airtable). Google sign-in and email one-time code both work after approval.",
   },
   rejected: {
     title: "Application rejected",
@@ -27,7 +27,7 @@ const REASON_COPY: Record<
   inactive: {
     title: "Account inactive",
     description:
-      "Your Airtable partner/staff record is not Active. Ask an Admin to set Partners → Status = Active (or Account Managers → Active), then sign in again.",
+      "Your partner account is not enabled for login yet. Ask an Admin to approve your application or set Partners → Status to Active. Document verification can still be pending — that does not block sign-in.",
   },
   not_found: {
     title: "Account not found",
