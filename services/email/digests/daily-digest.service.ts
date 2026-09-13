@@ -1,6 +1,7 @@
 import { listAllocations } from "@/features/allocations/services";
 import { listPartnerQueries } from "@/features/feedback/services/partner-queries.service";
 import { listJobs } from "@/features/jobs/services";
+import { listPartners } from "@/features/partners/services";
 import {
   matchesSubmissionStatusGroup,
   submissionExactStatusLabel,
@@ -30,6 +31,7 @@ import {
   buildAmSlaClockStartMap,
   countActivityTransitions,
   countSlaBreachesForPrimaryAm,
+  filterSubmissionsForActivePartners,
   formatDigestStatusLabel,
   inDigestWindow,
   isSlaBreachedSubmission,
@@ -240,6 +242,45 @@ function countSecondLevelReviewsInWindow(
   return count;
 }
 
+function buildAmSlaBreachCountSection(
+  amRecipients: Awaited<ReturnType<typeof getActiveAccountManagerDigestRecipients>>,
+  submissions: Submission[],
+  jobMap: Map<string, JobAmLookup>,
+  now: Date,
+  slaClockStarts: Map<string, Date>,
+): string {
+  const amRows = amRecipients
+    .map((am) => {
+      const amId = am.accountManagerId;
+      if (!amId) {
+        return null;
+      }
+      return {
+        name: am.fullName?.trim() || am.email || amId,
+        count: countSlaBreachesForPrimaryAm(
+          submissions,
+          jobMap,
+          amId,
+          now,
+          slaClockStarts,
+        ),
+      };
+    })
+    .filter((row): row is { name: string; count: number } => row != null);
+
+  if (amRows.length === 0) {
+    return "SLA Breach Count (ONLY ACTIVE PARTNERS)\nNo active account managers.";
+  }
+
+  return [
+    "SLA Breach Count (ONLY ACTIVE PARTNERS)",
+    formatTable(
+      amRows.map((row) => row.name),
+      [amRows.map((row) => String(row.count))],
+    ),
+  ].join("\n");
+}
+
 function buildSuperAdminDigest(
   submissions: Submission[],
   jobs: Awaited<ReturnType<typeof listJobs>>,
@@ -249,6 +290,7 @@ function buildSuperAdminDigest(
   now: Date,
   _digestDate: string,
   slaClockStarts: Map<string, Date>,
+  activePartnerIds: Set<string>,
 ): string {
   const jobMap = new Map<string, JobAmLookup>(
     jobs.map((job) => [
@@ -337,29 +379,12 @@ function buildSuperAdminDigest(
     "selected",
   );
 
-  const amSlaCounts = new Map<string, number>();
-  for (const am of amRecipients) {
-    const amId = am.accountManagerId;
-    if (!amId) {
-      continue;
-    }
-    const label = am.fullName?.trim() || am.email || amId;
-    amSlaCounts.set(
-      label,
-      countSlaBreachesForPrimaryAm(
-        submissions,
-        jobMap,
-        amId,
-        now,
-        slaClockStarts,
-      ),
-    );
-  }
+  const activePartnerSubmissions = filterSubmissionsForActivePartners(
+    submissions,
+    activePartnerIds,
+  );
 
-  const amNames = [...amSlaCounts.keys()];
-  const amCounts = [...amSlaCounts.values()];
-
-  const uniqueBreachedSubmissions = submissions.filter((row) =>
+  const uniqueBreachedSubmissions = activePartnerSubmissions.filter((row) =>
     isSlaBreachedSubmission(row, now, jobMap, slaClockStarts.get(row.id)),
   );
 
@@ -405,13 +430,13 @@ function buildSuperAdminDigest(
     ),
     ...(selectDetails ? ["", selectDetails] : []),
     "",
-    "SLA Breach Count (ONLY ACTIVE PARTNERS)",
-    amNames.length > 0
-      ? formatTable(
-          ["Account Manager", ...amNames],
-          [["SLA Breach", ...amCounts.map(String)]],
-        )
-      : "No active account managers.",
+    buildAmSlaBreachCountSection(
+      amRecipients,
+      activePartnerSubmissions,
+      jobMap,
+      now,
+      slaClockStarts,
+    ),
     "",
     buildSlaSection(uniqueBreachedSubmissions, now, jobMap, slaClockStarts),
   ].join("\n");
@@ -652,6 +677,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     queries,
     amRecipients,
     partnerUsers,
+    partners,
     allAllocations,
     activities,
   ] = await Promise.all([
@@ -660,9 +686,22 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     listPartnerQueries(),
     getActiveAccountManagerDigestRecipients(),
     listUsers({ role: "partner", status: "active" }),
+    listPartners(),
     listAllocations({ includePartnerIdentity: false }),
     listActivities({ maxRecords: 2000 }).catch(() => [] as Activity[]),
   ]);
+
+  const activePartnerIds = new Set(
+    partners
+      .filter((partner) => partner.status === "active")
+      .map((partner) => partner.id),
+  );
+  for (const partnerUser of partnerUsers) {
+    const partnerId = partnerUser.partnerId?.trim();
+    if (partnerId) {
+      activePartnerIds.add(partnerId);
+    }
+  }
 
   const activeAllocationsByPartner = new Map<string, Set<string>>();
   for (const allocation of allAllocations) {
@@ -862,6 +901,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       now,
       digestDate,
       slaClockStarts,
+      activePartnerIds,
     );
 
     const adminResult = await fanOutEmail(fallbackAdmins, (to) =>

@@ -7,6 +7,7 @@ import type { Activity } from "@/features/workflows/types";
 
 import {
   countSlaBreachesForPrimaryAm,
+  filterSubmissionsForActivePartners,
   isSlaBreachedSubmission,
   resolveAmSlaClockStart,
   submissionOwnedByAm,
@@ -174,5 +175,39 @@ test("isSlaBreachedSubmission respects pending review SLA window", () => {
       now,
     ),
     true,
+  );
+});
+
+test("countSlaBreachesForPrimaryAm only counts active partner submissions", () => {
+  const jobMap = new Map<string, JobAmLookup>([
+    [
+      "job1",
+      {
+        accountManagerId: "am-primary",
+        accountManagerIds: ["am-primary"],
+      },
+    ],
+  ]);
+  const now = new Date("2026-09-10T00:00:00.000Z");
+  const rows = [
+    submission({ partnerId: "partner-active" }),
+    submission({ id: "sub2", partnerId: "partner-inactive" }),
+  ];
+  const activePartnerIds = new Set(["partner-active"]);
+
+  assert.equal(
+    countSlaBreachesForPrimaryAm(
+      rows,
+      jobMap,
+      "am-primary",
+      now,
+      undefined,
+      activePartnerIds,
+    ),
+    1,
+  );
+  assert.equal(
+    filterSubmissionsForActivePartners(rows, activePartnerIds).length,
+    1,
   );
 });

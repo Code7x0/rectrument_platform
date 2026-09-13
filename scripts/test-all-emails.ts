@@ -386,8 +386,8 @@ const TEMPLATE_SAMPLES: Array<{
         "",
         "SLA Breach Count (ONLY ACTIVE PARTNERS)",
         formatTable(
-          ["Account Manager", "AM1", "AM2", "AM3"],
-          [["SLA Breach", "1", "3", "2"]],
+          ["Anupam Gandhi", "Baishali Dhar", "Kai Ren"],
+          [["0", "1", "0"]],
         ),
         "",
         "SLA alert",

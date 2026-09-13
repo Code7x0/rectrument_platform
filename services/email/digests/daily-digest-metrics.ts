@@ -204,15 +204,41 @@ export function slaBreachDays(
   );
 }
 
+export function submissionFromActivePartner(
+  submission: Submission,
+  activePartnerIds: Set<string>,
+): boolean {
+  const partnerId = submission.partnerId?.trim();
+  if (!partnerId) {
+    return false;
+  }
+  return activePartnerIds.has(partnerId);
+}
+
+export function filterSubmissionsForActivePartners(
+  submissions: Submission[],
+  activePartnerIds: Set<string>,
+): Submission[] {
+  if (activePartnerIds.size === 0) {
+    return [];
+  }
+  return submissions.filter((row) =>
+    submissionFromActivePartner(row, activePartnerIds),
+  );
+}
+
 export function countSlaBreachesForPrimaryAm(
   submissions: Submission[],
   jobMap: Map<string, JobAmLookup>,
   accountManagerId: string,
   now: Date,
   slaClockStarts?: Map<string, Date>,
+  activePartnerIds?: Set<string>,
 ): number {
   return submissions.filter(
     (row) =>
+      (!activePartnerIds ||
+        submissionFromActivePartner(row, activePartnerIds)) &&
       submissionPrimaryAmId(row, jobMap) === accountManagerId &&
       isSlaBreachedSubmission(
         row,
