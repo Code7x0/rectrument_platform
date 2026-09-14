@@ -98,9 +98,10 @@ export function mapPartnerRecord(record: {
     revenueShare: asString(fields[PARTNERS_TABLE_FIELDS.revenueShare]),
     rating: asNumber(fields[PARTNERS_TABLE_FIELDS.rating]),
     status: mapStatus(fields[PARTNERS_TABLE_FIELDS.status]),
-    verificationStatus: mapVerification(
-      fields[PARTNERS_TABLE_FIELDS.verificationStatus],
-    ),
+    verificationStatus:
+      mapStatus(fields[PARTNERS_TABLE_FIELDS.status]) === "active"
+        ? "verified"
+        : mapVerification(fields[PARTNERS_TABLE_FIELDS.verificationStatus]),
     identityVisibility: clientMode
       ? (notesMeta.identityVisibility ?? "private")
       : mapIdentityVisibility(

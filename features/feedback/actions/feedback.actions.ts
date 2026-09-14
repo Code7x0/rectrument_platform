@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 
 import {
   createPartnerQuery,
-  listPartnerQueries,
+  listQueriesForAccountManager,
   listQueriesForPartner,
   answerPartnerQuery,
 } from "@/features/feedback/services/partner-queries.service";
 import type { PartnerQuery } from "@/features/feedback/types";
+import { PARTNER_QUERY_TYPE_LABELS } from "@/features/feedback/types";
 import {
   requireRole,
   resolveAccountManagerScopeId,
@@ -20,8 +21,13 @@ import { sendEmailSafe } from "@/services/email";
 import { getUserById } from "@/services/users";
 
 const feedbackSchema = z.object({
-  type: z.enum(["feedback", "suggestion", "account_question"]),
+  type: z.enum([
+    "platform_feedback",
+    "job_candidate_query",
+    "account_admin_query",
+  ]),
   message: z.string().trim().min(10, "Please enter a little more detail"),
+  jobId: z.string().trim().optional(),
 });
 
 const replySchema = z.object({
@@ -49,19 +55,9 @@ function parseRecipients(): string[] {
   return [...new Set(list.map((value) => value.toLowerCase()))];
 }
 
-function feedbackTypeLabel(type: FeedbackFormValues["type"]): string {
-  switch (type) {
-    case "account_question":
-      return "Account question";
-    case "suggestion":
-      return "Suggestion";
-    default:
-      return "Feedback";
-  }
-}
-
 function revalidateFeedbackPaths() {
   revalidatePath("/partner/feedback");
+  revalidatePath("/partner/jobs");
   revalidatePath("/account-manager/feedback");
 }
 
@@ -76,7 +72,11 @@ export async function listPartnerFeedbackQueriesAction(): Promise<
     }
     return listQueriesForPartner(partnerId);
   }
-  return listPartnerQueries();
+  const accountManagerId = resolveAccountManagerScopeId(session);
+  if (!accountManagerId) {
+    return [];
+  }
+  return listQueriesForAccountManager(accountManagerId);
 }
 
 export async function submitFeedbackAction(
@@ -93,12 +93,7 @@ export async function submitFeedbackAction(
       };
     }
 
-    const roleLabel =
-      session.role === "partner" ? "Talent Partner" : "Account Manager";
-
-    let submitterName = roleLabel;
-    let submitterEmail = "";
-    let partnerCode = "";
+    const typeLabel = PARTNER_QUERY_TYPE_LABELS[parsed.data.type];
 
     if (session.role === "partner") {
       const partnerId = resolvePartnerScopeId(session);
@@ -110,35 +105,51 @@ export async function submitFeedbackAction(
       }
       const { getPartnerById } = await import("@/features/partners/services");
       const partner = await getPartnerById(partnerId);
-      partnerCode = partner?.partnerCode?.trim() || partnerId;
-      // Partners: identify by Partner ID only — do not expose commercial name.
-      submitterName = partnerCode;
-      submitterEmail = "";
+      const partnerCode = partner?.partnerCode?.trim() || partnerId;
+
+      let jobTitle: string | null = null;
+      if (parsed.data.jobId) {
+        const { getJobById } = await import("@/features/jobs/services");
+        const job = await getJobById(parsed.data.jobId);
+        jobTitle = job?.title?.trim() ?? null;
+      }
+
+      const message =
+        jobTitle && !parsed.data.message.includes(jobTitle)
+          ? `Job: ${jobTitle}\n\n${parsed.data.message}`
+          : parsed.data.message;
 
       await createPartnerQuery({
         partnerId,
         partnerCode,
         accountManagerId: null,
         type: parsed.data.type,
-        message: parsed.data.message,
+        message,
       });
 
       const { notifyPartnerQuerySubmitted } = await import(
         "@/features/notifications/services/notification-events"
       );
-      notifyPartnerQuerySubmitted({
+      await notifyPartnerQuerySubmitted({
+        partnerId,
         partnerCode,
-        message: parsed.data.message,
-        type: feedbackTypeLabel(parsed.data.type),
+        message,
+        type: parsed.data.type,
+        typeLabel,
+        jobTitle,
       });
-    } else {
-      const user = await getUserById(session.userId);
-      submitterName = user?.fullName ?? roleLabel;
-      submitterEmail = user?.email ?? "";
+
+      revalidateFeedbackPaths();
+      return { success: true };
     }
 
+    const roleLabel = "Account Manager";
+    const user = await getUserById(session.userId);
+    const submitterName = user?.fullName ?? roleLabel;
+    const submitterEmail = user?.email ?? "";
+
     const recipients = parseRecipients();
-    if (session.role === "account_manager" && recipients.length === 0) {
+    if (recipients.length === 0) {
       return {
         success: false,
         message:
@@ -146,38 +157,30 @@ export async function submitFeedbackAction(
       };
     }
 
-    if (recipients.length > 0) {
-      const typeLabel = feedbackTypeLabel(parsed.data.type);
-      const results = await Promise.all(
-        recipients.map((to) =>
-          sendEmailSafe({
-            to,
-            template: "feedback_submission",
-            subject: `Platform ${typeLabel} from ${roleLabel}${
-              partnerCode ? ` (${partnerCode})` : ""
-            }`,
-            data: {
-              roleLabel,
-              submitterName,
-              submitterEmail,
-              partnerCode,
-              feedbackType: typeLabel,
-              message: parsed.data.message,
-            },
-          }),
-        ),
-      );
+    const results = await Promise.all(
+      recipients.map((to) =>
+        sendEmailSafe({
+          to,
+          template: "feedback_submission",
+          subject: `Platform ${typeLabel} from ${roleLabel}`,
+          data: {
+            roleLabel,
+            submitterName,
+            submitterEmail,
+            partnerCode: "",
+            feedbackType: typeLabel,
+            message: parsed.data.message,
+          },
+        }),
+      ),
+    );
 
-      if (
-        session.role === "account_manager" &&
-        results.every((row) => row == null)
-      ) {
-        return {
-          success: false,
-          message:
-            "We could not send your note just now. Please try again in a few minutes.",
-        };
-      }
+    if (results.every((row) => row == null)) {
+      return {
+        success: false,
+        message:
+          "We could not send your note just now. Please try again in a few minutes.",
+      };
     }
 
     revalidateFeedbackPaths();
@@ -201,6 +204,17 @@ export async function replyToPartnerQueryAction(
         success: false,
         message: "Validation failed",
         errors: parsed.error.issues.map((issue) => issue.message),
+      };
+    }
+
+    const { getPartnerQueryById } = await import(
+      "@/features/feedback/services/partner-queries.service"
+    );
+    const query = await getPartnerQueryById(parsed.data.queryId);
+    if (!query || query.type !== "job_candidate_query") {
+      return {
+        success: false,
+        message: "This query cannot be answered from your inbox.",
       };
     }
 

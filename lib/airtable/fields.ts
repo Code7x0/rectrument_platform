@@ -224,15 +224,19 @@ export const PARTNER_QUERIES_TABLE_FIELDS = {
 } as const;
 
 export const AIRTABLE_PARTNER_QUERY_TYPE = {
+  "Platform feedback": "platform_feedback",
+  "Job/Candidate query": "job_candidate_query",
+  "Account admin query": "account_admin_query",
+  /** Legacy values — mapped in normalizePartnerQueryType */
   "Account question": "account_question",
   Feedback: "feedback",
   Suggestion: "suggestion",
 } as const;
 
 export const DOMAIN_PARTNER_QUERY_TYPE_TO_AIRTABLE = {
-  account_question: "Account question",
-  feedback: "Feedback",
-  suggestion: "Suggestion",
+  platform_feedback: "Platform feedback",
+  job_candidate_query: "Job/Candidate query",
+  account_admin_query: "Account admin query",
 } as const;
 
 export const AIRTABLE_PARTNER_QUERY_STATUS = {

@@ -3,10 +3,14 @@ import { redirect } from "next/navigation";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { PartnerDocumentsPageClient } from "@/features/partner-documents/components";
 import {
+  normalizePartnerDocumentsForPortal,
+  summarizePartnerPortalDocuments,
+} from "@/features/partner-documents/lib/partner-portal-documents";
+import {
   buildDocumentSlots,
   listDocumentsForPartner,
-  summarizeDocuments,
 } from "@/features/partner-documents/services";
+import { getPartnerById } from "@/features/partners/services";
 
 export default async function PartnerDocumentsPage() {
   const session = await getAppSession();
@@ -20,9 +24,16 @@ export default async function PartnerDocumentsPage() {
     redirect("/unauthorized");
   }
 
-  const documents = await listDocumentsForPartner(session.partnerId);
+  const [partner, rawDocuments] = await Promise.all([
+    getPartnerById(session.partnerId),
+    listDocumentsForPartner(session.partnerId),
+  ]);
+  const documents = normalizePartnerDocumentsForPortal(
+    rawDocuments,
+    partner?.status ?? "pending",
+  );
   const slots = buildDocumentSlots(documents);
-  const summary = summarizeDocuments(documents);
+  const summary = summarizePartnerPortalDocuments(documents);
 
   return (
     <PartnerDocumentsPageClient

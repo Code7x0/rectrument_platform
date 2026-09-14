@@ -34,7 +34,7 @@ export default async function PartnerProfilePage() {
       />
       <PageHeader
         title="Profile"
-        description="Update your company and contact details. Status and verification are managed by Admin."
+        description="Update your company and contact details. Account status is managed by Admin."
       />
       <PartnerProfileForm partner={partner} />
     </ContentContainer>

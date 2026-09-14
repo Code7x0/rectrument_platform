@@ -42,6 +42,12 @@ import {
   type JobAmLookup,
 } from "./daily-digest-metrics";
 import type { Allocation } from "@/features/allocations/types";
+import {
+  buildActivePartnerIdSet,
+  isPartnerEligibleForDigest,
+  PARTNER_DIGEST_NEW_ROLES_COLUMN,
+  PARTNER_DIGEST_SNAPSHOT_COLUMNS,
+} from "@/services/email/digests/partner-digest-copy";
 
 function appBaseUrl(): string {
   return (
@@ -200,7 +206,7 @@ function buildPartnerActivationsTable(
   return formatTable(
     [
       "New Accounts Activated",
-      "New Roles Activated – Available to be claimed (Job title only, last 24 hours)",
+      PARTNER_DIGEST_NEW_ROLES_COLUMN,
     ],
     [
       [
@@ -513,13 +519,7 @@ function buildPartnerSnapshot(
   ).length;
 
   return formatTable(
-    [
-      "Jobs Assigned",
-      "Super High Priority Jobs",
-      "Candidates Pending Review",
-      "Candidates Internal Screening in Progress",
-      "Being Submitted to Client",
-    ],
+    [...PARTNER_DIGEST_SNAPSHOT_COLUMNS],
     [
       [
         String(allocatedJobIds.size),
@@ -527,6 +527,7 @@ function buildPartnerSnapshot(
         String(count("pending_review")),
         String(count("internal_screening")),
         String(count("being_submitted")),
+        String(count("interviewing")),
       ],
     ],
   );
@@ -700,17 +701,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     listActivities({ maxRecords: 2000 }).catch(() => [] as Activity[]),
   ]);
 
-  const activePartnerIds = new Set(
-    partners
-      .filter((partner) => partner.status === "active")
-      .map((partner) => partner.id),
-  );
-  for (const partnerUser of partnerUsers) {
-    const partnerId = partnerUser.partnerId?.trim();
-    if (partnerId) {
-      activePartnerIds.add(partnerId);
-    }
-  }
+  const activePartnerIds = buildActivePartnerIdSet(partners);
 
   const activeAllocationsByPartner = new Map<string, Set<string>>();
   for (const allocation of allAllocations) {
@@ -721,7 +712,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       continue;
     }
     const partnerKey = allocation.partnerId?.trim();
-    if (!partnerKey) {
+    if (!partnerKey || !isPartnerEligibleForDigest(partnerKey, activePartnerIds)) {
       continue;
     }
     const jobIds = activeAllocationsByPartner.get(partnerKey) ?? new Set();
@@ -838,12 +829,16 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
   }
 
   for (const partner of partnerUsers) {
-    if (!partner.email?.trim() || !partner.partnerId) {
+    const partnerId = partner.partnerId?.trim();
+    if (!partner.email?.trim() || !partnerId) {
       continue;
     }
-    const owned = submissions.filter((row) => row.partnerId === partner.partnerId);
+    if (!isPartnerEligibleForDigest(partnerId, activePartnerIds)) {
+      continue;
+    }
+    const owned = submissions.filter((row) => row.partnerId === partnerId);
     const allocatedJobIds =
-      activeAllocationsByPartner.get(partner.partnerId) ?? new Set<string>();
+      activeAllocationsByPartner.get(partnerId) ?? new Set<string>();
 
     const newRoleTitles = jobs
       .filter((job) => {
@@ -858,7 +853,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       .filter(Boolean);
 
     const newAccountNames = listPartnerNewAccountNames(
-      partner.partnerId,
+      partnerId,
       allAllocations,
       jobs,
       windowStart,

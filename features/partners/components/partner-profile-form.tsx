@@ -21,7 +21,6 @@ import {
 } from "@/features/partners/schemas/partner-self-profile.schema";
 import {
   PARTNER_STATUS_LABELS,
-  PARTNER_VERIFICATION_LABELS,
   type Partner,
 } from "@/features/partners/types";
 
@@ -77,16 +76,8 @@ export function PartnerProfileForm({ partner }: PartnerProfileFormProps) {
             {PARTNER_STATUS_LABELS[partner.status]}
           </p>
         </div>
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-[#94A3B8]">
-            Verification
-          </p>
-          <p className="mt-1 text-sm font-medium text-[#0F172A]">
-            {PARTNER_VERIFICATION_LABELS[partner.verificationStatus]}
-          </p>
-        </div>
         {partner.partnerCode ? (
-          <div className="sm:col-span-2">
+          <div>
             <p className="text-xs font-medium uppercase tracking-wide text-[#94A3B8]">
               Partner code
             </p>

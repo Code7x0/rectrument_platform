@@ -10,19 +10,26 @@ interface ActivitiesPageClientProps {
   initial: TimelineListResult;
   breadcrumbs: Array<{ label: string; href?: string }>;
   description: string;
+  filterVariant?: "default" | "partner";
 }
 
 export function ActivitiesPageClient({
   initial,
   breadcrumbs,
   description,
+  filterVariant = "default",
 }: ActivitiesPageClientProps) {
   return (
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
       <PageHeader title="Activity" description={description} />
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-6">
-        <ActivityTimeline initial={initial} mode="global" showFilters />
+        <ActivityTimeline
+          initial={initial}
+          mode="global"
+          showFilters
+          filterVariant={filterVariant}
+        />
       </div>
     </ContentContainer>
   );

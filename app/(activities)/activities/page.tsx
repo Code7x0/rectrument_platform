@@ -11,7 +11,7 @@ function descriptionForRole(role: string): string {
     case "account_manager":
       return "Activity on your assigned jobs and related candidates.";
     case "partner":
-      return "Activity on your submissions, documents, and earnings.";
+      return "Status updates on your jobs and candidate submissions.";
     default:
       return "What happened, when, and who did it.";
   }
@@ -29,6 +29,7 @@ export default async function ActivitiesPage() {
       initial={initial}
       description={descriptionForRole(session.role)}
       breadcrumbs={[{ label: "Activity" }]}
+      filterVariant={session.role === "partner" ? "partner" : "default"}
     />
   );
 }

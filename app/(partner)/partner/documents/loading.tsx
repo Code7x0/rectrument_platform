@@ -4,7 +4,7 @@ export default function Loading() {
   return (
     <ListLoading
       title="Documents"
-      description="Loading your verification documents…"
+      description="Loading your documents…"
     />
   );
 }

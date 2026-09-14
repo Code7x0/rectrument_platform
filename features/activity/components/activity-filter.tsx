@@ -8,6 +8,8 @@ import {
   ALL_ACTIVITY_ENTITY_TYPES,
   ACTIVITY_ACTION_LABELS,
   ACTIVITY_ENTITY_LABELS,
+  PARTNER_ACTIVITY_ACTIONS,
+  PARTNER_ACTIVITY_ENTITY_TYPES,
   type TimelineListFilters,
 } from "@/features/activity/types";
 import { getRoleLabel } from "@/lib/auth/permissions";
@@ -24,19 +26,31 @@ interface ActivityFilterProps {
   value: TimelineListFilters;
   onChange: (next: TimelineListFilters) => void;
   compact?: boolean;
+  /** Partner view — jobs/candidates only, no internal role filters. */
+  variant?: "default" | "partner";
 }
 
 export function ActivityFilter({
   value,
   onChange,
   compact = false,
+  variant = "default",
 }: ActivityFilterProps) {
+  const entityTypes =
+    variant === "partner"
+      ? PARTNER_ACTIVITY_ENTITY_TYPES
+      : ALL_ACTIVITY_ENTITY_TYPES;
+  const actionTypes =
+    variant === "partner" ? PARTNER_ACTIVITY_ACTIONS : ALL_ACTIVITY_ACTIONS;
+
   return (
     <div
       className={
         compact
           ? "grid gap-3"
-          : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
+          : variant === "partner"
+            ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
       }
     >
       <div className="space-y-1.5 xl:col-span-2">
@@ -62,7 +76,7 @@ export function ActivityFilter({
           }
         >
           <option value="all">All entities</option>
-          {ALL_ACTIVITY_ENTITY_TYPES.map((type) => (
+          {entityTypes.map((type) => (
             <option key={type} value={type}>
               {ACTIVITY_ENTITY_LABELS[type]}
             </option>
@@ -83,34 +97,36 @@ export function ActivityFilter({
           }
         >
           <option value="all">All actions</option>
-          {ALL_ACTIVITY_ACTIONS.map((action) => (
+          {actionTypes.map((action) => (
             <option key={action} value={action}>
               {ACTIVITY_ACTION_LABELS[action]}
             </option>
           ))}
         </Select>
       </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="activity-role">Actor role</Label>
-        <Select
-          id="activity-role"
-          value={value.actorRole ?? "all"}
-          onChange={(e) =>
-            onChange({
-              ...value,
-              actorRole: e.target.value as TimelineListFilters["actorRole"],
-              page: 1,
-            })
-          }
-        >
-          <option value="all">All roles</option>
-          {ROLES.map((role) => (
-            <option key={role} value={role}>
-              {getRoleLabel(role)}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {variant === "default" ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="activity-role">Actor role</Label>
+          <Select
+            id="activity-role"
+            value={value.actorRole ?? "all"}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                actorRole: e.target.value as TimelineListFilters["actorRole"],
+                page: 1,
+              })
+            }
+          >
+            <option value="all">All roles</option>
+            {ROLES.map((role) => (
+              <option key={role} value={role}>
+                {getRoleLabel(role)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : null}
       <div className="space-y-1.5">
         <Label htmlFor="activity-from">From date</Label>
         <Input

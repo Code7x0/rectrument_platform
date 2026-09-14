@@ -26,6 +26,7 @@ interface ActivityTimelineProps {
   entityRef?: TimelineEntityRef;
   showFilters?: boolean;
   compact?: boolean;
+  filterVariant?: "default" | "partner";
 }
 
 export function ActivityTimeline({
@@ -34,6 +35,7 @@ export function ActivityTimeline({
   entityRef,
   showFilters = true,
   compact = false,
+  filterVariant = "default",
 }: ActivityTimelineProps) {
   const [filters, setFilters] = useState<TimelineListFilters>({
     page: initial.page,
@@ -86,6 +88,7 @@ export function ActivityTimeline({
         <ActivityFilter
           value={filters}
           compact={compact}
+          variant={filterVariant}
           onChange={(next) => {
             const withPage = { ...next, page: 1, pageSize: filters.pageSize };
             reload(withPage, false);

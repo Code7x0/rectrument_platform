@@ -120,3 +120,11 @@ export const ALL_ACTIVITY_ACTIONS = Object.keys(
 export const ALL_ACTIVITY_ENTITY_TYPES = Object.keys(
   ACTIVITY_ENTITY_LABELS,
 ) as ActivityEntityType[];
+
+/** Partner portal — jobs and candidate submissions only. */
+export const PARTNER_ACTIVITY_ENTITY_TYPES: ActivityEntityType[] = [
+  "submission",
+  "job",
+];
+
+export const PARTNER_ACTIVITY_ACTIONS: ActivityAction[] = ["status_change"];

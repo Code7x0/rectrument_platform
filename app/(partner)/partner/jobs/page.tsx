@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
+import { listQueriesForPartner } from "@/features/feedback/services/partner-queries.service";
 import { PartnerJobsPageClient } from "@/features/tasks/components/partner-jobs-page-client";
 import { listPartnerWorkTasks } from "@/features/tasks/services";
 
@@ -28,7 +29,10 @@ export default async function PartnerJobsPage() {
     redirect("/unauthorized");
   }
 
-  const tasks = await listPartnerWorkTasks(session.partnerId);
+  const [tasks, queries] = await Promise.all([
+    listPartnerWorkTasks(session.partnerId),
+    listQueriesForPartner(session.partnerId),
+  ]);
 
   return (
     <ContentContainer>
@@ -38,7 +42,7 @@ export default async function PartnerJobsPage() {
           { label: "My Jobs" },
         ]}
       />
-      <PartnerJobsPageClient tasks={tasks} />
+      <PartnerJobsPageClient tasks={tasks} queries={queries} />
     </ContentContainer>
   );
 }

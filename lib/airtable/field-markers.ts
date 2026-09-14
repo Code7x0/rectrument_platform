@@ -6,6 +6,7 @@
 export const INVITE_MARKER_PREFIX = "invite:";
 export const PAYOUT_MARKER_PREFIX = "[RP_PAYOUT]";
 export const DOC_MARKER_PREFIX = "[RP_DOC]";
+export const PARTNER_NOTIF_MARKER_PREFIX = "[RP_PARTNER_NOTIF]";
 export const ROLE_MARKER_PREFIX = "[RP_ROLE:";
 export const PROMOTED_MARKER_PREFIX = "[RP_PROMOTED:";
 
@@ -185,6 +186,87 @@ export function upsertDocMarker(
   return lines.join("\n");
 }
 
+export type PartnerNotifMarker = {
+  id: string;
+  at: string;
+  type: string;
+  entityType: string | null;
+  entityId: string | null;
+  title: string;
+  description: string;
+  actionUrl: string;
+};
+
+function encodeMarkerToken(value: string): string {
+  return encodeURIComponent(value).replace(/%/g, "_");
+}
+
+function decodeMarkerToken(value: string): string {
+  try {
+    return decodeURIComponent(value.replace(/_/g, "%"));
+  } catch {
+    return value;
+  }
+}
+
+export function buildPartnerNotifMarker(marker: PartnerNotifMarker): string {
+  return [
+    PARTNER_NOTIF_MARKER_PREFIX,
+    `id=${marker.id}`,
+    `at=${marker.at}`,
+    `type=${marker.type}`,
+    `entity=${marker.entityType ?? ""}:${marker.entityId ?? ""}`,
+    `title=${encodeMarkerToken(marker.title)}`,
+    `desc=${encodeMarkerToken(marker.description)}`,
+    `url=${encodeMarkerToken(marker.actionUrl)}`,
+  ].join(" ");
+}
+
+export function parsePartnerNotifMarkers(
+  text: string | null | undefined,
+): PartnerNotifMarker[] {
+  if (!text?.trim()) {
+    return [];
+  }
+  const markers: PartnerNotifMarker[] = [];
+  const re =
+    /\[RP_PARTNER_NOTIF\]\s+id=([^\s]+)\s+at=([^\s]+)\s+type=([^\s]+)\s+entity=([^:]*):([^\s]*)\s+title=([^\s]+)\s+desc=([^\s]+)\s+url=([^\s]+)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    markers.push({
+      id: match[1]!,
+      at: match[2]!,
+      type: match[3]!,
+      entityType: match[4]?.trim() ? match[4]!.trim() : null,
+      entityId: match[5]?.trim() ? match[5]!.trim() : null,
+      title: decodeMarkerToken(match[6]!),
+      description: decodeMarkerToken(match[7]!),
+      actionUrl: decodeMarkerToken(match[8]!),
+    });
+  }
+  return markers;
+}
+
+const MAX_PARTNER_NOTIF_MARKERS = 40;
+
+export function appendPartnerNotifMarker(
+  existing: string | null | undefined,
+  marker: PartnerNotifMarker,
+): string {
+  const prior = parsePartnerNotifMarkers(existing);
+  const next = [
+    marker,
+    ...prior.filter((row) => row.id !== marker.id),
+  ].slice(0, MAX_PARTNER_NOTIF_MARKERS);
+  const markerLines = next.map((row) => buildPartnerNotifMarker(row));
+  const humanLines = (existing ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith(PARTNER_NOTIF_MARKER_PREFIX));
+  return [...humanLines, ...markerLines].join("\n");
+}
+
 /** Strip [RP_DOC] / [RP_PAYOUT] lines for human-editable notes display. */
 export function stripSystemMarkers(
   text: string | null | undefined,
@@ -200,6 +282,7 @@ export function stripSystemMarkers(
       (line) =>
         !line.startsWith(DOC_MARKER_PREFIX) &&
         !line.startsWith(PAYOUT_MARKER_PREFIX) &&
+        !line.startsWith(PARTNER_NOTIF_MARKER_PREFIX) &&
         !line.startsWith(ROLE_MARKER_PREFIX) &&
         !line.startsWith(PROMOTED_MARKER_PREFIX),
     )
@@ -221,6 +304,7 @@ export function mergeNotesPreservingMarkers(
       (line) =>
         line.startsWith(DOC_MARKER_PREFIX) ||
         line.startsWith(PAYOUT_MARKER_PREFIX) ||
+        line.startsWith(PARTNER_NOTIF_MARKER_PREFIX) ||
         line.startsWith(ROLE_MARKER_PREFIX) ||
         line.startsWith(PROMOTED_MARKER_PREFIX),
     );

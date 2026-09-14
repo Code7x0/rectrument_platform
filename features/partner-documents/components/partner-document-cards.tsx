@@ -20,6 +20,7 @@ import {
   validateDocumentFileMeta,
 } from "@/features/partner-documents/schemas/document.schema";
 import type {
+  PartnerDocument,
   PartnerDocumentSlot,
   PartnerDocumentType,
 } from "@/features/partner-documents/types";
@@ -29,8 +30,19 @@ import { formatDateTime } from "@/lib/utils";
 interface PartnerDocumentCardsProps {
   slots: PartnerDocumentSlot[];
   canUpload: boolean;
+  /** Partner portal hides per-document verification badges. */
+  showVerification?: boolean;
   /** When set, admin uploads on behalf of this partner. */
   partnerIdForAdmin?: string;
+}
+
+function documentLastUpdated(
+  document: PartnerDocument | null | undefined,
+): string | null {
+  if (!document) {
+    return null;
+  }
+  return document.uploadedAt?.trim() || document.verifiedAt?.trim() || null;
 }
 
 function Detail({
@@ -53,6 +65,7 @@ function Detail({
 export function PartnerDocumentCards({
   slots,
   canUpload,
+  showVerification = true,
   partnerIdForAdmin,
 }: PartnerDocumentCardsProps) {
   const router = useRouter();
@@ -107,15 +120,19 @@ export function PartnerDocumentCards({
         return;
       }
 
-      toast.success(
-        slots.find((s) => s.documentType === documentType)?.document
-          ? "Document replaced"
-          : "Document uploaded",
+      const hasFile = slots.some(
+        (slot) =>
+          slot.documentType === documentType &&
+          Boolean(slot.document?.fileUrl?.trim()),
       );
+      toast.success(hasFile ? "Document replaced" : "Document uploaded");
       signalLiveDataChange();
       router.refresh();
     });
   }
+
+  const selectedDocument = selected?.document ?? null;
+  const selectedDocumentLastUpdated = documentLastUpdated(selectedDocument);
 
   return (
     <>
@@ -132,8 +149,9 @@ export function PartnerDocumentCards({
           }
         >
           {slots.map((slot) => {
-            const uploaded = Boolean(slot.document?.fileUrl);
+            const uploaded = Boolean(slot.document?.fileUrl?.trim());
             const busy = isPending && pendingType === slot.documentType;
+            const lastUpdated = documentLastUpdated(slot.document);
 
             return (
               <div
@@ -149,20 +167,20 @@ export function PartnerDocumentCards({
                       {uploaded ? "Uploaded" : "Not uploaded"}
                     </p>
                   </div>
-                  {slot.document ? (
-                    <DocumentVerificationBadge
-                      status={slot.document.verificationStatus}
-                    />
-                  ) : (
-                    <DocumentVerificationBadge status="pending" />
-                  )}
+                  {showVerification ? (
+                    slot.document ? (
+                      <DocumentVerificationBadge
+                        status={slot.document.verificationStatus}
+                      />
+                    ) : (
+                      <DocumentVerificationBadge status="pending" />
+                    )
+                  ) : null}
                 </div>
 
                 <p className="mt-3 text-xs text-[#64748B]">
                   Last updated:{" "}
-                  {slot.document?.uploadedAt
-                    ? formatDateTime(slot.document.uploadedAt)
-                    : "—"}
+                  {lastUpdated ? formatDateTime(lastUpdated) : "—"}
                 </p>
 
                 {slot.document?.rejectionReason ? (
@@ -255,36 +273,38 @@ export function PartnerDocumentCards({
         }}
         title={selected?.label ?? "Document"}
       >
-        {selected?.document ? (
+        {selectedDocument ? (
           <div className="space-y-4 pt-2">
             <Detail
               label="File"
-              value={selected.document.fileName ?? "Attachment"}
+              value={selectedDocument.fileName ?? "Attachment"}
             />
+            {showVerification ? (
+              <Detail
+                label="Verification"
+                value={selectedDocument.verificationStatus}
+              />
+            ) : null}
             <Detail
-              label="Verification"
-              value={selected.document.verificationStatus}
-            />
-            <Detail
-              label="Uploaded"
+              label="Last updated"
               value={
-                selected.document.uploadedAt
-                  ? formatDateTime(selected.document.uploadedAt)
+                selectedDocumentLastUpdated
+                  ? formatDateTime(selectedDocumentLastUpdated)
                   : null
               }
             />
             <Detail
               label="Rejection reason"
-              value={selected.document.rejectionReason}
+              value={selectedDocument.rejectionReason}
             />
-            {selected.document.fileUrl ? (
+            {selectedDocument.fileUrl ? (
               <FilePreviewLink
                 asButton
                 variant="default"
                 size="default"
-                url={selected.document.fileUrl}
-                filename={selected.document.fileName}
-                title={selected.label}
+                url={selectedDocument.fileUrl}
+                filename={selectedDocument.fileName}
+                title={selected?.label}
               >
                 Preview file
               </FilePreviewLink>
@@ -293,7 +313,7 @@ export function PartnerDocumentCards({
               <EntityActivityInline
                 entityRef={{
                   kind: "document",
-                  id: selected.document.id,
+                  id: selectedDocument.id,
                 }}
                 title="Document activity"
               />

@@ -20,6 +20,7 @@ import type {
   PartnerQueryStatus,
   PartnerQueryType,
 } from "@/features/feedback/types";
+import { normalizePartnerQueryType } from "@/features/feedback/types";
 
 function getTableName(): string {
   return (
@@ -40,15 +41,8 @@ function mapType(value: unknown): PartnerQueryType {
   const mapped =
     AIRTABLE_PARTNER_QUERY_TYPE[
       raw as keyof typeof AIRTABLE_PARTNER_QUERY_TYPE
-    ] ?? null;
-  if (
-    mapped === "account_question" ||
-    mapped === "feedback" ||
-    mapped === "suggestion"
-  ) {
-    return mapped;
-  }
-  return "feedback";
+    ] ?? raw;
+  return normalizePartnerQueryType(mapped);
 }
 
 function mapStatus(value: unknown): PartnerQueryStatus {

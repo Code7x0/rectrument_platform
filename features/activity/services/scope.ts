@@ -1,3 +1,4 @@
+import { listActiveAllocationsForPartner } from "@/features/allocations/services";
 import { listJobs } from "@/features/jobs/services";
 import { listDocumentsForPartner } from "@/features/partner-documents/services";
 import { listPayouts, listPayoutsForPartner } from "@/features/payouts/services";
@@ -30,26 +31,25 @@ export async function resolveEntityAccessKeys(
     case "notification":
       return "none";
     case "partner": {
-      const [submissions, documents, payouts, partnerUsers] = await Promise.all([
+      const [submissions, allocations] = await Promise.all([
         listSubmissions({ partnerId: ref.id }),
-        listDocumentsForPartner(ref.id),
-        listPayoutsForPartner(ref.id),
-        listUsers({ role: "partner" }),
+        listActiveAllocationsForPartner(ref.id),
       ]);
       const keys = new Set<string>();
+      const jobIds = new Set<string>();
       for (const row of submissions) {
         keys.add(activityEntityKey("submission", row.id));
-      }
-      for (const row of documents) {
-        keys.add(activityEntityKey("partner_document", row.id));
-      }
-      for (const row of payouts) {
-        keys.add(activityEntityKey("payout", row.id));
-      }
-      for (const row of partnerUsers) {
-        if (row.partnerId === ref.id) {
-          keys.add(activityEntityKey("user", row.id));
+        if (row.jobId) {
+          jobIds.add(row.jobId);
         }
+      }
+      for (const row of allocations) {
+        if (row.jobId) {
+          jobIds.add(row.jobId);
+        }
+      }
+      for (const jobId of jobIds) {
+        keys.add(activityEntityKey("job", jobId));
       }
       return keys;
     }

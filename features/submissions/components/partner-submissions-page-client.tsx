@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { PayoutStatusBadge } from "@/features/payouts/components/payout-status-badge";
 import type { Payout } from "@/features/payouts/types";
 import { deleteOwnUnreviewedSubmissionAction } from "@/features/submissions/actions/submissions.actions";
 import { EditCandidateDialog } from "@/features/submissions/components/edit-candidate-dialog";
@@ -29,10 +28,19 @@ import { ExportCandidatesButton } from "@/features/submissions/components/export
 import { SecondLevelReviewBadge } from "@/features/submissions/components/second-level-review-badge";
 import { SecondLevelReviewDialog } from "@/features/submissions/components/second-level-review-dialog";
 import { SubmissionReviewPanel } from "@/features/submissions/components/submission-review-panel";
-import { SubmissionStatusBadge } from "@/features/submissions/components/submission-status-badge";
+import {
+  InterviewStageBadge,
+  SubmissionStatusBadge,
+} from "@/features/submissions/components/submission-status-badge";
+import {
+  collectPartnerCandidateFilterOptions,
+  filterPartnerCandidateRows,
+  resolveSubmissionLastUpdated,
+} from "@/features/submissions/lib/partner-candidate-filters";
 import { canPartnerEditSubmission } from "@/features/submissions/lib/partner-edit-eligibility";
 import type { Submission } from "@/features/submissions/types";
 import {
+  AIRTABLE_INTERVIEW_STAGES,
   AIRTABLE_SUBMISSION_STATUS_OPTIONS,
   resolveAirtableSubmissionStatusOption,
 } from "@/lib/airtable/fields";
@@ -141,7 +149,13 @@ export function PartnerSubmissionsPageClient({
     }
     return "all";
   });
-  const [jobTitleFilter, setJobTitleFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [jobFilter, setJobFilter] = useState<string>(
+    () => filterJobId ?? "all",
+  );
+  const [interviewStageFilter, setInterviewStageFilter] =
+    useState<string>("all");
   const [reviewRequestSubmission, setReviewRequestSubmission] =
     useState<Submission | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -174,6 +188,10 @@ export function PartnerSubmissionsPageClient({
   }, [initialStatus, initialStatusGroup]);
 
   useEffect(() => {
+    setJobFilter(filterJobId ?? "all");
+  }, [filterJobId]);
+
+  useEffect(() => {
     const targetId = initialSubmissionId?.trim();
     if (!targetId || openedDeepLink.current === targetId) {
       return;
@@ -197,19 +215,41 @@ export function PartnerSubmissionsPageClient({
     return base;
   }, [statusFilter]);
 
-  const filteredRows = useMemo(() => {
-    let next = rows;
-    if (statusFilter !== "all") {
-      next = next.filter((row) => matchesAirtableStatusFilter(row, statusFilter));
-    }
-    const q = jobTitleFilter.trim().toLowerCase();
-    if (q) {
-      next = next.filter((row) =>
-        (row.jobTitle ?? "").toLowerCase().includes(q),
-      );
-    }
-    return next;
-  }, [rows, statusFilter, jobTitleFilter]);
+  const filterOptions = useMemo(
+    () => collectPartnerCandidateFilterOptions(rows),
+    [rows],
+  );
+
+  const interviewStageOptions = useMemo(() => {
+    const merged = new Set<string>([
+      ...AIRTABLE_INTERVIEW_STAGES,
+      ...filterOptions.interviewStages,
+    ]);
+    return [...merged].sort((a, b) => a.localeCompare(b));
+  }, [filterOptions.interviewStages]);
+
+  const filteredRows = useMemo(
+    () =>
+      filterPartnerCandidateRows(
+        rows,
+        {
+          search: searchQuery,
+          status: statusFilter,
+          clientId: clientFilter,
+          jobId: jobFilter,
+          interviewStage: interviewStageFilter,
+        },
+        matchesAirtableStatusFilter,
+      ),
+    [
+      rows,
+      searchQuery,
+      statusFilter,
+      clientFilter,
+      jobFilter,
+      interviewStageFilter,
+    ],
+  );
 
   function handleReviewSubmitted(submission: Submission) {
     setRows((current) =>
@@ -279,30 +319,82 @@ export function PartnerSubmissionsPageClient({
         </div>
       ) : null}
 
-      <div className="mb-4 grid gap-3 rounded-xl border border-[#E2E8F0] bg-white p-4 sm:grid-cols-2">
+      <div className="mb-4 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4">
         <div className="space-y-1.5">
-          <Label htmlFor="partner-status-filter">Submission Status</Label>
-          <Select
-            id="partner-status-filter"
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            {statusSelectOptions.map((status) => (
-              <option key={status} value={status}>
-                {statusFilterLabel(status)}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="partner-job-title-filter">Job Title</Label>
+          <Label htmlFor="partner-candidate-search">Search</Label>
           <Input
-            id="partner-job-title-filter"
-            value={jobTitleFilter}
-            onChange={(event) => setJobTitleFilter(event.target.value)}
-            placeholder="Filter by job title"
+            id="partner-candidate-search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Candidate name, job, or client"
           />
         </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-status-filter">Submission Status</Label>
+            <Select
+              id="partner-status-filter"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              {statusSelectOptions.map((status) => (
+                <option key={status} value={status}>
+                  {statusFilterLabel(status)}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-interview-stage-filter">
+              Interview Stage
+            </Label>
+            <Select
+              id="partner-interview-stage-filter"
+              value={interviewStageFilter}
+              onChange={(event) => setInterviewStageFilter(event.target.value)}
+            >
+              <option value="all">All interview stages</option>
+              {interviewStageOptions.map((stage) => (
+                <option key={stage} value={stage}>
+                  {stage}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-client-filter">Client</Label>
+            <Select
+              id="partner-client-filter"
+              value={clientFilter}
+              onChange={(event) => setClientFilter(event.target.value)}
+            >
+              <option value="all">All clients</option>
+              {filterOptions.clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-job-filter">Job</Label>
+            <Select
+              id="partner-job-filter"
+              value={jobFilter}
+              onChange={(event) => setJobFilter(event.target.value)}
+            >
+              <option value="all">All jobs</option>
+              {filterOptions.jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <p className="text-xs text-[#94A3B8]">
+          Sorted by most recent update. Export includes only the filtered rows.
+        </p>
       </div>
 
       {filteredRows.length === 0 ? (
@@ -361,18 +453,16 @@ export function PartnerSubmissionsPageClient({
                       ) : null}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <SubmissionStatusBadge
                       status={row.status}
                       airtableStatus={row.airtableStatus}
                       label={row.airtableStatus}
                     />
+                    <InterviewStageBadge stage={row.interviewStage} />
                     {row.wantsSecondLevelReview ? (
                       <SecondLevelReviewBadge />
                     ) : null}
-                    <PayoutStatusBadge
-                      status={payout?.payoutStatus ?? "not_eligible"}
-                    />
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-[#94A3B8]">
@@ -386,14 +476,16 @@ export function PartnerSubmissionsPageClient({
                       ? formatDateTime(row.submissionDate)
                       : "—"}
                   </span>
-                  <span>Interview: {row.interviewStage || "Not set"}</span>
+                  <span>
+                    Last update{" "}
+                    {resolveSubmissionLastUpdated(row)
+                      ? formatDateTime(resolveSubmissionLastUpdated(row))
+                      : "—"}
+                  </span>
                   {payout?.amount != null && payout.amount > 0 ? (
                     <span>
-                      {formatCurrency(payout.amount, payout.currency)}
+                      Payout {formatCurrency(payout.amount, payout.currency)}
                     </span>
-                  ) : null}
-                  {payout?.lastUpdated ? (
-                    <span>Updated {formatDateTime(payout.lastUpdated)}</span>
                   ) : null}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">

@@ -165,12 +165,19 @@ export async function insertEphemeralNotification(
 
 export async function listEphemeralNotificationsForRecipient(
   recipientUserId: string,
-  options?: { maxRecords?: number },
+  options?: { maxRecords?: number; alternateRecipientIds?: string[] },
 ): Promise<Notification[]> {
   const store = await readStoreUnlocked();
   const max = options?.maxRecords ?? 80;
+  const allowed = new Set(
+    [recipientUserId, ...(options?.alternateRecipientIds ?? [])]
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
   return store.notifications
-    .filter((row) => row.recipientUserId === recipientUserId && !row.archived)
+    .filter(
+      (row) => allowed.has(row.recipientUserId) && !row.archived,
+    )
     .slice(0, max);
 }
 

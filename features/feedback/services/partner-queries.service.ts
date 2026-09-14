@@ -1,3 +1,4 @@
+import { listActiveAllocationsForPartner } from "@/features/allocations/services";
 import {
   findPartnerQueryById,
   insertPartnerQuery,
@@ -13,6 +14,37 @@ import type {
 
 export async function listPartnerQueries(): Promise<PartnerQuery[]> {
   return listAllPartnerQueries();
+}
+
+/** Job/candidate queries for partners allocated to this Account Manager. */
+export async function listQueriesForAccountManager(
+  accountManagerId: string,
+): Promise<PartnerQuery[]> {
+  const amId = accountManagerId.trim();
+  if (!amId) {
+    return [];
+  }
+
+  const all = await listAllPartnerQueries();
+  const jobQueries = all.filter((row) => row.type === "job_candidate_query");
+  if (jobQueries.length === 0) {
+    return [];
+  }
+
+  const partnerIds = new Set<string>();
+  const partnerIdList = [
+    ...new Set(jobQueries.map((row) => row.partnerId).filter(Boolean)),
+  ];
+  await Promise.all(
+    partnerIdList.map(async (partnerId) => {
+      const allocations = await listActiveAllocationsForPartner(partnerId);
+      if (allocations.some((row) => row.accountManagerId === amId)) {
+        partnerIds.add(partnerId);
+      }
+    }),
+  );
+
+  return jobQueries.filter((row) => partnerIds.has(row.partnerId));
 }
 
 export async function listQueriesForPartner(

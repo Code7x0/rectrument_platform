@@ -39,11 +39,9 @@ import type {
   PartnerDocumentType,
 } from "@/features/partner-documents/types";
 import {
-  REQUIRED_DOCUMENT_TYPES,
-} from "@/features/partner-documents/types";
-import {
   buildDocumentSlots,
   summarizeDocuments,
+  visibleDocumentTypes,
 } from "@/features/partner-documents/lib/document-slots";
 import type { PartnerVerificationStatus } from "@/features/shared/entities";
 import { recordActivity } from "@/features/workflows/services/activity.service";
@@ -86,12 +84,15 @@ async function uploadPartnerDocumentToResume(input: {
 
   const partnersTable = getAirtableTableName("partnersTable");
   const partner = await findRecord(partnersTable, input.partnerId);
+  const partnerRecord = await findPartnerById(input.partnerId);
+  const markerStatus =
+    partnerRecord?.status === "active" ? "verified" : "pending";
   const existingNotes = asString(
     partner.fields[PARTNERS_TABLE_FIELDS.notes],
   );
   const nextNotes = upsertDocMarker(existingNotes, {
     filename,
-    status: "pending",
+    status: markerStatus,
     reason: null,
     at: new Date().toISOString(),
   });
@@ -232,6 +233,10 @@ export async function uploadPartnerDocument(input: {
   documentType: PartnerDocumentType;
   upload: UploadedFile;
 }): Promise<PartnerDocument> {
+  const partnerRecord = await findPartnerById(input.partnerId);
+  const verificationOnUpload =
+    partnerRecord?.status === "active" ? "verified" : "pending";
+
   if (!getOptionalAirtableTableName("documentsTable")) {
     const attached = await uploadPartnerDocumentToResume(input);
     try {
@@ -263,7 +268,7 @@ export async function uploadPartnerDocument(input: {
     await patchDocument(
       current.id,
       toAirtableUpdateFields({
-        verificationStatus: "pending",
+        verificationStatus: verificationOnUpload,
         verifiedById: null,
         verifiedAt: null,
         rejectionReason: null,
@@ -280,7 +285,7 @@ export async function uploadPartnerDocument(input: {
     toAirtableCreateFields({
       partnerId: input.partnerId,
       documentType: input.documentType,
-      verificationStatus: "pending",
+      verificationStatus: verificationOnUpload,
       status: "active",
     }),
   );
@@ -469,13 +474,22 @@ export async function syncPartnerVerificationFromDocuments(
   const docs = slots
     .map((slot) => slot.document)
     .filter((doc): doc is PartnerDocument => doc != null);
+  const byType = new Map(
+    docs.map((doc) => [doc.documentType, doc] as const),
+  );
+  const requiredTypes = visibleDocumentTypes(byType);
 
   if (docs.some((doc) => doc.verificationStatus === "rejected")) {
     next = "rejected";
   } else if (
-    REQUIRED_DOCUMENT_TYPES.every((type) => {
-      const slot = slots.find((s) => s.documentType === type);
-      return slot?.document?.verificationStatus === "verified";
+    partner.status === "active" &&
+    requiredTypes.every((type) => Boolean(byType.get(type)?.fileUrl))
+  ) {
+    next = "verified";
+  } else if (
+    requiredTypes.every((type) => {
+      const doc = byType.get(type);
+      return doc?.verificationStatus === "verified";
     })
   ) {
     next = "verified";

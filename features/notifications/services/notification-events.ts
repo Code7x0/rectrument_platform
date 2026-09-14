@@ -77,54 +77,39 @@ export async function notifyAdminCandidateSelected(input: {
 }
 
 export async function notifyPartnerQuerySubmitted(input: {
+  partnerId: string;
   partnerCode: string;
   message: string;
-  type: string;
-  accountManagerId?: string | null;
+  type: import("@/features/feedback/types").PartnerQueryType;
+  typeLabel: string;
   jobTitle?: string | null;
   candidateName?: string | null;
 }): Promise<void> {
-  const reviewUrl = `${appBaseUrl()}/account-manager/feedback`;
-  const recipients: string[] = [];
+  const { resolvePartnerQueryRoute } = await import(
+    "@/features/feedback/services/partner-query-routing"
+  );
+  const route = await resolvePartnerQueryRoute(input.type, input.partnerId);
 
-  if (input.accountManagerId) {
-    const amEmail = await getAccountManagerEmail(input.accountManagerId);
-    if (amEmail) {
-      recipients.push(amEmail);
-    }
+  if (route.recipients.length === 0) {
+    console.warn(
+      "[email] No recipients for partner query",
+      input.type,
+      input.partnerCode,
+    );
+    return;
   }
 
-  const { getOptionalEnv } = await import("@/lib/api/env");
-  const feedbackTo = getOptionalEnv("FEEDBACK_TO_EMAIL");
-  const feedbackCc = getOptionalEnv("FEEDBACK_CC_EMAILS");
-  for (const raw of [feedbackTo, feedbackCc]) {
-    if (!raw?.trim()) {
-      continue;
-    }
-    for (const part of raw.split(",")) {
-      const email = part.trim().toLowerCase();
-      if (email) {
-        recipients.push(email);
-      }
-    }
-  }
-
-  if (recipients.length === 0) {
-    const admins = await getAdminNotificationEmails();
-    recipients.push(...admins);
-  }
-
-  await fanOutEmail(recipients, (to) =>
+  await fanOutEmail(route.recipients, (to) =>
     sendEmailSafe({
       to,
       template: "partner_query_submitted",
       data: {
         partnerCode: input.partnerCode,
-        feedbackType: input.type,
+        feedbackType: input.typeLabel,
         message: input.message,
         jobTitle: input.jobTitle?.trim() ?? "",
         candidateName: input.candidateName?.trim() ?? "",
-        reviewUrl,
+        reviewUrl: route.reviewUrl,
       },
     }),
   );
@@ -1134,7 +1119,20 @@ export async function notifyJobDetailsUpdated(input: {
 
   const jobsUrl = `${appBaseUrl()}/partner/jobs`;
 
+  const { persistPartnerInAppNotification } = await import(
+    "@/features/notifications/lib/partner-in-app-notifications"
+  );
+
   for (const partnerId of partnerIds) {
+    await persistPartnerInAppNotification(partnerId, {
+      type: "job",
+      title: "Job updated",
+      description,
+      entityType: "job",
+      entityId: input.jobId,
+      actionUrl: "/partner/jobs",
+    });
+
     const partnerUserId = await findPartnerUserId(partnerId);
     if (!partnerUserId) {
       continue;
@@ -1257,7 +1255,21 @@ export async function notifyClientDetailsUpdated(input: {
       .filter(Boolean),
   );
 
+  const { persistPartnerInAppNotification } = await import(
+    "@/features/notifications/lib/partner-in-app-notifications"
+  );
+  const clientDescription = `Details for a client you support (${label}) were updated.`;
+
   for (const partnerId of partnerIds) {
+    await persistPartnerInAppNotification(partnerId, {
+      type: "client",
+      title: "Client briefing updated",
+      description: clientDescription,
+      entityType: "client",
+      entityId: input.clientId,
+      actionUrl: "/partner/clients",
+    });
+
     const partnerUserId = await findPartnerUserId(partnerId);
     if (!partnerUserId) {
       continue;
@@ -1265,7 +1277,7 @@ export async function notifyClientDetailsUpdated(input: {
     await publishNotification({
       recipientUserId: partnerUserId,
       title: "Client briefing updated",
-      description: `Details for a client you support (${label}) were updated.`,
+      description: clientDescription,
       type: "system",
       category: "jobs",
       priority: "medium",

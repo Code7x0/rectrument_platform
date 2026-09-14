@@ -28,13 +28,23 @@ import {
 import { formatDateTime } from "@/lib/utils";
 
 const formSchema = z.object({
-  type: z.enum(["feedback", "suggestion", "account_question"]),
+  type: z.enum([
+    "platform_feedback",
+    "job_candidate_query",
+    "account_admin_query",
+  ]),
   message: z.string().trim().min(10, "Please enter a little more detail"),
 });
 
 interface FeedbackPageClientProps {
   role: "partner" | "account_manager";
   initialQueries: PartnerQuery[];
+  /** When set, only show this query type (e.g. Ask AM on My Jobs). */
+  fixedType?: FeedbackFormValues["type"];
+  hideQueryHistory?: boolean;
+  breadcrumbs?: Array<{ label: string; href?: string }>;
+  pageTitle?: string;
+  pageDescription?: string;
 }
 
 function statusBadgeVariant(
@@ -45,14 +55,45 @@ function statusBadgeVariant(
   return "secondary";
 }
 
+function partnerSubmitToast(type: FeedbackFormValues["type"]): string {
+  switch (type) {
+    case "platform_feedback":
+      return "Feedback sent to the platform team";
+    case "job_candidate_query":
+      return "Query sent to your Account Manager — replies appear below";
+    case "account_admin_query":
+      return "Query sent to account administration";
+    default:
+      return "Message sent";
+  }
+}
+
+function replyLabel(type: PartnerQuery["type"]): string {
+  if (type === "job_candidate_query") {
+    return "Account Manager reply";
+  }
+  if (type === "account_admin_query") {
+    return "Admin reply";
+  }
+  return "Reply";
+}
+
 export function FeedbackPageClient({
   role,
   initialQueries,
+  fixedType,
+  hideQueryHistory = false,
+  breadcrumbs,
+  pageTitle,
+  pageDescription,
 }: FeedbackPageClientProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [replyingId, setReplyingId] = useState<string | null>(null);
+
+  const defaultType =
+    fixedType ?? (role === "partner" ? "platform_feedback" : "platform_feedback");
 
   const {
     register,
@@ -62,16 +103,22 @@ export function FeedbackPageClient({
   } = useForm<FeedbackFormValues>({
     resolver: zodResolver(formSchema) as Resolver<FeedbackFormValues>,
     defaultValues: {
-      type: role === "partner" ? "account_question" : "feedback",
+      type: defaultType,
       message: "",
     },
   });
 
-  const queries = useMemo(() => initialQueries, [initialQueries]);
+  const queries = useMemo(() => {
+    if (!fixedType) {
+      return initialQueries;
+    }
+    return initialQueries.filter((row) => row.type === fixedType);
+  }, [fixedType, initialQueries]);
 
   function onSubmit(values: FeedbackFormValues) {
+    const payload = fixedType ? { ...values, type: fixedType } : values;
     startTransition(async () => {
-      const result = await submitFeedbackAction(values);
+      const result = await submitFeedbackAction(payload);
       if (!result.success) {
         toast.error(
           result.errors?.length
@@ -82,11 +129,11 @@ export function FeedbackPageClient({
       }
       toast.success(
         role === "partner"
-          ? "Question submitted — your Account Manager can reply here"
+          ? partnerSubmitToast(payload.type)
           : "Message sent",
       );
       reset({
-        type: role === "partner" ? "account_question" : "feedback",
+        type: defaultType,
         message: "",
       });
       router.refresh();
@@ -124,45 +171,62 @@ export function FeedbackPageClient({
   const base = role === "partner" ? "/partner" : "/account-manager";
   const roleLabel = role === "partner" ? "Talent Partner" : "Account Manager";
 
+  const resolvedBreadcrumbs =
+    breadcrumbs ??
+    [
+      { label: roleLabel, href: base },
+      { label: "Feedback" },
+    ];
+
+  const resolvedTitle =
+    pageTitle ??
+    (fixedType === "job_candidate_query" ? "Ask AM" : "Feedback & Queries");
+
+  const resolvedDescription =
+    pageDescription ??
+    (role === "partner"
+      ? fixedType === "job_candidate_query"
+        ? "Ask your Account Manager about a job, allocation, or candidate. Your Partner ID is shown — commercial name stays private."
+        : "Share platform feedback or ask account administration about payouts and process. Job-specific questions can also be sent from My Jobs → Ask AM."
+      : "Reply to Partner job and candidate questions below, or send platform feedback to the internal team.");
+
   return (
     <ContentContainer>
-      <Breadcrumb
-        items={[
-          { label: roleLabel, href: base },
-          { label: "Feedback" },
-        ]}
-      />
-      <PageHeader
-        title="Feedback & Queries"
-        description={
-          role === "partner"
-            ? "Ask an account-related question or share platform feedback. Your Partner ID is shown to Account Managers — commercial name stays private. Replies appear below."
-            : "Reply to Partner account questions below, or send platform feedback to the internal team."
-        }
-      />
+      {!hideQueryHistory || fixedType !== "job_candidate_query" ? (
+        <Breadcrumb items={resolvedBreadcrumbs} />
+      ) : null}
+      <PageHeader title={resolvedTitle} description={resolvedDescription} />
 
       <div className="mx-auto max-w-3xl space-y-8">
         <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6">
           <h2 className="mb-4 text-sm font-semibold text-[#0F172A]">
-            {role === "partner" ? "New question or feedback" : "Platform feedback"}
+            {fixedType === "job_candidate_query"
+              ? "New question for your Account Manager"
+              : role === "partner"
+                ? "New message"
+                : "Platform feedback"}
           </h2>
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-            <div className="space-y-2">
-              <Label htmlFor="feedback-type">Type</Label>
-              <Select
-                id="feedback-type"
-                disabled={pending}
-                {...register("type")}
-              >
-                {role === "partner" ? (
-                  <option value="account_question">
-                    Account-related question (to Account Manager)
+            {role === "partner" && !fixedType ? (
+              <div className="space-y-2">
+                <Label htmlFor="feedback-type">Type</Label>
+                <Select
+                  id="feedback-type"
+                  disabled={pending}
+                  {...register("type")}
+                >
+                  <option value="platform_feedback">
+                    Feedback about the platform / process
                   </option>
-                ) : null}
-                <option value="feedback">Feedback</option>
-                <option value="suggestion">Suggestion</option>
-              </Select>
-            </div>
+                  <option value="account_admin_query">
+                    Generic query — platform, process, or payouts
+                  </option>
+                  <option value="job_candidate_query">
+                    Account / job / candidate query (to Account Manager)
+                  </option>
+                </Select>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="feedback-message">Message</Label>
@@ -170,9 +234,11 @@ export function FeedbackPageClient({
                 id="feedback-message"
                 rows={6}
                 placeholder={
-                  role === "partner"
-                    ? "Ask about your account, allocations, payouts, or share a platform issue."
-                    : "Tell us what is working, what is broken, or what should be improved."
+                  fixedType === "job_candidate_query"
+                    ? "Ask about a job, candidate status, allocation, or submission."
+                    : role === "partner"
+                      ? "Describe your feedback or question in detail."
+                      : "Tell us what is working, what is broken, or what should be improved."
                 }
                 disabled={pending}
                 {...register("message")}
@@ -192,90 +258,93 @@ export function FeedbackPageClient({
           </form>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-[#0F172A]">
-            {role === "partner" ? "Your queries" : "Partner queries"}
-          </h2>
-          {queries.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-[#E2E8F0] bg-white px-4 py-8 text-center text-sm text-[#64748B]">
-              {role === "partner"
-                ? "No queries yet. Submit a question above and replies will show here."
-                : "No Partner queries yet."}
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {queries.map((query) => (
-                <li
-                  key={query.id}
-                  className="rounded-2xl border border-[#E2E8F0] bg-white p-5"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">
-                      {PARTNER_QUERY_TYPE_LABELS[query.type]}
-                    </Badge>
-                    <Badge variant={statusBadgeVariant(query.status)}>
-                      {PARTNER_QUERY_STATUS_LABELS[query.status]}
-                    </Badge>
-                    {role === "account_manager" ? (
-                      <span className="text-xs font-medium text-[#0F172A]">
-                        {query.partnerCode}
+        {hideQueryHistory ? null : (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-[#0F172A]">
+              {role === "partner" ? "Your messages" : "Partner queries"}
+            </h2>
+            {queries.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-[#E2E8F0] bg-white px-4 py-8 text-center text-sm text-[#64748B]">
+                {role === "partner"
+                  ? "No messages yet. Submit above and replies will show here."
+                  : "No Partner queries yet."}
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {queries.map((query) => (
+                  <li
+                    key={query.id}
+                    className="rounded-2xl border border-[#E2E8F0] bg-white p-5"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">
+                        {PARTNER_QUERY_TYPE_LABELS[query.type]}
+                      </Badge>
+                      <Badge variant={statusBadgeVariant(query.status)}>
+                        {PARTNER_QUERY_STATUS_LABELS[query.status]}
+                      </Badge>
+                      {role === "account_manager" ? (
+                        <span className="text-xs font-medium text-[#0F172A]">
+                          {query.partnerCode}
+                        </span>
+                      ) : null}
+                      <span className="ml-auto text-xs text-[#64748B]">
+                        {formatDateTime(query.submittedAt)}
                       </span>
-                    ) : null}
-                    <span className="ml-auto text-xs text-[#64748B]">
-                      {formatDateTime(query.submittedAt)}
-                    </span>
-                  </div>
-                  <p className="mt-3 whitespace-pre-wrap text-sm text-[#0F172A]">
-                    {query.message}
-                  </p>
-                  {query.amComments ? (
-                    <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
-                      <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-                        Account Manager reply
-                        {query.answeredAt
-                          ? ` · ${formatDateTime(query.answeredAt)}`
-                          : ""}
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">
-                        {query.amComments}
-                      </p>
                     </div>
-                  ) : null}
-                  {role === "account_manager" ? (
-                    <div className="mt-4 space-y-2">
-                      <Label htmlFor={`reply-${query.id}`}>
-                        {query.amComments ? "Update reply" : "Reply"}
-                      </Label>
-                      <Textarea
-                        id={`reply-${query.id}`}
-                        rows={3}
-                        placeholder="Your reply is visible to the Partner."
-                        disabled={pending}
-                        value={replyDrafts[query.id] ?? ""}
-                        onChange={(event) =>
-                          setReplyDrafts((prev) => ({
-                            ...prev,
-                            [query.id]: event.target.value,
-                          }))
-                        }
-                      />
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={pending}
-                          onClick={() => onReply(query.id)}
-                        >
-                          {replyingId === query.id ? "Sending…" : "Send reply"}
-                        </Button>
+                    <p className="mt-3 whitespace-pre-wrap text-sm text-[#0F172A]">
+                      {query.message}
+                    </p>
+                    {query.amComments ? (
+                      <div className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
+                          {replyLabel(query.type)}
+                          {query.answeredAt
+                            ? ` · ${formatDateTime(query.answeredAt)}`
+                            : ""}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-[#0F172A]">
+                          {query.amComments}
+                        </p>
                       </div>
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                    ) : null}
+                    {role === "account_manager" &&
+                    query.type === "job_candidate_query" ? (
+                      <div className="mt-4 space-y-2">
+                        <Label htmlFor={`reply-${query.id}`}>
+                          {query.amComments ? "Update reply" : "Reply"}
+                        </Label>
+                        <Textarea
+                          id={`reply-${query.id}`}
+                          rows={3}
+                          placeholder="Your reply is visible to the Partner."
+                          disabled={pending}
+                          value={replyDrafts[query.id] ?? ""}
+                          onChange={(event) =>
+                            setReplyDrafts((prev) => ({
+                              ...prev,
+                              [query.id]: event.target.value,
+                            }))
+                          }
+                        />
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={pending}
+                            onClick={() => onReply(query.id)}
+                          >
+                            {replyingId === query.id ? "Sending…" : "Send reply"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
     </ContentContainer>
   );

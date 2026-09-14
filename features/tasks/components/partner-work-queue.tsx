@@ -30,6 +30,7 @@ export function PartnerWorkQueue({
   onVisibleCountChange,
 }: PartnerWorkQueueProps) {
   const [clientFilter, setClientFilter] = useState("all");
+  const [designationFilter, setDesignationFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] =
     useState<PartnerJobPriorityFilterValue>("all");
 
@@ -45,11 +46,27 @@ export function PartnerWorkQueue({
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [tasks]);
 
+  const designationOptions = useMemo(() => {
+    const titles = new Set<string>();
+    for (const task of tasks) {
+      const title = task.jobTitle?.trim();
+      if (title) {
+        titles.add(title);
+      }
+    }
+    return [...titles].sort((a, b) => a.localeCompare(b));
+  }, [tasks]);
+
   const filteredTasks = useMemo(() => {
     let rows = tasks;
     if (clientFilter !== "all") {
       rows = rows.filter(
         (task) => (task.clientName?.trim() || "") === clientFilter,
+      );
+    }
+    if (designationFilter !== "all") {
+      rows = rows.filter(
+        (task) => (task.jobTitle?.trim() || "") === designationFilter,
       );
     }
     if (priorityFilter !== "all") {
@@ -58,7 +75,7 @@ export function PartnerWorkQueue({
     return [...rows].sort((a, b) =>
       compareJobsByPriorityThenOpenDate(a.job, b.job),
     );
-  }, [clientFilter, priorityFilter, tasks]);
+  }, [clientFilter, designationFilter, priorityFilter, tasks]);
 
   useEffect(() => {
     onVisibleCountChange?.(filteredTasks.length);
@@ -94,6 +111,23 @@ export function PartnerWorkQueue({
             id="partner-assigned-priority-filter"
             className="w-full space-y-1.5 sm:w-56"
           />
+          {designationOptions.length > 0 ? (
+            <div className="w-full space-y-1.5 sm:w-56">
+              <Label htmlFor="partner-designation-filter">Job Designation</Label>
+              <Select
+                id="partner-designation-filter"
+                value={designationFilter}
+                onChange={(event) => setDesignationFilter(event.target.value)}
+              >
+                <option value="all">All designations</option>
+                {designationOptions.map((title) => (
+                  <option key={title} value={title}>
+                    {title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           {clientOptions.length > 0 ? (
             <div className="w-full space-y-1.5 sm:w-56">
               <Label htmlFor="partner-client-filter">Client</Label>
@@ -117,11 +151,13 @@ export function PartnerWorkQueue({
       {filteredTasks.length === 0 ? (
         <EmptyState
           title={
-            priorityFilter !== "all" || clientFilter !== "all"
+            priorityFilter !== "all" ||
+            clientFilter !== "all" ||
+            designationFilter !== "all"
               ? "No jobs match your filters"
               : "No jobs for this client"
           }
-          description="Try another priority or client filter, or clear filters to see all assigned jobs."
+          description="Try another priority, designation, or client filter, or clear filters to see all assigned jobs."
           icon={<Briefcase className="h-5 w-5" />}
         />
       ) : (

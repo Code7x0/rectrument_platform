@@ -14,7 +14,10 @@ import {
   parseDocMarkers,
   upsertDocMarker,
 } from "@/lib/airtable/field-markers";
-import { PARTNERS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import {
+  AIRTABLE_PARTNER_STATUS,
+  PARTNERS_TABLE_FIELDS,
+} from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import type {
   DocumentVerificationStatus,
@@ -69,6 +72,30 @@ function filenamesMatch(a: string, b: string): boolean {
   return a.replace(/\s+/g, "_").toLowerCase() === b.replace(/\s+/g, "_").toLowerCase();
 }
 
+function mapPartnerStatus(value: unknown): "active" | "inactive" | "pending" | "archived" {
+  const raw = asString(value);
+  if (!raw) {
+    return "pending";
+  }
+  return (
+    AIRTABLE_PARTNER_STATUS[raw as keyof typeof AIRTABLE_PARTNER_STATUS] ??
+    "pending"
+  );
+}
+
+function resolveDerivedVerificationStatus(
+  markerStatus: DocumentVerificationStatus | undefined,
+  partnerStatus: ReturnType<typeof mapPartnerStatus>,
+): DocumentVerificationStatus {
+  if (markerStatus === "rejected") {
+    return "rejected";
+  }
+  if (partnerStatus === "active") {
+    return "verified";
+  }
+  return markerStatus ?? "pending";
+}
+
 export async function deriveDocumentsFromPartnerResumes(): Promise<
   PartnerDocument[]
 > {
@@ -77,6 +104,7 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
       PARTNERS_TABLE_FIELDS.partnerId,
       PARTNERS_TABLE_FIELDS.name,
       PARTNERS_TABLE_FIELDS.companyName,
+      PARTNERS_TABLE_FIELDS.status,
       PARTNERS_TABLE_FIELDS.notes,
       "Resume",
     ],
@@ -92,6 +120,7 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
     const partnerName =
       asString(fields[PARTNERS_TABLE_FIELDS.companyName]) ??
       asString(fields[PARTNERS_TABLE_FIELDS.name]);
+    const partnerStatus = mapPartnerStatus(fields[PARTNERS_TABLE_FIELDS.status]);
 
     attachments.forEach((file, index) => {
       const documentType = inferDocumentType(file.filename);
@@ -109,8 +138,11 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
         documentType,
         fileUrl: file.url,
         fileName: file.filename,
-        uploadedAt: null,
-        verificationStatus: marker?.status ?? "pending",
+        uploadedAt: marker?.at ?? null,
+        verificationStatus: resolveDerivedVerificationStatus(
+          marker?.status,
+          partnerStatus,
+        ),
         verifiedById: null,
         verifiedByName: null,
         verifiedAt: marker?.at ?? null,

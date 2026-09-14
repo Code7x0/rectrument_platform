@@ -303,7 +303,7 @@ const TEMPLATE_SAMPLES: Array<{
         formatTable(
           [
             "New Accounts Activated",
-            "New Roles Activated – Available to be claimed (Job title only, last 24 hours)",
+            "New Roles Activated – Available to be claimed",
           ],
           [["Siemens", "Software Engineer / Data Engineer / Sales Manager"]],
         ),
@@ -314,9 +314,10 @@ const TEMPLATE_SAMPLES: Array<{
             "Super High Priority Jobs",
             "Candidates Pending Review",
             "Candidates Internal Screening in Progress",
-            "Being Submitted to Client",
+            "Candidates Being Submitted to Client",
+            "Candidates being Interviewed",
           ],
-          [["12", "5", "5", "3", "2"]],
+          [["12", "5", "5", "3", "2", "1"]],
         ),
         "",
         "Job Changes",

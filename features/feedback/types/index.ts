@@ -1,7 +1,7 @@
 export type PartnerQueryType =
-  | "account_question"
-  | "feedback"
-  | "suggestion";
+  | "platform_feedback"
+  | "job_candidate_query"
+  | "account_admin_query";
 
 export type PartnerQueryStatus = "open" | "answered" | "closed";
 
@@ -21,9 +21,9 @@ export interface PartnerQuery {
 }
 
 export const PARTNER_QUERY_TYPE_LABELS: Record<PartnerQueryType, string> = {
-  account_question: "Account question",
-  feedback: "Feedback",
-  suggestion: "Suggestion",
+  platform_feedback: "Platform / process feedback",
+  job_candidate_query: "Account / job / candidate query",
+  account_admin_query: "Platform / process / payouts query",
 };
 
 export const PARTNER_QUERY_STATUS_LABELS: Record<PartnerQueryStatus, string> = {
@@ -31,3 +31,22 @@ export const PARTNER_QUERY_STATUS_LABELS: Record<PartnerQueryStatus, string> = {
   answered: "Answered",
   closed: "Closed",
 };
+
+/** Map legacy Airtable / stored values to the current query types. */
+export function normalizePartnerQueryType(value: unknown): PartnerQueryType {
+  const raw = String(value ?? "").trim();
+  if (
+    raw === "platform_feedback" ||
+    raw === "job_candidate_query" ||
+    raw === "account_admin_query"
+  ) {
+    return raw;
+  }
+  if (raw === "account_question") {
+    return "job_candidate_query";
+  }
+  if (raw === "feedback" || raw === "suggestion") {
+    return "platform_feedback";
+  }
+  return "platform_feedback";
+}

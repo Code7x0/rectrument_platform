@@ -4,6 +4,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { getAppSession, roleHasPermission } from "@/lib/auth";
 import { getPayoutMapForPartner } from "@/features/payouts/services";
 import { PartnerSubmissionsPageClient } from "@/features/submissions/components";
+import { enrichSubmissionsWithLastActivity } from "@/features/submissions/lib/enrich-submission-activity";
 import { listPartnerSubmissions } from "@/features/submissions/services";
 import type { Payout } from "@/features/payouts/types";
 
@@ -43,31 +44,23 @@ export default async function PartnerCandidatesPage({
   const statusGroup = params.statusGroup?.trim() || null;
   const submissionId = params.submissionId?.trim() || null;
 
-  const [allSubmissions, payoutMap] = await Promise.all([
+  const [rawSubmissions, payoutMap] = await Promise.all([
     listPartnerSubmissions(session.partnerId),
     getPayoutMapForPartner(session.partnerId),
   ]);
 
-  const submissions = jobId
-    ? allSubmissions.filter((row) => row.jobId === jobId)
-    : allSubmissions;
+  const submissions = await enrichSubmissionsWithLastActivity(rawSubmissions);
 
   const payoutsBySubmission: Record<string, Payout> = Object.fromEntries(
     payoutMap.entries(),
   );
 
-  const filterJobTitle =
+  const filterJobRow =
     jobId != null
-      ? (submissions[0]?.jobTitle ??
-        allSubmissions.find((row) => row.jobId === jobId)?.jobTitle ??
-        null)
+      ? submissions.find((row) => row.jobId === jobId) ?? null
       : null;
-  const filterJobCode =
-    jobId != null
-      ? (submissions[0]?.jobCode ??
-        allSubmissions.find((row) => row.jobId === jobId)?.jobCode ??
-        null)
-      : null;
+  const filterJobTitle = filterJobRow?.jobTitle ?? null;
+  const filterJobCode = filterJobRow?.jobCode ?? null;
 
   return (
     <PartnerSubmissionsPageClient

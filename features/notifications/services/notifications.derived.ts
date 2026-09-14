@@ -125,6 +125,23 @@ export async function deriveNotificationsForViewer(input: {
     }
   }
 
+  if (input.role === "partner" && input.partnerId) {
+    try {
+      const { loadPartnerInAppNotifications } = await import(
+        "@/features/notifications/lib/partner-in-app-notifications"
+      );
+      const partnerItems = await loadPartnerInAppNotifications(
+        input.partnerId,
+        input.recipientUserId,
+        dismissed,
+        maxRecords,
+      );
+      items.push(...partnerItems);
+    } catch (error) {
+      console.error("[notifications] partner marker derive failed", error);
+    }
+  }
+
   try {
     const claimItems = await deriveClaimNotificationsForViewer({
       recipientUserId: input.recipientUserId,
@@ -145,7 +162,10 @@ export async function deriveNotificationsForViewer(input: {
     );
     const ephemeral = await listEphemeralNotificationsForRecipient(
       input.recipientUserId,
-      { maxRecords },
+      {
+        maxRecords,
+        alternateRecipientIds: input.partnerId ? [input.partnerId] : [],
+      },
     );
     const existingKeys = new Set(
       items.map(

@@ -4,6 +4,10 @@ import test from "node:test";
 import { CANONICAL_EMAIL_ORIGIN } from "@/lib/brand";
 import { BRAND_LOGO_PATH } from "@/lib/constants";
 import {
+  PARTNER_DIGEST_NEW_ROLES_COLUMN,
+  PARTNER_DIGEST_SNAPSHOT_COLUMNS,
+} from "@/services/email/digests/partner-digest-copy";
+import {
   formatCountLine,
   formatDigestDayHeading,
   formatTable,
@@ -192,7 +196,16 @@ const TEMPLATE_FIXTURES: Array<{
       name: "Partner",
       digestBody: [
         formatDigestDayHeading(new Date("2026-09-12T00:00:00.000Z")),
-        formatTable(["Jobs Assigned", "Super High Priority Jobs"], [["12", "5"]]),
+        "",
+        formatTable(
+          ["New Accounts Activated", PARTNER_DIGEST_NEW_ROLES_COLUMN],
+          [["Siemens", "Software Engineer / Data Engineer"]],
+        ),
+        "",
+        formatTable(
+          [...PARTNER_DIGEST_SNAPSHOT_COLUMNS],
+          [["12", "5", "5", "3", "2", "1"]],
+        ),
       ].join("\n"),
       dashboardUrl: `${base}/partner`,
     },

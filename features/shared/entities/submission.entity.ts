@@ -50,6 +50,8 @@ export interface SubmissionEntity {
   /** Business Partner Code (HN_254) — enriched. */
   partnerCode: string | null;
   submissionDate: string | null;
+  /** Latest workflow activity — enriched for partner list sorting. */
+  lastActivityAt?: string | null;
   status: SubmissionStatus;
   /** Exact Airtable Submission Status option text. */
   airtableStatus: string | null;

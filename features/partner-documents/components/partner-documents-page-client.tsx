@@ -7,14 +7,12 @@ import {
   WorkspaceMetricCard,
 } from "@/features/shared/workspace";
 import { PartnerDocumentCards } from "@/features/partner-documents/components/partner-document-cards";
-import type {
-  PartnerDocumentSlot,
-  PartnerDocumentSummary,
-} from "@/features/partner-documents/types";
+import type { PartnerPortalDocumentSummary } from "@/features/partner-documents/lib/partner-portal-documents";
+import type { PartnerDocumentSlot } from "@/features/partner-documents/types";
 
 interface PartnerDocumentsPageClientProps {
   slots: PartnerDocumentSlot[];
-  summary: PartnerDocumentSummary;
+  summary: PartnerPortalDocumentSummary;
   canUpload: boolean;
   breadcrumbs: Array<{ label: string; href?: string }>;
 }
@@ -30,15 +28,20 @@ export function PartnerDocumentsPageClient({
       <Breadcrumb items={breadcrumbs} />
       <PageHeader
         title="Documents"
-        description="Upload PAN and Aadhaar for verification. Agreement appears here only if one was uploaded."
+        description="Upload PAN and Aadhaar. Agreement appears here only if one was uploaded."
       />
-      <div className="mb-6 grid gap-3 sm:grid-cols-4">
-        <WorkspaceMetricCard label="Total" value={summary.total} />
-        <WorkspaceMetricCard label="Pending" value={summary.pending} />
-        <WorkspaceMetricCard label="Verified" value={summary.verified} />
-        <WorkspaceMetricCard label="Rejected" value={summary.rejected} />
+      <div className="mb-6 grid gap-3 sm:grid-cols-2">
+        <WorkspaceMetricCard label="Uploaded" value={summary.uploaded} />
+        <WorkspaceMetricCard
+          label="Required missing"
+          value={summary.missingRequired}
+        />
       </div>
-      <PartnerDocumentCards slots={slots} canUpload={canUpload} />
+      <PartnerDocumentCards
+        slots={slots}
+        canUpload={canUpload}
+        showVerification={false}
+      />
     </ContentContainer>
   );
 }

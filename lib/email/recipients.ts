@@ -73,6 +73,15 @@ export async function getAdminNotificationEmails(): Promise<string[]> {
   ]);
 }
 
+/** Account Admin inboxes only — excludes Super Admin. */
+export async function getAccountAdminNotificationEmails(): Promise<string[]> {
+  const admins = await listUsers({ role: "admin", status: "active" });
+  return uniqueEmails([
+    ...admins.map((user) => user.email),
+    ...getAdminEmails(),
+  ]);
+}
+
 /** Resolve Account Manager email from AM directory record id. */
 export async function getAccountManagerEmail(
   accountManagerId: string,

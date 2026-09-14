@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, ExternalLink, FileText } from "lucide-react";
 
@@ -7,6 +8,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Breadcrumb } from "@/components/shared/breadcrumb";
 import { ContentContainer } from "@/components/shared/content-container";
 import { PageHeader } from "@/components/shared/page-header";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { FilePreviewLink } from "@/components/shared/file-preview-link";
 import type { PartnerClientView } from "@/features/shared/entities";
 import { CLIENT_STATUS_LABELS } from "@/features/shared/entities";
@@ -30,6 +33,20 @@ export function PartnerClientsPageClient({
   clients,
   breadcrumbs,
 }: PartnerClientsPageClientProps) {
+  const [clientFilter, setClientFilter] = useState("all");
+
+  const sortedClients = useMemo(
+    () => [...clients].sort((a, b) => a.name.localeCompare(b.name)),
+    [clients],
+  );
+
+  const visibleClients = useMemo(() => {
+    if (clientFilter === "all") {
+      return sortedClients;
+    }
+    return sortedClients.filter((client) => client.id === clientFilter);
+  }, [clientFilter, sortedClients]);
+
   return (
     <ContentContainer>
       <Breadcrumb items={breadcrumbs} />
@@ -37,6 +54,24 @@ export function PartnerClientsPageClient({
         title="Clients"
         description="Companies you are recruiting for based on your assigned jobs."
       />
+
+      {sortedClients.length > 0 ? (
+        <div className="mb-4 max-w-sm space-y-1.5 rounded-xl border border-[#E2E8F0] bg-white p-4">
+          <Label htmlFor="partner-clients-filter">Client</Label>
+          <Select
+            id="partner-clients-filter"
+            value={clientFilter}
+            onChange={(event) => setClientFilter(event.target.value)}
+          >
+            <option value="all">All clients</option>
+            {sortedClients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : null}
 
       {clients.length === 0 ? (
         <EmptyState
@@ -46,7 +81,7 @@ export function PartnerClientsPageClient({
         />
       ) : (
         <div className="space-y-3">
-          {clients.map((client) => (
+          {visibleClients.map((client) => (
             <article
               key={client.id}
               className="rounded-2xl border border-[#E2E8F0] bg-white p-5"
