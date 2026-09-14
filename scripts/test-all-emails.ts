@@ -384,13 +384,15 @@ const TEMPLATE_SAMPLES: Array<{
           [["2", "2", "1", "3", "2", "1"]],
         ),
         "",
-        "SLA Breach Count (ONLY ACTIVE PARTNERS)",
+        "Account Manager SLA Breach Count",
+        "Each column is an Account Manager. Counts include only candidates from active talent partners.",
         formatTable(
           ["Anupam Gandhi", "Baishali Dhar", "Kai Ren"],
           [["0", "1", "0"]],
         ),
         "",
-        "SLA alert",
+        "Account Manager SLA alert",
+        "Candidates pending AM review beyond SLA (active partner submissions only).",
         "",
         "Client Name: Exponents",
         formatTable(

@@ -36,6 +36,19 @@ test("convertPlainEmailToHtml renders real HTML tables", () => {
   assert.match(html, /<td[^>]*>Senior Developer<\/td>/);
 });
 
+test("convertPlainEmailToHtml uses Account Manager SLA breach headings", () => {
+  const html = convertPlainEmailToHtml(
+    [
+      "Account Manager SLA Breach Count",
+      "Each column is an Account Manager. Counts include only candidates from active talent partners.",
+      formatTable(["Anupam Gandhi", "Baishali Dhar"], [["0", "1"]]),
+    ].join("\n"),
+  );
+  assert.match(html, /Account Manager SLA Breach Count/);
+  assert.doesNotMatch(html, /ONLY ACTIVE PARTNERS/i);
+  assert.match(html, /<th[^>]*>Anupam Gandhi<\/th>/);
+});
+
 test("renderOvatoEmailHtml includes branded logo header", () => {
   const prevLogo = process.env.EMAIL_BRAND_LOGO_URL;
   const prevApp = process.env.NEXT_PUBLIC_APP_URL;

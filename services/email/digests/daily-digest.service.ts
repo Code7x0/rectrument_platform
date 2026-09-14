@@ -101,10 +101,13 @@ function buildSlaSection(
   );
 
   if (breached.length === 0) {
-    return "SLA alert\nNo profiles missing SLA.";
+    return "Account Manager SLA alert\nNo profiles missing SLA.";
   }
 
-  const lines = ["SLA alert"];
+  const lines = [
+    "Account Manager SLA alert",
+    "Candidates pending AM review beyond SLA (active partner submissions only).",
+  ];
   const byClient = new Map<string, Submission[]>();
   for (const row of breached) {
     const client = row.clientName?.trim() || "Client";
@@ -242,6 +245,11 @@ function countSecondLevelReviewsInWindow(
   return count;
 }
 
+/** Super Admin digest — per-AM breach totals (not partners). */
+const AM_SLA_BREACH_SECTION_TITLE = "Account Manager SLA Breach Count";
+const AM_SLA_BREACH_SECTION_NOTE =
+  "Each column is an Account Manager. Counts include only candidates from active talent partners.";
+
 function buildAmSlaBreachCountSection(
   amRecipients: Awaited<ReturnType<typeof getActiveAccountManagerDigestRecipients>>,
   submissions: Submission[],
@@ -269,11 +277,12 @@ function buildAmSlaBreachCountSection(
     .filter((row): row is { name: string; count: number } => row != null);
 
   if (amRows.length === 0) {
-    return "SLA Breach Count (ONLY ACTIVE PARTNERS)\nNo active account managers.";
+    return `${AM_SLA_BREACH_SECTION_TITLE}\nNo active account managers.`;
   }
 
   return [
-    "SLA Breach Count (ONLY ACTIVE PARTNERS)",
+    AM_SLA_BREACH_SECTION_TITLE,
+    AM_SLA_BREACH_SECTION_NOTE,
     formatTable(
       amRows.map((row) => row.name),
       [amRows.map((row) => String(row.count))],

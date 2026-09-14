@@ -192,6 +192,8 @@ function isSectionHeading(line: string): boolean {
     trimmed === "Job Changes" ||
     trimmed === "Candidate Updates:" ||
     trimmed === "Profiles Recommended:" ||
+    trimmed.startsWith("Account Manager SLA Breach Count") ||
+    trimmed.startsWith("Account Manager SLA alert") ||
     trimmed.startsWith("SLA Breach Count") ||
     trimmed.startsWith("Candidates Moving to") ||
     /^[0-9]{1,2}(st|nd|rd|th)\s/.test(trimmed)
