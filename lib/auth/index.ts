@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
@@ -105,14 +106,31 @@ export const getAppSession = cache(async (): Promise<AppSession | null> => {
     return null;
   }
 
+  const path =
+    (await headers()).get("x-ovato-path")?.trim() ??
+    (await headers()).get("next-url")?.trim() ??
+    "";
+  const preferredRole: UserRole | null = path.startsWith("/partner")
+    ? "partner"
+    : path.startsWith("/account-manager")
+      ? "account_manager"
+      : null;
+
   let session: AppSession | null = null;
   for (const email of uniqueEmails) {
-    session = await buildAppSession({
+    const candidate = await buildAppSession({
       clerkUserId: userId,
       email,
     });
-    if (session) {
+    if (!candidate) {
+      continue;
+    }
+    if (preferredRole && candidate.role === preferredRole) {
+      session = candidate;
       break;
+    }
+    if (!session) {
+      session = candidate;
     }
   }
 

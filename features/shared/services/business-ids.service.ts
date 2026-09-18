@@ -91,6 +91,26 @@ export async function allocatePartnerCodeForPerson(input: {
   return allocateUniquePartnerCode(base, existing);
 }
 
+/**
+ * When Super Admin renames a partner, refresh initials while keeping the
+ * mobile suffix (HN_254 → NA_254) when the new base is still unique.
+ */
+export function recomputePartnerCodeOnContactNameChange(input: {
+  existingCode: string | null | undefined;
+  contactName: string | null | undefined;
+  phone: string | null | undefined;
+}): string | null {
+  const existing = input.existingCode?.trim().toUpperCase() ?? "";
+  if (!isValidPartnerCode(existing)) {
+    return null;
+  }
+  const nextCode = buildPartnerCodeBase(input.contactName, input.phone);
+  if (nextCode === existing) {
+    return null;
+  }
+  return nextCode.toUpperCase();
+}
+
 export async function listExistingCandidateCodes(
   excludeRecordId?: string,
 ): Promise<string[]> {

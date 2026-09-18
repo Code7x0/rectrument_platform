@@ -1,4 +1,5 @@
 import { listActiveAllocationsForPartner } from "@/features/allocations/services";
+import { getJobById } from "@/features/jobs/services";
 import type { PartnerQueryType } from "@/features/feedback/types";
 import {
   getAccountAdminNotificationEmails,
@@ -50,6 +51,7 @@ function appBaseUrl(): string {
 export async function resolvePartnerQueryRoute(
   type: PartnerQueryType,
   partnerId: string,
+  options?: { jobId?: string | null; accountManagerId?: string | null },
 ): Promise<PartnerQueryRoute> {
   const base = appBaseUrl();
 
@@ -59,11 +61,27 @@ export async function resolvePartnerQueryRoute(
         recipients: await getSuperAdminNotificationEmails(),
         reviewUrl: base,
       };
-    case "job_candidate_query":
+    case "job_candidate_query": {
+      let amId = options?.accountManagerId?.trim() || null;
+      if (!amId && options?.jobId?.trim()) {
+        const job = await getJobById(options.jobId.trim());
+        amId =
+          job?.accountManagerId?.trim() ||
+          job?.accountManagerIds?.[0]?.trim() ||
+          null;
+      }
+      if (amId) {
+        const email = await getAccountManagerEmail(amId);
+        return {
+          recipients: email ? [email] : [],
+          reviewUrl: `${base}/account-manager/feedback`,
+        };
+      }
       return {
         recipients: await resolvePartnerAccountManagerEmails(partnerId),
         reviewUrl: `${base}/account-manager/feedback`,
       };
+    }
     case "account_admin_query":
       return {
         recipients: await getAccountAdminNotificationEmails(),

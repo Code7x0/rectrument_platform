@@ -153,7 +153,39 @@ export async function updatePartner(
       throw new Error("A talent partner with this email already exists");
     }
   }
-  return patchPartner(partnerId, toAirtableUpdateFields(input));
+
+  const existing = await findPartnerById(partnerId);
+  const patch: UpdatePartnerInput = { ...input };
+
+  if (
+    existing &&
+    input.contactName !== undefined &&
+    input.contactName.trim() &&
+    input.contactName.trim() !== (existing.contactName?.trim() ?? "") &&
+    input.partnerCode === undefined
+  ) {
+    const {
+      listExistingPartnerCodes,
+      recomputePartnerCodeOnContactNameChange,
+    } = await import("@/features/shared/services/business-ids.service");
+    const nextCode = recomputePartnerCodeOnContactNameChange({
+      existingCode: existing.partnerCode,
+      contactName: input.contactName,
+      phone: input.phone ?? existing.phone,
+    });
+    if (nextCode) {
+      const taken = new Set(
+        (await listExistingPartnerCodes(partnerId)).map((code) =>
+          code.trim().toUpperCase(),
+        ),
+      );
+      if (!taken.has(nextCode)) {
+        patch.partnerCode = nextCode;
+      }
+    }
+  }
+
+  return patchPartner(partnerId, toAirtableUpdateFields(patch));
 }
 
 export async function archivePartner(partnerId: string): Promise<Partner> {

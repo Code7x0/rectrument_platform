@@ -83,7 +83,7 @@ export async function submitFeedbackAction(
   raw: FeedbackFormValues,
 ): Promise<FeedbackActionResult> {
   try {
-    const session = await requireRole(["partner", "account_manager"]);
+    const session = await requireRole(["partner", "admin", "super_admin"]);
     const parsed = feedbackSchema.safeParse(raw);
     if (!parsed.success) {
       return {
@@ -108,10 +108,15 @@ export async function submitFeedbackAction(
       const partnerCode = partner?.partnerCode?.trim() || partnerId;
 
       let jobTitle: string | null = null;
+      let accountManagerId: string | null = null;
       if (parsed.data.jobId) {
         const { getJobById } = await import("@/features/jobs/services");
         const job = await getJobById(parsed.data.jobId);
         jobTitle = job?.title?.trim() ?? null;
+        accountManagerId =
+          job?.accountManagerId?.trim() ||
+          job?.accountManagerIds?.[0]?.trim() ||
+          null;
       }
 
       const message =
@@ -122,7 +127,7 @@ export async function submitFeedbackAction(
       await createPartnerQuery({
         partnerId,
         partnerCode,
-        accountManagerId: null,
+        accountManagerId,
         type: parsed.data.type,
         message,
       });
@@ -137,13 +142,16 @@ export async function submitFeedbackAction(
         type: parsed.data.type,
         typeLabel,
         jobTitle,
+        jobId: parsed.data.jobId ?? null,
+        accountManagerId,
       });
 
       revalidateFeedbackPaths();
       return { success: true };
     }
 
-    const roleLabel = "Account Manager";
+    const roleLabel =
+      session.role === "super_admin" ? "Super Admin" : "Admin";
     const user = await getUserById(session.userId);
     const submitterName = user?.fullName ?? roleLabel;
     const submitterEmail = user?.email ?? "";

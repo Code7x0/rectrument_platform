@@ -274,18 +274,21 @@ export async function finalizePartnerRegistration(input: {
       partnerName: fullName,
     });
   }
+  const { flattenRegistrationEmailCell } = await import(
+    "@/lib/email/registration-email"
+  );
   const emailResults = await fanOutEmail(recipients, (to) =>
     sendEmailSafe({
       to,
       template: "partner_registration_submitted",
       subject: "New Partner Registration – Approval Required",
       data: {
-        partnerName: fullName,
-        name: fullName,
-        experience: input.experience,
-        specialization: input.skills,
-        skills: input.skills,
-        email: input.email,
+        partnerName: flattenRegistrationEmailCell(fullName),
+        name: flattenRegistrationEmailCell(fullName),
+        experience: flattenRegistrationEmailCell(input.experience),
+        specialization: flattenRegistrationEmailCell(input.skills),
+        skills: flattenRegistrationEmailCell(input.skills),
+        email: flattenRegistrationEmailCell(input.email),
         approvalUrl,
       },
     }),

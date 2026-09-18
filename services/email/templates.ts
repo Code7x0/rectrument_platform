@@ -180,27 +180,31 @@ export function renderBody(
         ],
         dashboardUrl: data.dashboardUrl,
       });
-    case "partner_registration_submitted":
+    case "partner_registration_submitted": {
+      const headers = [
+        "Name",
+        "Years of Experience",
+        "Specialization",
+        "Email",
+      ];
+      const row = [
+        data.partnerName ?? data.name ?? "—",
+        data.experience ?? "—",
+        data.specialization ?? data.skills ?? "—",
+        data.email ?? "—",
+      ];
       return formatOvatoEmailBody({
         greeting: "Hello Chief",
         sections: [
           "A new partner has registered, please review the request below:",
-          formatTable(
-            ["Name", "Years of Experience", "Specialization", "Email"],
-            [
-              [
-                data.partnerName ?? data.name ?? "—",
-                data.experience ?? "—",
-                data.specialization ?? data.skills ?? "—",
-                data.email ?? "—",
-              ],
-            ],
-          ),
+          headers.join(" | "),
+          row.join(" | "),
           data.approvalUrl
             ? `Approval Link: ${data.approvalUrl}`
             : "Open the Approvals page in the Admin console to review.",
         ],
       });
+    }
     case "job_assigned":
       return formatOvatoEmailBody({
         sections: [

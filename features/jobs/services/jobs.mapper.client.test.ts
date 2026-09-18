@@ -111,6 +111,7 @@ test("Hold by us / Hold by Client round-trip preserves subtype", () => {
 
 test("Closed by us / Closed Alternatively round-trip preserves subtype", () => {
   assert.equal(AIRTABLE_JOB_STATUS["Closed by us"], "closed_by_us");
+  assert.equal(AIRTABLE_JOB_STATUS["Fulfilled by us"], "closed_by_us");
   assert.equal(
     AIRTABLE_JOB_STATUS["Closed Alternatively"],
     "closed_alternatively",
@@ -131,6 +132,9 @@ test("Closed by us / Closed Alternatively round-trip preserves subtype", () => {
     maps,
   );
   assert.equal(write.Status, "Closed Alternatively");
+
+  const writeFulfilled = toAirtableUpdateFields({ status: "closed_by_us" }, maps);
+  assert.equal(writeFulfilled.Status, "Fulfilled by us");
 });
 
 test("Active / Inactive continue working", () => {

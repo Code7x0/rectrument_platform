@@ -31,6 +31,16 @@ export async function listQueriesForAccountManager(
     return [];
   }
 
+  const routed = jobQueries.filter((row) => {
+    if (row.accountManagerId?.trim()) {
+      return row.accountManagerId.trim() === amId;
+    }
+    return false;
+  });
+  if (routed.length > 0) {
+    return routed;
+  }
+
   const partnerIds = new Set<string>();
   const partnerIdList = [
     ...new Set(jobQueries.map((row) => row.partnerId).filter(Boolean)),
@@ -44,7 +54,9 @@ export async function listQueriesForAccountManager(
     }),
   );
 
-  return jobQueries.filter((row) => partnerIds.has(row.partnerId));
+  return jobQueries.filter(
+    (row) => !row.accountManagerId?.trim() && partnerIds.has(row.partnerId),
+  );
 }
 
 export async function listQueriesForPartner(

@@ -1,4 +1,8 @@
-import { findRecord, type AirtableFields } from "@/lib/airtable/client";
+import {
+  findRecord,
+  updateRecord,
+  type AirtableFields,
+} from "@/lib/airtable/client";
 import { upsertDocMarker } from "@/lib/airtable/field-markers";
 import { asString } from "@/lib/airtable/compat";
 import {
@@ -63,6 +67,26 @@ function typedDocumentFilename(
  * Locked client base: store KYC/docs on Partners.Resume with typed filenames
  * and verification markers in Performance Notes.
  */
+function inferKycDocumentTypeFromFilename(
+  filename: string,
+): PartnerDocumentType | null {
+  const lower = filename.toLowerCase();
+  if (lower.includes("pan")) {
+    return "pan";
+  }
+  if (lower.includes("aadhaar") || lower.includes("aadhar")) {
+    return "aadhaar";
+  }
+  if (
+    lower.includes("agreement") ||
+    lower.includes("contract") ||
+    lower.startsWith("terms")
+  ) {
+    return "agreement";
+  }
+  return null;
+}
+
 async function uploadPartnerDocumentToResume(input: {
   partnerId: string;
   documentType: PartnerDocumentType;
@@ -72,6 +96,24 @@ async function uploadPartnerDocumentToResume(input: {
     input.documentType,
     input.upload.filename,
   );
+  const partnersTable = getAirtableTableName("partnersTable");
+  const partnerBefore = await findRecord(partnersTable, input.partnerId);
+  const existingAttachments = Array.isArray(partnerBefore.fields.Resume)
+    ? (partnerBefore.fields.Resume as Array<{ url?: string; filename?: string }>)
+    : [];
+  const kept = existingAttachments.filter((file) => {
+    const name = file.filename ?? "";
+    const docType = inferKycDocumentTypeFromFilename(name);
+    return docType !== input.documentType;
+  });
+  if (kept.length !== existingAttachments.length) {
+    await updateRecord(
+      partnersTable,
+      input.partnerId,
+      { Resume: kept } as unknown as AirtableFields,
+    );
+  }
+
   const uploader = getUploadService();
   await uploader.bindToEntity(
     { ...input.upload, filename },
@@ -82,7 +124,6 @@ async function uploadPartnerDocumentToResume(input: {
     },
   );
 
-  const partnersTable = getAirtableTableName("partnersTable");
   const partner = await findRecord(partnersTable, input.partnerId);
   const partnerRecord = await findPartnerById(input.partnerId);
   const markerStatus =

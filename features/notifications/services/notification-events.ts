@@ -84,11 +84,16 @@ export async function notifyPartnerQuerySubmitted(input: {
   typeLabel: string;
   jobTitle?: string | null;
   candidateName?: string | null;
+  jobId?: string | null;
+  accountManagerId?: string | null;
 }): Promise<void> {
   const { resolvePartnerQueryRoute } = await import(
     "@/features/feedback/services/partner-query-routing"
   );
-  const route = await resolvePartnerQueryRoute(input.type, input.partnerId);
+  const route = await resolvePartnerQueryRoute(input.type, input.partnerId, {
+    jobId: input.jobId,
+    accountManagerId: input.accountManagerId,
+  });
 
   if (route.recipients.length === 0) {
     console.warn(
@@ -324,7 +329,8 @@ export async function notifyJobAssigned(input: {
   if (!partnerUserId) {
     return;
   }
-  const jobsUrl = `${appBaseUrl()}/partner/jobs`;
+  const base = appBaseUrl();
+  const jobsUrl = `${base}/sign-in?redirect_url=${encodeURIComponent("/partner/jobs")}`;
   const label = input.jobCode?.trim() || input.jobTitle;
 
   await publishNotification({

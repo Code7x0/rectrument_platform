@@ -213,7 +213,11 @@ export function toAirtableUpdateFields(
     fields[PARTNERS_TABLE_FIELDS.name] = input.contactName || "";
   }
   if (input.email !== undefined) {
-    fields[PARTNERS_TABLE_FIELDS.email] = input.email || "";
+    const email = input.email?.trim() || "";
+    fields[PARTNERS_TABLE_FIELDS.email] = email;
+    if (clientMode && email) {
+      fields[PARTNERS_TABLE_FIELDS.personalEmail] = email;
+    }
   }
   if (input.phone !== undefined) {
     fields[PARTNERS_TABLE_FIELDS.phone] = input.phone || "";

@@ -122,11 +122,19 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
       asString(fields[PARTNERS_TABLE_FIELDS.name]);
     const partnerStatus = mapPartnerStatus(fields[PARTNERS_TABLE_FIELDS.status]);
 
+    const kycByType = new Map<
+      PartnerDocument["documentType"],
+      { file: { url: string; filename: string }; index: number }
+    >();
     attachments.forEach((file, index) => {
       const documentType = inferDocumentType(file.filename);
       if (!documentType) {
         return;
       }
+      kycByType.set(documentType, { file, index });
+    });
+
+    for (const [documentType, { file, index }] of kycByType) {
       const marker = markers.find((row) =>
         filenamesMatch(row.filename, file.filename),
       );
@@ -153,7 +161,7 @@ export async function deriveDocumentsFromPartnerResumes(): Promise<
           : "Mapped from Partners.Resume.",
         status: "active",
       });
-    });
+    }
   }
 
   return docs;

@@ -309,6 +309,7 @@ export const AIRTABLE_JOB_STATUS = {
   "Hold by us": "hold_by_us",
   "Hold by Client": "hold_by_client",
   "Closed by us": "closed_by_us",
+  "Fulfilled by us": "closed_by_us",
   "Closed Alternatively": "closed_alternatively",
   /** Legacy labels — read only; never write these to the live base. */
   Open: "open",
@@ -328,7 +329,7 @@ export const DOMAIN_JOB_STATUS_TO_AIRTABLE = {
   cancelled: "Inactive",
   hold_by_us: "Hold by us",
   hold_by_client: "Hold by Client",
-  closed_by_us: "Closed by us",
+  closed_by_us: "Fulfilled by us",
   closed_alternatively: "Closed Alternatively",
   /** Legacy domain keys still write valid live choices. */
   on_hold: "Hold by us",
@@ -348,7 +349,7 @@ export const DOMAIN_JOB_STATUS_AIRTABLE_FILTER_VALUES: Record<
   cancelled: ["Inactive"],
   hold_by_us: ["Hold by us"],
   hold_by_client: ["Hold by Client"],
-  closed_by_us: ["Closed by us"],
+  closed_by_us: ["Fulfilled by us", "Closed by us"],
   closed_alternatively: ["Closed Alternatively"],
   on_hold: ["Hold by us", "Hold by Client"],
   closed: ["Closed by us", "Closed Alternatively"],

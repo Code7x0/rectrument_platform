@@ -396,16 +396,43 @@ export async function clientSyncPartnerOfficialEmail(
   const official = normalizeEmail(
     asString(fields[PARTNERS_TABLE_FIELDS.email]),
   );
-  if (official) {
+  const personal = normalizeEmail(
+    asString(fields[PARTNERS_TABLE_FIELDS.personalEmail]) ??
+      asString(fields["Personal Email"]),
+  );
+
+  if (official === normalized) {
+    if (personal && personal !== normalized) {
+      try {
+        await updateRecord(partnersTable(), partnerId, {
+          [PARTNERS_TABLE_FIELDS.personalEmail]: normalized,
+        });
+      } catch {
+        // Personal Email may be absent on locked client schema.
+      }
+    }
     return;
   }
 
-  await updateRecord(partnersTable(), partnerId, {
+  const patch: AirtableFields = {
     [PARTNERS_TABLE_FIELDS.email]: normalized,
-  });
-  console.info("[client-identity] synced partner Official Email ID from login", {
+  };
+  if (!personal || personal === normalized) {
+    patch[PARTNERS_TABLE_FIELDS.personalEmail] = normalized;
+  }
+
+  try {
+    await updateRecord(partnersTable(), partnerId, patch);
+  } catch (error) {
+    delete patch[PARTNERS_TABLE_FIELDS.personalEmail];
+    await updateRecord(partnersTable(), partnerId, patch);
+  }
+
+  console.info("[client-identity] synced partner login email onto Airtable", {
     partnerId,
     email: normalized,
+    hadOfficial: Boolean(official),
+    hadPersonal: Boolean(personal),
   });
 }
 

@@ -51,6 +51,7 @@ export function toPartnerAvailableJob(
   job: Job,
   options: {
     daysOfWorking: string | null;
+    accountCode?: string | null;
     claimState: PartnerJobClaimUiState;
     claimId: string | null;
     claimRequestedAt: string | null;
@@ -58,10 +59,18 @@ export function toPartnerAvailableJob(
     claimReclaimAvailableAt: string | null;
   },
 ): PartnerAvailableJob {
+  const accountCode =
+    options.accountCode?.trim() ||
+    job.clientCode?.trim() ||
+    (job.jobCode?.includes("_")
+      ? job.jobCode.split("_")[0]?.trim().toUpperCase() || null
+      : null);
+
   return {
     id: job.id,
     jobCode: job.jobCode || null,
     title: job.title,
+    accountCode,
     location: job.location,
     experience: job.experience,
     workMode: deriveJobWorkMode(job.location, job.workMode),
@@ -193,11 +202,24 @@ export async function listPartnerAvailableJobs(
       isClaimableJobStatus(job.status) && !allocatedJobIds.has(job.id),
   );
 
-  const workDaysByClient = await loadWorkDaysByClientId(
-    claimable
-      .map((job) => job.clientId)
-      .filter((id): id is string => Boolean(id)),
-  );
+  const clientIds = claimable
+    .map((job) => job.clientId)
+    .filter((id): id is string => Boolean(id));
+  const workDaysByClient = await loadWorkDaysByClientId(clientIds);
+  const clientCodeById = new Map<string, string>();
+  if (clientIds.length > 0) {
+    try {
+      const clients = await getClientsByIds([...new Set(clientIds)]);
+      for (const client of clients) {
+        const code = client.clientCode?.trim();
+        if (code) {
+          clientCodeById.set(client.id, code.toUpperCase());
+        }
+      }
+    } catch (error) {
+      console.error("[job-claims] client codes load failed", error);
+    }
+  }
 
   return [...claimable]
     .sort(compareJobsByPriorityThenOpenDate)
@@ -209,6 +231,8 @@ export async function listPartnerAvailableJobs(
           : null;
       return toPartnerAvailableJob(job, {
         daysOfWorking: days,
+        accountCode:
+          (job.clientId ? clientCodeById.get(job.clientId) : null) ?? null,
         ...claimMeta,
       });
     });

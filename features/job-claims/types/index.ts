@@ -45,6 +45,8 @@ export interface PartnerAvailableJob {
   id: string;
   jobCode: string | null;
   title: string;
+  /** Client account code for filters (never the client legal name). */
+  accountCode: string | null;
   location: string | null;
   experience: string | null;
   workMode: string | null;

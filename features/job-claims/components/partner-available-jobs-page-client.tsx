@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   PartnerJobPriorityFilter,
   type PartnerJobPriorityFilterValue,
@@ -32,6 +33,8 @@ export function PartnerAvailableJobsPageClient({
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] =
     useState<PartnerJobPriorityFilterValue>("all");
+  const [accountFilter, setAccountFilter] = useState("all");
+  const [designationFilter, setDesignationFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -43,8 +46,36 @@ export function PartnerAvailableJobsPageClient({
 
   const normalizedSearch = searchQuery.trim().toLowerCase();
 
+  const accountOptions = useMemo(() => {
+    const codes = new Set<string>();
+    for (const job of jobs) {
+      const code = job.accountCode?.trim();
+      if (code) {
+        codes.add(code);
+      }
+    }
+    return [...codes].sort((a, b) => a.localeCompare(b));
+  }, [jobs]);
+
+  const designationOptions = useMemo(() => {
+    const titles = new Set<string>();
+    for (const job of jobs) {
+      const title = job.title?.trim();
+      if (title) {
+        titles.add(title);
+      }
+    }
+    return [...titles].sort((a, b) => a.localeCompare(b));
+  }, [jobs]);
+
   const filterJobs = (rows: PartnerAvailableJob[]) => {
     let next = rows;
+    if (accountFilter !== "all") {
+      next = next.filter((job) => (job.accountCode?.trim() || "") === accountFilter);
+    }
+    if (designationFilter !== "all") {
+      next = next.filter((job) => (job.title?.trim() || "") === designationFilter);
+    }
     if (priorityFilter !== "all") {
       next = next.filter((job) => job.priority === priorityFilter);
     }
@@ -80,7 +111,7 @@ export function PartnerAvailableJobsPageClient({
           ),
         ),
       ),
-    [jobs, priorityFilter, normalizedSearch],
+    [jobs, accountFilter, designationFilter, priorityFilter, normalizedSearch],
   );
   const rejectedJobs = useMemo(
     () =>
@@ -91,12 +122,15 @@ export function PartnerAvailableJobsPageClient({
           ),
         ),
       ),
-    [jobs, priorityFilter, normalizedSearch],
+    [jobs, accountFilter, designationFilter, priorityFilter, normalizedSearch],
   );
 
   const visibleCount = activeJobs.length + rejectedJobs.length;
   const filtersActive =
-    priorityFilter !== "all" || normalizedSearch.length > 0;
+    accountFilter !== "all" ||
+    designationFilter !== "all" ||
+    priorityFilter !== "all" ||
+    normalizedSearch.length > 0;
   const headerTitle =
     !filtersActive || visibleCount === jobs.length
       ? `Available Jobs (${jobs.length})`
@@ -160,8 +194,8 @@ export function PartnerAvailableJobsPageClient({
         />
       ) : null}
       <div className="mb-6 space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="space-y-1.5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-1.5 md:col-span-2">
             <Label htmlFor="partner-available-search">
               Search roles (skills, title, tech)
             </Label>
@@ -171,6 +205,38 @@ export function PartnerAvailableJobsPageClient({
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="e.g. .NET, Java, React, Bangalore"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-available-account-filter">Account</Label>
+            <Select
+              id="partner-available-account-filter"
+              value={accountFilter}
+              onChange={(event) => setAccountFilter(event.target.value)}
+            >
+              <option value="all">All accounts</option>
+              {accountOptions.map((code) => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="partner-available-designation-filter">
+              Designation
+            </Label>
+            <Select
+              id="partner-available-designation-filter"
+              value={designationFilter}
+              onChange={(event) => setDesignationFilter(event.target.value)}
+            >
+              <option value="all">All designations</option>
+              {designationOptions.map((title) => (
+                <option key={title} value={title}>
+                  {title}
+                </option>
+              ))}
+            </Select>
           </div>
           <PartnerJobPriorityFilter
             value={priorityFilter}

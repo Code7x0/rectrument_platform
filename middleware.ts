@@ -14,7 +14,12 @@ export default clerkMiddleware(async (auth, request) => {
     });
   }
 
-  return NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-ovato-path", request.nextUrl.pathname);
+
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 });
 
 export const config = {
