@@ -2,6 +2,7 @@ import {
   matchesSubmissionStatusGroup,
   submissionExactStatusLabel,
 } from "@/features/submissions/lib/submission-status-buckets";
+import type { SubmissionStatus } from "@/features/shared/entities";
 import { SUBMISSION_STATUS_LABELS } from "@/features/shared/entities";
 import type { Submission } from "@/features/submissions/types";
 import type { Activity } from "@/features/workflows/types";
@@ -249,6 +250,19 @@ export function countSlaBreachesForPrimaryAm(
   ).length;
 }
 
+function activityAsSubmissionSnapshot(
+  activity: Activity,
+): Pick<Submission, "status" | "airtableStatus"> | null {
+  if (activity.action !== "status_change" || !activity.toStatus) {
+    return null;
+  }
+  return {
+    status: activity.toStatus as SubmissionStatus,
+    airtableStatus: activity.note?.trim() || null,
+  };
+}
+
+/** Digest pipeline stage from activity — uses exact Airtable status labels on the note. */
 export function activityMovedToPipelineStage(
   activity: Activity,
   stage:
@@ -262,9 +276,12 @@ export function activityMovedToPipelineStage(
   }
   switch (stage) {
     case "internal_screening":
-      return activity.toStatus === "internal_review";
-    case "being_submitted":
-      return activity.toStatus === "client_review";
+    case "being_submitted": {
+      const snapshot = activityAsSubmissionSnapshot(activity);
+      return snapshot
+        ? matchesSubmissionStatusGroup(snapshot, stage)
+        : false;
+    }
     case "interviewing":
       return activity.toStatus === "interview";
     case "selected":
@@ -272,6 +289,45 @@ export function activityMovedToPipelineStage(
     default:
       return false;
   }
+}
+
+const DIGEST_IST_TIMEZONE = "Asia/Kolkata";
+
+export function istCalendarDateKey(
+  value: string | null | undefined,
+): string | null {
+  const parsed = parseDigestDate(value);
+  if (!parsed) {
+    return null;
+  }
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: DIGEST_IST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(parsed);
+}
+
+/** Same IST calendar day advance to client — internal screening digest count must exclude these. */
+export function submissionAdvancedToBeingSubmittedSameIstDay(
+  activities: Activity[],
+  submissionId: string,
+  internalScreeningActivityAt: string,
+  windowStart: Date,
+  now: Date,
+): boolean {
+  const dayKey = istCalendarDateKey(internalScreeningActivityAt);
+  if (!dayKey) {
+    return false;
+  }
+  return activities.some(
+    (row) =>
+      row.entityType === "submission" &&
+      row.entityId === submissionId &&
+      inDigestWindow(row.createdAt, windowStart, now) &&
+      activityMovedToPipelineStage(row, "being_submitted") &&
+      istCalendarDateKey(row.createdAt) === dayKey,
+  );
 }
 
 export function countActivityTransitions(
@@ -299,6 +355,19 @@ export function countActivityTransitions(
     }
     if (!activityMovedToPipelineStage(activity, stage)) {
       continue;
+    }
+    if (stage === "internal_screening" && activity.createdAt) {
+      if (
+        submissionAdvancedToBeingSubmittedSameIstDay(
+          activities,
+          activity.entityId,
+          activity.createdAt,
+          windowStart,
+          now,
+        )
+      ) {
+        continue;
+      }
     }
     const submission = submissionMap.get(activity.entityId);
     if (!submission) {

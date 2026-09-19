@@ -6,10 +6,13 @@ import type { Submission } from "@/features/submissions/types";
 import type { Activity } from "@/features/workflows/types";
 
 import {
+  activityMovedToPipelineStage,
+  countActivityTransitions,
   countSlaBreachesForPrimaryAm,
   filterSubmissionsForActivePartners,
   isSlaBreachedSubmission,
   resolveAmSlaClockStart,
+  submissionAdvancedToBeingSubmittedSameIstDay,
   submissionOwnedByAm,
   submissionPrimaryAmId,
   type JobAmLookup,
@@ -48,6 +51,141 @@ function submission(overrides: Partial<Submission> = {}): Submission {
     ...overrides,
   };
 }
+
+test("internal screening digest excludes same-day advance to Being Submitted to Client", () => {
+  const windowStart = new Date("2026-09-18T01:30:00.000Z");
+  const now = new Date("2026-09-19T01:30:00.000Z");
+  const jobMap = new Map<string, JobAmLookup>([
+    ["job1", { accountManagerId: "am1", accountManagerIds: ["am1"] }],
+  ]);
+  const submissionMap = new Map([
+    [
+      "sub1",
+      submission({
+        id: "sub1",
+        jobId: "job1",
+        status: "client_review",
+        airtableStatus: "Being Submitted to Client",
+      }),
+    ],
+  ]);
+  const activities: Activity[] = [
+    {
+      id: "a1",
+      entityType: "submission",
+      entityId: "sub1",
+      action: "status_change",
+      fromStatus: "submitted",
+      toStatus: "internal_review",
+      actorUserId: null,
+      note: "Internal Screening in Progress",
+      createdAt: "2026-09-18T06:00:00.000Z",
+    },
+    {
+      id: "a2",
+      entityType: "submission",
+      entityId: "sub1",
+      action: "status_change",
+      fromStatus: "internal_review",
+      toStatus: "client_review",
+      actorUserId: null,
+      note: "Being Submitted to Client",
+      createdAt: "2026-09-18T10:00:00.000Z",
+    },
+  ];
+
+  assert.equal(
+    countActivityTransitions(
+      activities,
+      submissionMap,
+      jobMap,
+      windowStart,
+      now,
+      "internal_screening",
+    ),
+    0,
+  );
+  assert.equal(
+    countActivityTransitions(
+      activities,
+      submissionMap,
+      jobMap,
+      windowStart,
+      now,
+      "being_submitted",
+    ),
+    1,
+  );
+});
+
+test("internal screening digest counts when candidate stays in screening same window", () => {
+  const windowStart = new Date("2026-09-18T01:30:00.000Z");
+  const now = new Date("2026-09-19T01:30:00.000Z");
+  const jobMap = new Map<string, JobAmLookup>([
+    ["job1", { accountManagerId: "am1", accountManagerIds: ["am1"] }],
+  ]);
+  const submissionMap = new Map([
+    [
+      "sub1",
+      submission({
+        id: "sub1",
+        jobId: "job1",
+        status: "internal_review",
+        airtableStatus: "Internal Screening in Progress",
+      }),
+    ],
+  ]);
+  const activities: Activity[] = [
+    {
+      id: "a1",
+      entityType: "submission",
+      entityId: "sub1",
+      action: "status_change",
+      fromStatus: "submitted",
+      toStatus: "internal_review",
+      actorUserId: null,
+      note: "Internal Screening in Progress",
+      createdAt: "2026-09-18T06:00:00.000Z",
+    },
+  ];
+
+  assert.equal(
+    countActivityTransitions(
+      activities,
+      submissionMap,
+      jobMap,
+      windowStart,
+      now,
+      "internal_screening",
+    ),
+    1,
+  );
+});
+
+test("Hold transition does not count as internal screening in digest", () => {
+  const activity: Activity = {
+    id: "a1",
+    entityType: "submission",
+    entityId: "sub1",
+    action: "status_change",
+    fromStatus: "submitted",
+    toStatus: "internal_review",
+    actorUserId: null,
+    note: "Hold",
+    createdAt: "2026-09-18T06:00:00.000Z",
+  };
+  assert.equal(activityMovedToPipelineStage(activity, "internal_screening"), false);
+  assert.equal(
+    submissionAdvancedToBeingSubmittedSameIstDay(
+      [],
+      "sub1",
+      activity.createdAt!,
+      new Date("2026-09-18T00:00:00.000Z"),
+      new Date("2026-09-19T00:00:00.000Z"),
+    ),
+    false,
+  );
+});
 
 test("submissionPrimaryAmId uses primary job owner only", () => {
   const jobMap = new Map<string, JobAmLookup>([
