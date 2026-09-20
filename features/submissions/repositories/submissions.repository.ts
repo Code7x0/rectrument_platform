@@ -8,6 +8,7 @@ import {
   type AirtableListOptions,
 } from "@/lib/airtable/client";
 import { getSubmissionsMode } from "@/lib/airtable/compat";
+import { readAirtableRecordLastModified } from "@/lib/airtable/record-meta";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import {
   mapSubmissionRecord,
@@ -47,6 +48,7 @@ export async function findSubmissions(
         mapSubmissionRecord({
           id: record.id,
           fields: record.fields as AirtableFields,
+          lastModifiedTime: readAirtableRecordLastModified(record),
         }),
       );
     } catch {
@@ -89,6 +91,7 @@ export async function findSubmissionById(
     return mapSubmissionRecord({
       id: record.id,
       fields: record.fields as AirtableFields,
+      lastModifiedTime: readAirtableRecordLastModified(record),
     });
   } catch {
     return null;

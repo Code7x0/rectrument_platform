@@ -8,6 +8,8 @@ import type { Activity } from "@/features/workflows/types";
 import {
   activityMovedToPipelineStage,
   countActivityTransitions,
+  countPipelineStageMoves,
+  parseDigestDate,
   countSlaBreachesForPrimaryAm,
   filterSubmissionsForActivePartners,
   isSlaBreachedSubmission,
@@ -51,6 +53,43 @@ function submission(overrides: Partial<Submission> = {}): Submission {
     ...overrides,
   };
 }
+
+test("parseDigestDate treats date-only Submission Date as inside a 24h window", () => {
+  const day = parseDigestDate("2026-09-19");
+  assert.ok(day);
+  const windowStart = new Date("2026-09-18T12:00:00.000Z");
+  const now = new Date("2026-09-19T18:00:00.000Z");
+  assert.equal(day! >= windowStart && day! <= now, true);
+});
+
+test("countPipelineStageMoves uses live Airtable row when activities are empty", () => {
+  const windowStart = new Date("2026-09-18T01:30:00.000Z");
+  const now = new Date("2026-09-19T01:30:00.000Z");
+  const jobMap = new Map<string, JobAmLookup>([
+    ["job1", { accountManagerId: "am1", accountManagerIds: ["am1"] }],
+  ]);
+  const row = submission({
+    id: "sub1",
+    jobId: "job1",
+    status: "internal_review",
+    airtableStatus: "Internal Screening in Progress",
+    updatedAt: "2026-09-18T10:00:00.000Z",
+  });
+  const submissionMap = new Map([[row.id, row]]);
+
+  assert.equal(
+    countPipelineStageMoves(
+      [],
+      [row],
+      submissionMap,
+      jobMap,
+      windowStart,
+      now,
+      "internal_screening",
+    ),
+    1,
+  );
+});
 
 test("internal screening digest excludes same-day advance to Being Submitted to Client", () => {
   const windowStart = new Date("2026-09-18T01:30:00.000Z");

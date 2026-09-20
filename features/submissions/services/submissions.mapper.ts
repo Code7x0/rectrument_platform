@@ -111,7 +111,9 @@ function mapProfileFieldsFromAirtable(fields: AirtableFields) {
 export function mapSubmissionRecord(record: {
   id: string;
   fields: AirtableFields;
+  lastModifiedTime?: string | null;
 }): Submission {
+  const updatedAt = record.lastModifiedTime?.trim() || null;
   const fields = record.fields;
   const mode = getSubmissionsMode();
   const secondReview = mapWantsSecondLevelReview(
@@ -157,6 +159,7 @@ export function mapSubmissionRecord(record: {
       partnerName: null,
       partnerCode: null,
       submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
+      updatedAt,
       status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
       airtableStatus: asString(fields[SUBMISSIONS_TABLE_FIELDS.status]),
       remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),
@@ -199,6 +202,7 @@ export function mapSubmissionRecord(record: {
     partnerName: null,
     partnerCode: null,
     submissionDate: asString(fields[SUBMISSIONS_TABLE_FIELDS.submissionDate]),
+    updatedAt,
     status: mapStatus(fields[SUBMISSIONS_TABLE_FIELDS.status]),
     airtableStatus: asString(fields[SUBMISSIONS_TABLE_FIELDS.status]),
     remarks: asString(fields[SUBMISSIONS_TABLE_FIELDS.remarks]),

@@ -7,11 +7,23 @@ import { getRecords, type AirtableFields } from "@/lib/airtable/client";
 import { asString } from "@/lib/airtable/compat";
 import {
   CANDIDATES_TABLE_FIELDS,
+  DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE,
   SUBMISSIONS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { readAirtableRecordLastModified } from "@/lib/airtable/record-meta";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { mapSubmissionRecord } from "@/features/submissions/services/submissions.mapper";
 import type { Activity } from "@/features/workflows/types";
+
+function exactStatusLabel(
+  submission: ReturnType<typeof mapSubmissionRecord>,
+): string {
+  return (
+    submission.airtableStatus?.trim() ||
+    DOMAIN_SUBMISSION_STATUS_TO_AIRTABLE[submission.status]?.trim() ||
+    submission.status
+  );
+}
 
 export async function deriveActivitiesFromCandidates(
   maxRecords = 200,
@@ -29,10 +41,13 @@ export async function deriveActivitiesFromCandidates(
       const submission = mapSubmissionRecord({
         id: record.id,
         fields: record.fields as AirtableFields,
+        lastModifiedTime: readAirtableRecordLastModified(record),
       });
-      const name =
-        asString(record.fields[CANDIDATES_TABLE_FIELDS.fullName]) ??
-        "Candidate";
+      const statusLabel = exactStatusLabel(submission);
+      const touchedAt =
+        submission.updatedAt ??
+        submission.submissionDate ??
+        readAirtableRecordLastModified(record);
       activities.push({
         id: `derived_act_${record.id}`,
         entityType: "submission",
@@ -41,8 +56,8 @@ export async function deriveActivitiesFromCandidates(
         fromStatus: null,
         toStatus: submission.status,
         actorUserId: null,
-        note: `${name} — ${submission.status}`,
-        createdAt: submission.submissionDate,
+        note: statusLabel,
+        createdAt: touchedAt,
       });
     } catch {
       // skip incomplete rows

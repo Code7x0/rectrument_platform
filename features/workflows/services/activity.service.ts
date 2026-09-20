@@ -2,6 +2,7 @@ import {
   buildActivitiesByEntityFormula,
   findActivities,
   insertActivity,
+  isActivitiesStorageAvailable,
 } from "@/features/workflows/repositories/activities.repository";
 import { toAirtableActivityFields } from "@/features/workflows/services/activities.mapper";
 import type {
@@ -75,12 +76,13 @@ export async function listActivities(
     entityId?: string;
     entityTypes?: ActivityEntityType[];
     actions?: ActivityAction[];
+    filterByFormula?: string;
   } = {},
 ): Promise<Activity[]> {
   const formula =
     options.entityType && options.entityId
       ? buildActivitiesByEntityFormula(options.entityType, options.entityId)
-      : undefined;
+      : options.filterByFormula;
 
   const rows = await findActivities({
     ...(formula ? { filterByFormula: formula } : {}),
@@ -99,4 +101,37 @@ export async function listActivities(
   }
 
   return filtered;
+}
+
+function escapeFormulaValue(value: string): string {
+  return value.replace(/'/g, "\\'");
+}
+
+/**
+ * Load submission status activities for the daily digest window.
+ * Uses a date filter when the Activities table exists; otherwise derives from Candidates.
+ */
+export async function listActivitiesForDigestWindow(
+  windowStart: Date,
+  maxRecords = 5000,
+): Promise<Activity[]> {
+  const iso = windowStart.toISOString();
+  if (isActivitiesStorageAvailable()) {
+    return listActivities({
+      entityTypes: ["submission"],
+      maxRecords,
+      filterByFormula: `IS_AFTER({${ACTIVITIES_TABLE_FIELDS.createdAt}}, '${escapeFormulaValue(iso)}')`,
+    });
+  }
+
+  const { deriveActivitiesFromCandidates } = await import(
+    "@/features/workflows/services/activities.derived"
+  );
+  const derived = await deriveActivitiesFromCandidates(maxRecords);
+  return derived.filter(
+    (row) =>
+      row.entityType === "submission" &&
+      row.createdAt &&
+      new Date(row.createdAt) >= windowStart,
+  );
 }

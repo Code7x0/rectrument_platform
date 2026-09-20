@@ -8,7 +8,10 @@ import {
 } from "@/features/submissions/lib/submission-status-buckets";
 import { listSubmissions } from "@/features/submissions/services";
 import type { Submission } from "@/features/submissions/types";
-import { listActivities } from "@/features/workflows/services/activity.service";
+import {
+  listActivitiesForDigestWindow,
+} from "@/features/workflows/services/activity.service";
+import { enrichSubmissionsWithLastActivity } from "@/features/submissions/lib/enrich-submission-activity";
 import type { Activity } from "@/features/workflows/types";
 import {
   fanOutEmail,
@@ -29,7 +32,8 @@ import { listUsers } from "@/services/users";
 import {
   activityMovedToPipelineStage,
   buildAmSlaClockStartMap,
-  countActivityTransitions,
+  countPipelineStageMoves,
+  countRolesWorkedInDigestWindow,
   countSlaBreachesForPrimaryAm,
   filterSubmissionsForActivePartners,
   formatDigestStatusLabel,
@@ -342,51 +346,44 @@ function buildSuperAdminDigest(
     freshInWindow.map((row) => row.jobId).filter(Boolean),
   ).size;
 
-  const rolesWorked = new Set<string>();
-  for (const row of freshInWindow) {
-    if (row.jobId) {
-      rolesWorked.add(row.jobId);
-    }
-  }
-  for (const activity of activities) {
-    if (activity.entityType !== "submission") {
-      continue;
-    }
-    if (!inDigestWindow(activity.createdAt, windowStart, now)) {
-      continue;
-    }
-    const submission = submissionMap.get(activity.entityId);
-    if (submission?.jobId) {
-      rolesWorked.add(submission.jobId);
-    }
-  }
-
-  const movedInternal = countActivityTransitions(
+  const rolesWorked = countRolesWorkedInDigestWindow(
+    submissions,
     activities,
+    submissionMap,
+    windowStart,
+    now,
+  );
+
+  const movedInternal = countPipelineStageMoves(
+    activities,
+    submissions,
     submissionMap,
     jobMap,
     windowStart,
     now,
     "internal_screening",
   );
-  const movedSubmitted = countActivityTransitions(
+  const movedSubmitted = countPipelineStageMoves(
     activities,
+    submissions,
     submissionMap,
     jobMap,
     windowStart,
     now,
     "being_submitted",
   );
-  const movedInterviewing = countActivityTransitions(
+  const movedInterviewing = countPipelineStageMoves(
     activities,
+    submissions,
     submissionMap,
     jobMap,
     windowStart,
     now,
     "interviewing",
   );
-  const movedSelect = countActivityTransitions(
+  const movedSelect = countPipelineStageMoves(
     activities,
+    submissions,
     submissionMap,
     jobMap,
     windowStart,
@@ -434,7 +431,7 @@ function buildSuperAdminDigest(
       ],
       [
         [
-          String(rolesWorked.size),
+          String(rolesWorked),
           String(freshProfiles),
           String(movedInternal),
           String(movedSubmitted),
@@ -682,7 +679,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
   const digestDate = formatOvatoDate(now);
 
   const [
-    submissions,
+    submissionsRaw,
     jobs,
     queries,
     amRecipients,
@@ -698,8 +695,12 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     listUsers({ role: "partner", status: "active" }),
     listPartners(),
     listAllocations({ includePartnerIdentity: false }),
-    listActivities({ maxRecords: 2000 }).catch(() => [] as Activity[]),
+    listActivitiesForDigestWindow(windowStart, 5000).catch(
+      () => [] as Activity[],
+    ),
   ]);
+
+  const submissions = await enrichSubmissionsWithLastActivity(submissionsRaw);
 
   const activePartnerIds = buildActivePartnerIdSet(partners);
 

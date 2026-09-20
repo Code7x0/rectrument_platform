@@ -32,8 +32,23 @@ export function parseDigestDate(value: string | null | undefined): Date | null {
   if (!value?.trim()) {
     return null;
   }
-  const parsed = new Date(value);
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return new Date(`${trimmed}T12:00:00.000Z`);
+  }
+  const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function submissionDigestTouchAt(
+  submission: Submission,
+): string | null {
+  return (
+    submission.lastActivityAt?.trim() ||
+    submission.updatedAt?.trim() ||
+    submission.submissionDate?.trim() ||
+    null
+  );
 }
 
 export function inDigestWindow(
@@ -250,15 +265,30 @@ export function countSlaBreachesForPrimaryAm(
   ).length;
 }
 
+function activityNoteLooksLikeAirtableStatus(note: string): boolean {
+  if (!note.trim()) {
+    return false;
+  }
+  if (note.includes(" — ")) {
+    return false;
+  }
+  return (
+    note !== "interview_stage_updated" &&
+    note !== "review_fields_updated" &&
+    !note.startsWith("Claim ")
+  );
+}
+
 function activityAsSubmissionSnapshot(
   activity: Activity,
 ): Pick<Submission, "status" | "airtableStatus"> | null {
   if (activity.action !== "status_change" || !activity.toStatus) {
     return null;
   }
+  const note = activity.note?.trim() ?? "";
   return {
     status: activity.toStatus as SubmissionStatus,
-    airtableStatus: activity.note?.trim() || null,
+    airtableStatus: activityNoteLooksLikeAirtableStatus(note) ? note : null,
   };
 }
 
@@ -389,6 +419,160 @@ export function countActivityTransitions(
   }
 
   return count;
+}
+
+export type DigestPipelineStage =
+  | "internal_screening"
+  | "being_submitted"
+  | "interviewing"
+  | "selected";
+
+/**
+ * When Activities are missing or stale, infer “moved to stage” from the live
+ * Airtable row (status + last modified / last activity) inside the digest window.
+ */
+export function countSubmissionsInPipelineStageInWindow(
+  submissions: Submission[],
+  jobMap: Map<string, JobAmLookup>,
+  windowStart: Date,
+  now: Date,
+  stage: DigestPipelineStage,
+  accountManagerId?: string,
+): number {
+  let count = 0;
+  for (const row of submissions) {
+    const touchedAt = submissionDigestTouchAt(row);
+    if (!inDigestWindow(touchedAt, windowStart, now)) {
+      continue;
+    }
+    if (!matchesSubmissionStatusGroup(row, stage)) {
+      continue;
+    }
+    if (
+      stage === "internal_screening" &&
+      matchesSubmissionStatusGroup(row, "being_submitted")
+    ) {
+      continue;
+    }
+    const primaryAm = submissionPrimaryAmId(row, jobMap);
+    if (!primaryAm) {
+      continue;
+    }
+    if (accountManagerId && primaryAm !== accountManagerId) {
+      continue;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+/** Union activity log + live Airtable rows so daily digest counts stay accurate on client bases. */
+export function countPipelineStageMoves(
+  activities: Activity[],
+  submissions: Submission[],
+  submissionMap: Map<string, Submission>,
+  jobMap: Map<string, JobAmLookup>,
+  windowStart: Date,
+  now: Date,
+  stage: DigestPipelineStage,
+  accountManagerId?: string,
+): number {
+  const seen = new Set<string>();
+
+  for (const activity of activities) {
+    if (activity.entityType !== "submission") {
+      continue;
+    }
+    if (!inDigestWindow(activity.createdAt, windowStart, now)) {
+      continue;
+    }
+    if (!activityMovedToPipelineStage(activity, stage)) {
+      continue;
+    }
+    if (stage === "internal_screening" && activity.createdAt) {
+      if (
+        submissionAdvancedToBeingSubmittedSameIstDay(
+          activities,
+          activity.entityId,
+          activity.createdAt,
+          windowStart,
+          now,
+        )
+      ) {
+        continue;
+      }
+    }
+    const submission = submissionMap.get(activity.entityId);
+    if (!submission) {
+      continue;
+    }
+    const primaryAm = submissionPrimaryAmId(submission, jobMap);
+    if (!primaryAm) {
+      continue;
+    }
+    if (accountManagerId && primaryAm !== accountManagerId) {
+      continue;
+    }
+    seen.add(activity.entityId);
+  }
+
+  for (const row of submissions) {
+    const touchedAt = submissionDigestTouchAt(row);
+    if (!inDigestWindow(touchedAt, windowStart, now)) {
+      continue;
+    }
+    if (!matchesSubmissionStatusGroup(row, stage)) {
+      continue;
+    }
+    if (
+      stage === "internal_screening" &&
+      matchesSubmissionStatusGroup(row, "being_submitted")
+    ) {
+      continue;
+    }
+    const primaryAm = submissionPrimaryAmId(row, jobMap);
+    if (!primaryAm) {
+      continue;
+    }
+    if (accountManagerId && primaryAm !== accountManagerId) {
+      continue;
+    }
+    seen.add(row.id);
+  }
+
+  return seen.size;
+}
+
+export function countRolesWorkedInDigestWindow(
+  submissions: Submission[],
+  activities: Activity[],
+  submissionMap: Map<string, Submission>,
+  windowStart: Date,
+  now: Date,
+): number {
+  const rolesWorked = new Set<string>();
+  for (const row of submissions) {
+    const touchedAt = submissionDigestTouchAt(row);
+    if (inDigestWindow(touchedAt, windowStart, now) && row.jobId) {
+      rolesWorked.add(row.jobId);
+    }
+    if (inDigestWindow(row.submissionDate, windowStart, now) && row.jobId) {
+      rolesWorked.add(row.jobId);
+    }
+  }
+  for (const activity of activities) {
+    if (activity.entityType !== "submission") {
+      continue;
+    }
+    if (!inDigestWindow(activity.createdAt, windowStart, now)) {
+      continue;
+    }
+    const submission = submissionMap.get(activity.entityId);
+    if (submission?.jobId) {
+      rolesWorked.add(submission.jobId);
+    }
+  }
+  return rolesWorked.size;
 }
 
 export function formatDigestStatusLabel(submission: Submission): string {
