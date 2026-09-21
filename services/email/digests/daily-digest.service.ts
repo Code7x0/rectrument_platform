@@ -11,6 +11,7 @@ import type { Submission } from "@/features/submissions/types";
 import {
   listActivitiesForDigestWindow,
 } from "@/features/workflows/services/activity.service";
+import { isActivitiesStorageAvailable } from "@/features/workflows/repositories/activities.repository";
 import { enrichSubmissionsWithLastActivity } from "@/features/submissions/lib/enrich-submission-activity";
 import type { Activity } from "@/features/workflows/types";
 import {
@@ -33,7 +34,10 @@ import {
   activityMovedToPipelineStage,
   buildAmSlaClockStartMap,
   countPipelineStageMoves,
+  countPipelineStageSnapshot,
   countRolesWorkedInDigestWindow,
+  countRolesWorkedPipelineSnapshot,
+  shouldUsePipelineSnapshotDigest,
   countSlaBreachesForPrimaryAm,
   filterSubmissionsForActivePartners,
   formatDigestStatusLabel,
@@ -311,6 +315,7 @@ function buildSuperAdminDigest(
   _digestDate: string,
   slaClockStarts: Map<string, Date>,
   activePartnerIds: Set<string>,
+  activitiesStorageConfigured: boolean,
 ): string {
   const jobMap = new Map<string, JobAmLookup>(
     jobs.map((job) => [
@@ -339,57 +344,77 @@ function buildSuperAdminDigest(
     matchesSubmissionStatusGroup(row, "selected"),
   ).length;
 
-  const freshPendingReview = submissions.filter(
-    (row) =>
-      matchesSubmissionStatusGroup(row, "pending_review") &&
-      (inDigestWindow(row.submissionDate, windowStart, now) ||
-        inDigestWindow(submissionDigestTouchAt(row), windowStart, now)),
-  ).length;
-
-  const rolesWorked = countRolesWorkedInDigestWindow(
+  const usePipelineSnapshot = shouldUsePipelineSnapshotDigest(
     submissions,
     activities,
-    submissionMap,
     windowStart,
     now,
+    { activitiesStorageConfigured },
   );
 
-  const movedInternal = countPipelineStageMoves(
-    activities,
-    submissions,
-    submissionMap,
-    jobMap,
-    windowStart,
-    now,
-    "internal_screening",
-  );
-  const movedSubmitted = countPipelineStageMoves(
-    activities,
-    submissions,
-    submissionMap,
-    jobMap,
-    windowStart,
-    now,
-    "being_submitted",
-  );
-  const movedInterviewing = countPipelineStageMoves(
-    activities,
-    submissions,
-    submissionMap,
-    jobMap,
-    windowStart,
-    now,
-    "interviewing",
-  );
-  const movedSelect = countPipelineStageMoves(
-    activities,
-    submissions,
-    submissionMap,
-    jobMap,
-    windowStart,
-    now,
-    "selected",
-  );
+  const freshPendingReview = usePipelineSnapshot
+    ? countPipelineStageSnapshot(submissions, "pending_review")
+    : submissions.filter(
+        (row) =>
+          matchesSubmissionStatusGroup(row, "pending_review") &&
+          (inDigestWindow(row.submissionDate, windowStart, now) ||
+            inDigestWindow(submissionDigestTouchAt(row), windowStart, now)),
+      ).length;
+
+  const rolesWorked = usePipelineSnapshot
+    ? countRolesWorkedPipelineSnapshot(submissions)
+    : countRolesWorkedInDigestWindow(
+        submissions,
+        activities,
+        submissionMap,
+        windowStart,
+        now,
+      );
+
+  const movedInternal = usePipelineSnapshot
+    ? countPipelineStageSnapshot(submissions, "internal_screening")
+    : countPipelineStageMoves(
+        activities,
+        submissions,
+        submissionMap,
+        jobMap,
+        windowStart,
+        now,
+        "internal_screening",
+      );
+  const movedSubmitted = usePipelineSnapshot
+    ? countPipelineStageSnapshot(submissions, "being_submitted")
+    : countPipelineStageMoves(
+        activities,
+        submissions,
+        submissionMap,
+        jobMap,
+        windowStart,
+        now,
+        "being_submitted",
+      );
+  const movedInterviewing = usePipelineSnapshot
+    ? countPipelineStageSnapshot(submissions, "interviewing")
+    : countPipelineStageMoves(
+        activities,
+        submissions,
+        submissionMap,
+        jobMap,
+        windowStart,
+        now,
+        "interviewing",
+      );
+  const movedSelect = usePipelineSnapshot
+    ? countPipelineStageSnapshot(submissions, "selected")
+    : countPipelineStageMoves(
+        activities,
+        submissions,
+        submissionMap,
+        jobMap,
+        windowStart,
+        now,
+        "selected",
+      );
 
   const activePartnerSubmissions = filterSubmissionsForActivePartners(
     submissions,
@@ -420,16 +445,27 @@ function buildSuperAdminDigest(
     ),
     "",
     formatDigestDayHeading(now),
-    "Last 24 hours (activity since prior digest — not the pipeline snapshot above).",
+    usePipelineSnapshot
+      ? "Current pipeline workload (live Airtable — matches Command Center)."
+      : "Last 24 hours (activity since prior digest — not the pipeline snapshot above).",
     formatTable(
-      [
-        "No of Roles Worked",
-        'Candidates sourced by Partners "Pending Review"',
-        "Candidates moved to Internal Screening Pending",
-        'Candidates moved to "Being Submitted to Client"',
-        'Candidates moved to "Interviewing"',
-        'Candidates Moving to "Select"',
-      ],
+      usePipelineSnapshot
+        ? [
+            "No of Roles Worked",
+            'Candidates in "Pending Review"',
+            "Candidates in Internal Screening Pending",
+            'Candidates in "Being Submitted to Client"',
+            'Candidates in "Interviewing"',
+            'Candidates in "Select"',
+          ]
+        : [
+            "No of Roles Worked",
+            'Candidates sourced by Partners "Pending Review"',
+            "Candidates moved to Internal Screening Pending",
+            'Candidates moved to "Being Submitted to Client"',
+            'Candidates moved to "Interviewing"',
+            'Candidates Moving to "Select"',
+          ],
       [
         [
           String(rolesWorked),
@@ -939,6 +975,7 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       digestDate,
       slaClockStarts,
       activePartnerIds,
+      isActivitiesStorageAvailable(),
     );
 
     const adminResult = await fanOutEmail(fallbackAdmins, (to) =>

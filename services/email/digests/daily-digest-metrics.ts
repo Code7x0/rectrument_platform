@@ -559,6 +559,75 @@ export function countPipelineStageMoves(
   return seen.size;
 }
 
+/**
+ * Client bases without an Activities table cannot record status transitions;
+ * show live pipeline counts (Command Center) instead of empty 24h move metrics.
+ */
+export function shouldUsePipelineSnapshotDigest(
+  submissions: Submission[],
+  activities: Activity[],
+  windowStart: Date,
+  now: Date,
+  options: { activitiesStorageConfigured: boolean },
+): boolean {
+  const statusActivitiesInWindow = activities.filter(
+    (row) =>
+      row.entityType === "submission" &&
+      row.action === "status_change" &&
+      inDigestWindow(row.createdAt, windowStart, now),
+  ).length;
+
+  if (options.activitiesStorageConfigured && statusActivitiesInWindow >= 1) {
+    return false;
+  }
+
+  if (!options.activitiesStorageConfigured) {
+    return true;
+  }
+
+  const withUpdatedAt = submissions.filter((row) =>
+    Boolean(row.updatedAt?.trim()),
+  ).length;
+  if (withUpdatedAt >= Math.max(5, Math.floor(submissions.length * 0.02))) {
+    return false;
+  }
+  return true;
+}
+
+export function countRolesWorkedPipelineSnapshot(
+  submissions: Submission[],
+): number {
+  const roles = new Set<string>();
+  for (const row of submissions) {
+    if (!row.jobId) {
+      continue;
+    }
+    if (
+      matchesSubmissionStatusGroup(row, "pending_review") ||
+      matchesSubmissionStatusGroup(row, "internal_screening") ||
+      matchesSubmissionStatusGroup(row, "being_submitted") ||
+      matchesSubmissionStatusGroup(row, "interviewing")
+    ) {
+      roles.add(row.jobId);
+    }
+  }
+  return roles.size;
+}
+
+export function countPipelineStageSnapshot(
+  submissions: Submission[],
+  stage:
+    | "pending_review"
+    | "internal_screening"
+    | "being_submitted"
+    | "interviewing"
+    | "selected",
+): number {
+  return submissions.filter((row) =>
+    matchesSubmissionStatusGroup(row, stage),
+  ).length;
+}
+
 export function countRolesWorkedInDigestWindow(
   submissions: Submission[],
   activities: Activity[],

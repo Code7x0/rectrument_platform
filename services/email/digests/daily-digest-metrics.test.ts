@@ -9,7 +9,9 @@ import {
   activityMovedToPipelineStage,
   countActivityTransitions,
   countPipelineStageMoves,
+  countPipelineStageSnapshot,
   parseDigestDate,
+  shouldUsePipelineSnapshotDigest,
   submissionDigestTouchAt,
   countSlaBreachesForPrimaryAm,
   filterSubmissionsForActivePartners,
@@ -54,6 +56,19 @@ function submission(overrides: Partial<Submission> = {}): Submission {
     ...overrides,
   };
 }
+
+test("shouldUsePipelineSnapshotDigest when no activity timestamps exist", () => {
+  const now = new Date("2026-09-21T02:00:00.000Z");
+  const windowStart = new Date("2026-09-20T02:00:00.000Z");
+  const rows = [submission({ updatedAt: null })];
+  assert.equal(
+    shouldUsePipelineSnapshotDigest(rows, [], windowStart, now, {
+      activitiesStorageConfigured: false,
+    }),
+    true,
+  );
+  assert.equal(countPipelineStageSnapshot(rows, "pending_review"), 1);
+});
 
 test("submissionDigestTouchAt prefers Airtable updatedAt over stale lastActivityAt", () => {
   const row = submission({
