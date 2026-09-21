@@ -5,10 +5,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  sendDailyDigestsNowAction,
-  sendTestEmailAction,
-} from "@/features/settings/actions/settings.actions";
+import { sendTestEmailAction } from "@/features/settings/actions/settings.actions";
 import type { SystemDiagnostics } from "@/features/settings/types";
 
 interface SystemDiagnosticsPanelProps {
@@ -35,14 +32,44 @@ export function SystemDiagnosticsPanel({
 
   function onSendDailyDigest() {
     startDigestTransition(async () => {
-      const result = await sendDailyDigestsNowAction();
-      if (!result.success) {
-        toast.error(result.message);
-        return;
+      try {
+        const response = await fetch("/api/admin/daily-digests", {
+          method: "POST",
+          credentials: "same-origin",
+        });
+        const body = (await response.json()) as {
+          ok?: boolean;
+          sent?: number;
+          attempted?: number;
+          errors?: string[];
+          message?: string;
+          error?: string;
+        };
+        if (!response.ok || !body.ok) {
+          toast.error(
+            body.message ??
+              body.error ??
+              `Digest failed (${response.status})`,
+          );
+          return;
+        }
+        const sent = body.sent ?? 0;
+        const attempted = body.attempted ?? 0;
+        if (sent === 0 && attempted > 0) {
+          toast.error(
+            body.errors?.slice(0, 2).join("; ") ||
+              "Digest ran but Resend delivered 0 emails — check Vercel env (EMAIL_PROVIDER, RESEND_API_KEY, EMAIL_FROM)",
+          );
+          return;
+        }
+        toast.success(
+          `Daily digest sent — ${sent}/${attempted} emails delivered`,
+        );
+      } catch {
+        toast.error(
+          "Digest request failed — try again or check Vercel function logs",
+        );
       }
-      toast.success(
-        `Daily digest sent — ${result.data.sent}/${result.data.attempted} emails delivered`,
-      );
     });
   }
 
@@ -123,7 +150,9 @@ export function SystemDiagnosticsPanel({
             disabled={digestPending || pending}
             onClick={onSendDailyDigest}
           >
-            {digestPending ? "Sending digests…" : "Send daily digest now"}
+            {digestPending
+              ? "Sending digests (1–3 min)…"
+              : "Send daily digest now"}
           </Button>
           <Button
             type="button"

@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import { NextResponse } from "next/server";
 
 import {
@@ -26,20 +25,24 @@ export async function GET(request: Request) {
   const startedAt = new Date().toISOString();
   console.info("[cron] daily-digests started", { startedAt });
 
-  after(async () => {
-    try {
-      const result = await sendDailyDigests();
-      console.info("[cron] daily-digests finished", result);
-    } catch (error) {
-      console.error("[cron] daily-digests failed", error);
-    }
-  });
-
-  return NextResponse.json({
-    ok: true,
-    status: "started",
-    startedAt,
-    message:
-      "Daily digest job queued; emails send in the background (check Vercel logs for attempted/sent).",
-  });
+  try {
+    const result = await sendDailyDigests();
+    console.info("[cron] daily-digests finished", result);
+    return NextResponse.json({
+      ok: true,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      ...result,
+    });
+  } catch (error) {
+    console.error("[cron] daily-digests failed", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        startedAt,
+        message: error instanceof Error ? error.message : "Digest failed",
+      },
+      { status: 500 },
+    );
+  }
 }
