@@ -674,9 +674,29 @@ export interface DailyDigestResult {
   errors: string[];
 }
 
+const DIGEST_EMAIL_BATCH_SIZE = 8;
+
+async function runDigestEmailBatch<T, R>(
+  items: readonly T[],
+  worker: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += DIGEST_EMAIL_BATCH_SIZE) {
+    const slice = items.slice(i, i + DIGEST_EMAIL_BATCH_SIZE);
+    const batchResults = await Promise.all(slice.map((item) => worker(item)));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
 export async function sendDailyDigests(now = new Date()): Promise<DailyDigestResult> {
   const windowStart = rollingWindowStart(now);
   const digestDate = formatOvatoDate(now);
+  console.info("[digest] sendDailyDigests start", {
+    digestDate,
+    windowStart: windowStart.toISOString(),
+    now: now.toISOString(),
+  });
 
   const [
     submissionsRaw,
@@ -829,14 +849,16 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     }
   }
 
-  for (const partner of partnerUsers) {
+  const partnerDigestTargets = partnerUsers.filter((partner) => {
     const partnerId = partner.partnerId?.trim();
     if (!partner.email?.trim() || !partnerId) {
-      continue;
+      return false;
     }
-    if (!isPartnerEligibleForDigest(partnerId, activePartnerIds)) {
-      continue;
-    }
+    return isPartnerEligibleForDigest(partnerId, activePartnerIds);
+  });
+
+  const partnerOutcomes = await runDigestEmailBatch(partnerDigestTargets, async (partner) => {
+    const partnerId = partner.partnerId!.trim();
     const owned = submissions.filter((row) => row.partnerId === partnerId);
     const allocatedJobIds =
       activeAllocationsByPartner.get(partnerId) ?? new Set<string>();
@@ -873,9 +895,8 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
       buildPartnerCandidateUpdates(owned, activities, windowStart, now),
     ].join("\n");
 
-    result.attempted += 1;
     const sendResult = await sendEmailSafe({
-      to: partner.email,
+      to: partner.email!,
       template: "daily_digest_partner",
       data: {
         name: partner.fullName,
@@ -884,10 +905,20 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
         dashboardUrl: `${baseUrl}/partner`,
       },
     });
-    if (sendResult) {
+    return sendResult
+      ? { sent: true as const }
+      : {
+          sent: false as const,
+          error: `Partner digest failed for ${partner.email}`,
+        };
+  });
+
+  for (const outcome of partnerOutcomes) {
+    result.attempted += 1;
+    if (outcome.sent) {
       result.sent += 1;
-    } else {
-      result.errors.push(`Partner digest failed for ${partner.email}`);
+    } else if (outcome.error) {
+      result.errors.push(outcome.error);
     }
   }
 
@@ -925,5 +956,6 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     result.sent += adminResult.sent;
   }
 
+  console.info("[digest] sendDailyDigests done", result);
   return result;
 }

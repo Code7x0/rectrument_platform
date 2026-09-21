@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import {
   canAccessSettings,
+  sendDailyDigestsNow,
   sendTestEmail,
   updateCompanySettings,
   updateNotificationPlatformSettings,
@@ -45,6 +46,40 @@ async function requireSettingsSession() {
     throw new Error("Forbidden");
   }
   return session;
+}
+
+export async function sendDailyDigestsNowAction(): Promise<
+  ActionResult<{ attempted: number; sent: number; errors: string[] }>
+> {
+  try {
+    const session = await requireSettingsSession();
+    if (session.role !== "super_admin") {
+      return {
+        success: false,
+        message: "Only Super Admin can send daily digests",
+      };
+    }
+    const data = await sendDailyDigestsNow();
+    if (data.sent === 0 && data.attempted > 0) {
+      return {
+        success: false,
+        message: `Digest ran but no emails were delivered (${data.errors.slice(0, 3).join("; ") || "check Resend logs"})`,
+      };
+    }
+    if (data.attempted === 0) {
+      return {
+        success: false,
+        message:
+          "No digest recipients were eligible — check AM/Super Admin emails in Airtable",
+      };
+    }
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      message: actionErrorMessage(error, "Unable to send daily digests"),
+    };
+  }
 }
 
 export async function sendTestEmailAction(): Promise<ActionResult<{ provider: string }>> {

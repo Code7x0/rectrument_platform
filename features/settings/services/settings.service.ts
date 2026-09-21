@@ -303,6 +303,7 @@ export async function getSystemDiagnostics(): Promise<SystemDiagnostics> {
     emailDelivery:
       emailProvider === "resend" || resendReady ? "resend" : "console",
     emailFromConfigured: Boolean(getOptionalEnv("EMAIL_FROM")?.trim()),
+    cronSecretConfigured: Boolean(getOptionalEnv("CRON_SECRET")?.trim()),
     superAdminRecipients,
     uploadProvider: getOptionalEnv("UPLOAD_PROVIDER") ?? "airtable",
     activityService,
@@ -316,6 +317,20 @@ export async function getSystemDiagnostics(): Promise<SystemDiagnostics> {
       new Date().toISOString(),
     typescriptMode: "strict",
   };
+}
+
+/**
+ * Run the same daily digest job as the 7 AM IST Vercel cron (Super Admin manual send).
+ */
+export async function sendDailyDigestsNow(): Promise<{
+  attempted: number;
+  sent: number;
+  errors: string[];
+}> {
+  const { sendDailyDigests } = await import(
+    "@/services/email/digests/daily-digest.service"
+  );
+  return sendDailyDigests();
 }
 
 /**

@@ -96,6 +96,7 @@ export interface SystemDiagnostics {
   emailProvider: string;
   emailDelivery: "resend" | "console";
   emailFromConfigured: boolean;
+  cronSecretConfigured: boolean;
   superAdminRecipients: number;
   uploadProvider: string;
   activityService: "available" | "unavailable";

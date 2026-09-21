@@ -5,7 +5,10 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { sendTestEmailAction } from "@/features/settings/actions/settings.actions";
+import {
+  sendDailyDigestsNowAction,
+  sendTestEmailAction,
+} from "@/features/settings/actions/settings.actions";
 import type { SystemDiagnostics } from "@/features/settings/types";
 
 interface SystemDiagnosticsPanelProps {
@@ -28,6 +31,20 @@ export function SystemDiagnosticsPanel({
 }: SystemDiagnosticsPanelProps) {
   const [pending, startTransition] = useTransition();
   const [lastTestProvider, setLastTestProvider] = useState<string | null>(null);
+  const [digestPending, startDigestTransition] = useTransition();
+
+  function onSendDailyDigest() {
+    startDigestTransition(async () => {
+      const result = await sendDailyDigestsNowAction();
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+      toast.success(
+        `Daily digest sent — ${result.data.sent}/${result.data.attempted} emails delivered`,
+      );
+    });
+  }
 
   function onSendTestEmail() {
     startTransition(async () => {
@@ -79,6 +96,11 @@ export function SystemDiagnosticsPanel({
           label="Super Admin recipients"
           value={String(diagnostics.superAdminRecipients)}
         />
+        <Row
+          label="CRON_SECRET configured"
+          value={diagnostics.cronSecretConfigured ? "yes" : "no"}
+        />
+        <Row label="Daily digest schedule" value="7:00 AM IST (01:30 UTC)" />
         <Row label="Upload provider" value={diagnostics.uploadProvider} />
         <Row label="Activity service" value={diagnostics.activityService} />
         <Row
@@ -97,8 +119,16 @@ export function SystemDiagnosticsPanel({
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
+            variant="default"
+            disabled={digestPending || pending}
+            onClick={onSendDailyDigest}
+          >
+            {digestPending ? "Sending digests…" : "Send daily digest now"}
+          </Button>
+          <Button
+            type="button"
             variant="outline"
-            disabled={pending}
+            disabled={pending || digestPending}
             onClick={onSendTestEmail}
           >
             {pending ? "Sending…" : "Send test email to me"}

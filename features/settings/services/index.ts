@@ -18,6 +18,7 @@ export {
   getSecurityOverview,
   getSystemDiagnostics,
   getUserCountsSummary,
+  sendDailyDigestsNow,
   sendTestEmail,
   updateCompanySettings,
   updateNotificationPlatformSettings,
