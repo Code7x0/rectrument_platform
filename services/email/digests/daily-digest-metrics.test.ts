@@ -10,6 +10,7 @@ import {
   countActivityTransitions,
   countPipelineStageMoves,
   parseDigestDate,
+  submissionDigestTouchAt,
   countSlaBreachesForPrimaryAm,
   filterSubmissionsForActivePartners,
   isSlaBreachedSubmission,
@@ -53,6 +54,46 @@ function submission(overrides: Partial<Submission> = {}): Submission {
     ...overrides,
   };
 }
+
+test("submissionDigestTouchAt prefers Airtable updatedAt over stale lastActivityAt", () => {
+  const row = submission({
+    submissionDate: "2026-01-01T00:00:00.000Z",
+    lastActivityAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-09-20T08:00:00.000Z",
+  });
+  assert.equal(
+    submissionDigestTouchAt(row),
+    "2026-09-20T08:00:00.000Z",
+  );
+});
+
+test("countPipelineStageMoves counts rows without job AM for org-wide digest", () => {
+  const windowStart = new Date("2026-09-20T01:30:00.000Z");
+  const now = new Date("2026-09-21T01:30:00.000Z");
+  const jobMap = new Map<string, JobAmLookup>([
+    ["job1", { accountManagerId: null, accountManagerIds: [] }],
+  ]);
+  const row = submission({
+    id: "sub1",
+    jobId: "job1",
+    status: "client_review",
+    airtableStatus: "Being Submitted to Client",
+    updatedAt: "2026-09-20T10:00:00.000Z",
+  });
+  const submissionMap = new Map([[row.id, row]]);
+  assert.equal(
+    countPipelineStageMoves(
+      [],
+      [row],
+      submissionMap,
+      jobMap,
+      windowStart,
+      now,
+      "being_submitted",
+    ),
+    1,
+  );
+});
 
 test("parseDigestDate treats date-only Submission Date as inside a 24h window", () => {
   const day = parseDigestDate("2026-09-19");

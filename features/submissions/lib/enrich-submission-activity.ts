@@ -28,6 +28,7 @@ export async function enrichSubmissionsWithLastActivity(
 
   return submissions.map((row) => ({
     ...row,
-    lastActivityAt: latestBySubmission.get(row.id) ?? row.submissionDate,
+    lastActivityAt:
+      latestBySubmission.get(row.id) ?? row.updatedAt ?? row.submissionDate,
   }));
 }

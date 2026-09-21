@@ -41,6 +41,7 @@ import {
   isSlaBreachedSubmission,
   parseDigestDate,
   slaBreachDays,
+  submissionDigestTouchAt,
   submissionOwnedByAm,
   submissionPrimaryAmId,
   type JobAmLookup,
@@ -338,13 +339,12 @@ function buildSuperAdminDigest(
     matchesSubmissionStatusGroup(row, "selected"),
   ).length;
 
-  const freshInWindow = submissions.filter((row) =>
-    inDigestWindow(row.submissionDate, windowStart, now),
-  );
-  const freshProfiles = freshInWindow.length;
-  const rolesWithProfiles = new Set(
-    freshInWindow.map((row) => row.jobId).filter(Boolean),
-  ).size;
+  const freshPendingReview = submissions.filter(
+    (row) =>
+      matchesSubmissionStatusGroup(row, "pending_review") &&
+      (inDigestWindow(row.submissionDate, windowStart, now) ||
+        inDigestWindow(submissionDigestTouchAt(row), windowStart, now)),
+  ).length;
 
   const rolesWorked = countRolesWorkedInDigestWindow(
     submissions,
@@ -420,6 +420,7 @@ function buildSuperAdminDigest(
     ),
     "",
     formatDigestDayHeading(now),
+    "Last 24 hours (activity since prior digest — not the pipeline snapshot above).",
     formatTable(
       [
         "No of Roles Worked",
@@ -432,7 +433,7 @@ function buildSuperAdminDigest(
       [
         [
           String(rolesWorked),
-          String(freshProfiles),
+          String(freshPendingReview),
           String(movedInternal),
           String(movedSubmitted),
           String(movedInterviewing),

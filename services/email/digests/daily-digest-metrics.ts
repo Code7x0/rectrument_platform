@@ -40,15 +40,47 @@ export function parseDigestDate(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function digestTimestampMillis(
+  value: string | null | undefined,
+): number | null {
+  const parsed = parseDigestDate(value);
+  return parsed ? parsed.getTime() : null;
+}
+
+/** Latest known touch — Airtable last-modified beats stale activity fallbacks. */
 export function submissionDigestTouchAt(
   submission: Submission,
 ): string | null {
-  return (
-    submission.lastActivityAt?.trim() ||
-    submission.updatedAt?.trim() ||
-    submission.submissionDate?.trim() ||
-    null
-  );
+  const candidates = [
+    submission.updatedAt,
+    submission.lastActivityAt,
+    submission.submissionDate,
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  let best: string | null = null;
+  let bestMs = -Infinity;
+  for (const stamp of candidates) {
+    const ms = digestTimestampMillis(stamp);
+    if (ms != null && ms > bestMs) {
+      bestMs = ms;
+      best = stamp;
+    }
+  }
+  return best;
+}
+
+function submissionPassesAmFilter(
+  submission: Submission,
+  jobMap: Map<string, JobAmLookup>,
+  accountManagerId?: string,
+): boolean {
+  if (!accountManagerId) {
+    return true;
+  }
+  const primaryAm = submissionPrimaryAmId(submission, jobMap);
+  return Boolean(primaryAm && primaryAm === accountManagerId);
 }
 
 export function inDigestWindow(
@@ -403,11 +435,7 @@ export function countActivityTransitions(
     if (!submission) {
       continue;
     }
-    const primaryAm = submissionPrimaryAmId(submission, jobMap);
-    if (!primaryAm) {
-      continue;
-    }
-    if (accountManagerId && primaryAm !== accountManagerId) {
+    if (!submissionPassesAmFilter(submission, jobMap, accountManagerId)) {
       continue;
     }
     const dedupeKey = `${activity.entityId}:${stage}:${activity.createdAt}`;
@@ -454,11 +482,7 @@ export function countSubmissionsInPipelineStageInWindow(
     ) {
       continue;
     }
-    const primaryAm = submissionPrimaryAmId(row, jobMap);
-    if (!primaryAm) {
-      continue;
-    }
-    if (accountManagerId && primaryAm !== accountManagerId) {
+    if (!submissionPassesAmFilter(row, jobMap, accountManagerId)) {
       continue;
     }
     count += 1;
@@ -506,11 +530,7 @@ export function countPipelineStageMoves(
     if (!submission) {
       continue;
     }
-    const primaryAm = submissionPrimaryAmId(submission, jobMap);
-    if (!primaryAm) {
-      continue;
-    }
-    if (accountManagerId && primaryAm !== accountManagerId) {
+    if (!submissionPassesAmFilter(submission, jobMap, accountManagerId)) {
       continue;
     }
     seen.add(activity.entityId);
@@ -530,11 +550,7 @@ export function countPipelineStageMoves(
     ) {
       continue;
     }
-    const primaryAm = submissionPrimaryAmId(row, jobMap);
-    if (!primaryAm) {
-      continue;
-    }
-    if (accountManagerId && primaryAm !== accountManagerId) {
+    if (!submissionPassesAmFilter(row, jobMap, accountManagerId)) {
       continue;
     }
     seen.add(row.id);
