@@ -70,6 +70,23 @@ test("shouldUsePipelineSnapshotDigest when no activity timestamps exist", () => 
   assert.equal(countPipelineStageSnapshot(rows, "pending_review"), 1);
 });
 
+test("shouldUsePipelineSnapshotDigest is false when Last modified is on candidates", () => {
+  const now = new Date("2026-09-21T02:00:00.000Z");
+  const windowStart = new Date("2026-09-20T02:00:00.000Z");
+  const rows = Array.from({ length: 10 }, (_, i) =>
+    submission({
+      id: `sub${i}`,
+      updatedAt: "2026-09-20T10:00:00.000Z",
+    }),
+  );
+  assert.equal(
+    shouldUsePipelineSnapshotDigest(rows, [], windowStart, now, {
+      activitiesStorageConfigured: false,
+    }),
+    false,
+  );
+});
+
 test("submissionDigestTouchAt prefers Airtable updatedAt over stale lastActivityAt", () => {
   const row = submission({
     submissionDate: "2026-01-01T00:00:00.000Z",

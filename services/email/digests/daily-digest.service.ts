@@ -354,12 +354,23 @@ function buildSuperAdminDigest(
 
   const freshPendingReview = usePipelineSnapshot
     ? countPipelineStageSnapshot(submissions, "pending_review")
-    : submissions.filter(
-        (row) =>
-          matchesSubmissionStatusGroup(row, "pending_review") &&
-          (inDigestWindow(row.submissionDate, windowStart, now) ||
-            inDigestWindow(submissionDigestTouchAt(row), windowStart, now)),
-      ).length;
+    : submissions.filter((row) => {
+        if (!matchesSubmissionStatusGroup(row, "pending_review")) {
+          return false;
+        }
+        if (inDigestWindow(row.submissionDate, windowStart, now)) {
+          return true;
+        }
+        const touch = submissionDigestTouchAt(row);
+        const submitted = parseDigestDate(row.submissionDate);
+        const touched = parseDigestDate(touch);
+        return (
+          inDigestWindow(touch, windowStart, now) &&
+          submitted != null &&
+          touched != null &&
+          touched > submitted
+        );
+      }).length;
 
   const rolesWorked = usePipelineSnapshot
     ? countRolesWorkedPipelineSnapshot(submissions)
@@ -434,6 +445,7 @@ function buildSuperAdminDigest(
   );
 
   return [
+    "Overall pipeline snapshot (current totals — all candidates).",
     formatTable(
       [
         "Pending Review",

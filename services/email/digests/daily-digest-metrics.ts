@@ -560,8 +560,8 @@ export function countPipelineStageMoves(
 }
 
 /**
- * Client bases without an Activities table cannot record status transitions;
- * show live pipeline counts (Command Center) instead of empty 24h move metrics.
+ * Only fall back to duplicating the pipeline snapshot when we have no way to
+ * detect touches in the digest window (no Activities log and no Last modified).
  */
 export function shouldUsePipelineSnapshotDigest(
   submissions: Submission[],
@@ -581,16 +581,13 @@ export function shouldUsePipelineSnapshotDigest(
     return false;
   }
 
-  if (!options.activitiesStorageConfigured) {
-    return true;
-  }
-
   const withUpdatedAt = submissions.filter((row) =>
     Boolean(row.updatedAt?.trim()),
   ).length;
   if (withUpdatedAt >= Math.max(5, Math.floor(submissions.length * 0.02))) {
     return false;
   }
+
   return true;
 }
 
