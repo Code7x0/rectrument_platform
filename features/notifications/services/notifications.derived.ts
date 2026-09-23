@@ -15,7 +15,28 @@ import {
   submissionStatusDisplayLabel,
 } from "@/features/shared/entities";
 import type { Notification } from "@/features/notifications/types";
-import { getDismissedNotificationIds } from "@/features/notifications/lib/read-state";
+import {
+  getNotificationReadContext,
+  resolveDerivedReadStatus,
+  type NotificationReadContext,
+} from "@/features/notifications/lib/read-state";
+
+/** Partner candidate rows older than this are not shown as in-app notifications. */
+const PARTNER_CANDIDATE_NOTIF_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+
+function isRecentNotificationEvent(
+  value: string | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!value?.trim()) {
+    return false;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+  return nowMs - parsed <= PARTNER_CANDIDATE_NOTIF_MAX_AGE_MS;
+}
 
 export async function deriveNotificationsForViewer(input: {
   recipientUserId: string;
@@ -25,7 +46,7 @@ export async function deriveNotificationsForViewer(input: {
   maxRecords?: number;
 }): Promise<Notification[]> {
   const maxRecords = input.maxRecords ?? 100;
-  const dismissed = await getDismissedNotificationIds();
+  const readContext = await getNotificationReadContext();
   const candidatesBase =
     input.role === "partner"
       ? "/partner/candidates"
@@ -54,6 +75,13 @@ export async function deriveNotificationsForViewer(input: {
     );
     const submissions = await listPartnerSubmissions(input.partnerId);
     for (const submission of submissions) {
+      const eventAt =
+        submission.updatedAt?.trim() ||
+        submission.lastActivityAt?.trim() ||
+        submission.submissionDate;
+      if (!isRecentNotificationEvent(eventAt)) {
+        continue;
+      }
       const name = submission.candidateName ?? "Candidate";
       const id = `derived_notif_${submission.id}`;
       items.push({
@@ -68,8 +96,8 @@ export async function deriveNotificationsForViewer(input: {
         entityType: "submission",
         entityId: submission.id,
         actionUrl: `${candidatesBase}?submissionId=${encodeURIComponent(submission.id)}`,
-        readStatus: dismissed.has(id) ? "read" : "unread",
-        createdAt: submission.submissionDate,
+        readStatus: resolveDerivedReadStatus(id, eventAt, readContext),
+        createdAt: eventAt,
         readAt: null,
         archived: false,
         metadata: null,
@@ -99,6 +127,8 @@ export async function deriveNotificationsForViewer(input: {
         const name =
           asString(record.fields[CANDIDATES_TABLE_FIELDS.fullName]) ??
           "Candidate";
+        const eventAt =
+          submission.updatedAt?.trim() || submission.submissionDate;
         const id = `derived_notif_${record.id}`;
         items.push({
           id,
@@ -112,8 +142,8 @@ export async function deriveNotificationsForViewer(input: {
           entityType: "submission",
           entityId: submission.id,
           actionUrl: `${candidatesBase}?submissionId=${encodeURIComponent(submission.id)}`,
-          readStatus: dismissed.has(id) ? "read" : "unread",
-          createdAt: submission.submissionDate,
+          readStatus: resolveDerivedReadStatus(id, eventAt, readContext),
+          createdAt: eventAt,
           readAt: null,
           archived: false,
           metadata: null,
@@ -133,7 +163,7 @@ export async function deriveNotificationsForViewer(input: {
       const partnerItems = await loadPartnerInAppNotifications(
         input.partnerId,
         input.recipientUserId,
-        dismissed,
+        readContext,
         maxRecords,
       );
       items.push(...partnerItems);
@@ -149,7 +179,7 @@ export async function deriveNotificationsForViewer(input: {
       accountManagerId: amScopeId,
       role: input.role,
       allowedJobIds,
-      dismissed,
+      readContext,
     });
     items.push(...claimItems);
   } catch (error) {
@@ -180,7 +210,11 @@ export async function deriveNotificationsForViewer(input: {
       }
       items.push({
         ...row,
-        readStatus: dismissed.has(row.id) ? "read" : row.readStatus,
+        readStatus: resolveDerivedReadStatus(
+          row.id,
+          row.createdAt,
+          readContext,
+        ),
       });
       existingKeys.add(key);
     }
@@ -200,7 +234,7 @@ async function deriveClaimNotificationsForViewer(input: {
   accountManagerId?: string | null;
   role?: string | null;
   allowedJobIds: Set<string> | null;
-  dismissed: Set<string>;
+  readContext: NotificationReadContext;
 }): Promise<Notification[]> {
   const { listAllJobClaims, listJobClaimsForPartner } = await import(
     "@/features/job-claims/repositories/job-claims.repository"
@@ -288,7 +322,7 @@ async function deriveClaimNotificationsForViewer(input: {
           entityType: "allocation",
           entityId: claim.id,
           actionUrl: "/partner/jobs",
-          readStatus: input.dismissed.has(id) ? "read" : "unread",
+          readStatus: resolveDerivedReadStatus(id, createdAt, input.readContext),
           createdAt,
           readAt: null,
           archived: false,
@@ -310,7 +344,7 @@ async function deriveClaimNotificationsForViewer(input: {
           entityType: "allocation",
           entityId: claim.id,
           actionUrl: "/partner/available-jobs",
-          readStatus: input.dismissed.has(id) ? "read" : "unread",
+          readStatus: resolveDerivedReadStatus(id, createdAt, input.readContext),
           createdAt,
           readAt: null,
           archived: false,
@@ -336,7 +370,7 @@ async function deriveClaimNotificationsForViewer(input: {
       entityType: "allocation",
       entityId: claim.id,
       actionUrl: claimsBase,
-      readStatus: input.dismissed.has(id) ? "read" : "unread",
+      readStatus: resolveDerivedReadStatus(id, createdAt, input.readContext),
       createdAt,
       readAt: null,
       archived: false,

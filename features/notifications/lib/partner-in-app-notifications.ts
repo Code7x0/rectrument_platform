@@ -9,6 +9,10 @@ import {
 } from "@/lib/airtable/field-markers";
 import { PARTNERS_TABLE_FIELDS } from "@/lib/airtable/fields";
 import { getAirtableTableName } from "@/lib/airtable/tables";
+import {
+  resolveDerivedReadStatus,
+  type NotificationReadContext,
+} from "@/features/notifications/lib/read-state";
 import type {
   Notification,
   NotificationCategory,
@@ -94,7 +98,7 @@ export async function persistPartnerInAppNotification(
 export async function loadPartnerInAppNotifications(
   partnerId: string,
   recipientUserId: string,
-  dismissed: Set<string>,
+  readContext: NotificationReadContext,
   maxRecords = 40,
 ): Promise<Notification[]> {
   const id = partnerId.trim();
@@ -130,7 +134,11 @@ export async function loadPartnerInAppNotifications(
         entityType: mapMarkerEntityType(marker.entityType),
         entityId: marker.entityId,
         actionUrl: marker.actionUrl,
-        readStatus: dismissed.has(notificationId) ? "read" : "unread",
+        readStatus: resolveDerivedReadStatus(
+          notificationId,
+          marker.at,
+          readContext,
+        ),
         createdAt: marker.at,
         readAt: null,
         archived: false,

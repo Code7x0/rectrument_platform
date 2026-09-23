@@ -327,7 +327,7 @@ export const getUnreadNotificationCount = cache(
           partnerId: user?.partnerId,
           accountManagerId: user?.accountManagerId,
           role: user?.role,
-          maxRecords: 40,
+          maxRecords: 250,
         });
         return derived.filter((row) => row.readStatus === "unread").length;
       }
@@ -406,30 +406,31 @@ export async function getSyncFingerprint(userId: string): Promise<{
       };
     }
 
-    const {
-      getEphemeralSyncFingerprint,
-      listEphemeralNotificationsForRecipient,
-    } = await import(
-      "@/features/notifications/lib/ephemeral-notification-store"
+    const user = await getUserById(userId);
+    const { getNotificationReadAllBefore } = await import(
+      "@/features/notifications/lib/read-state"
     );
-    const [ephemeralHead, ephemeralRows] = await Promise.all([
-      getEphemeralSyncFingerprint(userId),
-      listEphemeralNotificationsForRecipient(userId, { maxRecords: 50 }),
-    ]);
-    const unread = ephemeralRows.filter(
-      (row) => row.readStatus === "unread",
-    ).length;
-    const head = ephemeralRows[0];
+    const derived = await deriveNotificationsForViewer({
+      recipientUserId: userId,
+      partnerId: user?.partnerId,
+      accountManagerId: user?.accountManagerId,
+      role: user?.role,
+      maxRecords: 50,
+    });
+    const unread = derived.filter((row) => row.readStatus === "unread").length;
+    const head = derived[0];
+    const readAllBefore = await getNotificationReadAllBefore();
 
     return {
       unread,
       fingerprint: [
-        "v2-ephemeral",
+        "v3-derived",
         unread,
+        readAllBefore?.toISOString() ?? "",
         head?.id ?? "",
         head?.createdAt ?? "",
+        head?.readStatus ?? "",
         head?.type ?? "",
-        ephemeralHead,
       ].join("|"),
     };
   } catch (error) {
@@ -532,16 +533,21 @@ export async function markAllNotificationsRead(
   } = await import("@/features/notifications/lib/read-state");
 
   if (!isNotificationsStorageAvailable()) {
+    const { setNotificationReadAllBefore } = await import(
+      "@/features/notifications/lib/read-state"
+    );
     const user = await getUserById(userId);
     const derived = await deriveNotificationsForViewer({
       recipientUserId: userId,
       partnerId: user?.partnerId,
       accountManagerId: user?.accountManagerId,
       role: user?.role,
+      maxRecords: 250,
     });
     const unreadIds = derived
       .filter((row) => row.readStatus === "unread")
       .map((row) => row.id);
+    await setNotificationReadAllBefore();
     if (unreadIds.length > 0) {
       await dismissNotificationIds(unreadIds);
     }

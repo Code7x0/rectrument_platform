@@ -13,6 +13,7 @@ import {
 } from "@/features/notifications/actions";
 import type { Notification } from "@/features/notifications/types";
 import { NOTIFICATION_PRIORITY_LABELS } from "@/features/notifications/types";
+import { signalLiveDataChange } from "@/lib/live-sync";
 import { formatDateTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -130,6 +131,7 @@ export function NotificationBell({
                       toast.error(result.message);
                       return;
                     }
+                    signalLiveDataChange();
                     router.refresh();
                   });
                 }}
