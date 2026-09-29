@@ -4,7 +4,8 @@ import { actionErrorMessage } from "@/lib/actions/errors";
 
 import { revalidatePath } from "next/cache";
 
-import { requirePermission, requireRole } from "@/lib/auth";
+import { requirePermission, requireRole, resolveAccountManagerScopeId } from "@/lib/auth";
+import type { AppSession } from "@/types";
 import { invalidateCrmAfterJobMutation } from "@/lib/cache/crm-cache";
 import {
   archiveJob,
@@ -67,22 +68,12 @@ async function assertAmJobAssignmentAllowed(
     return null;
   }
 
-  const { findClientById } = await import(
-    "@/features/clients/repositories/clients.repository"
-  );
-  const client = await findClientById(clientId);
-  if (!client) {
-    return { success: false, message: "Client not found" };
-  }
-
-  const allowed = new Set(
-    [...(client.accountManagerIds ?? []), client.accountManagerId].filter(
-      (id): id is string => Boolean(id),
-    ),
+  const { accountManagerAssignedToClient } = await import(
+    "@/features/clients/services/clients.service"
   );
 
   for (const id of accountManagerIds) {
-    if (!allowed.has(id)) {
+    if (!(await accountManagerAssignedToClient(clientId, id))) {
       return {
         success: false,
         message: "Selected Account Manager is not assigned to this client",
@@ -91,6 +82,34 @@ async function assertAmJobAssignmentAllowed(
   }
 
   return null;
+}
+
+/** Drop stale job AM ids; keep valid client assignments or the signed-in AM. */
+async function sanitizeAccountManagerIdsForAmJobSave(
+  session: AppSession,
+  clientId: string,
+  accountManagerIds: string[],
+): Promise<string[]> {
+  const { accountManagerAssignedToClient } = await import(
+    "@/features/clients/services/clients.service"
+  );
+  const valid: string[] = [];
+  for (const id of accountManagerIds) {
+    if (await accountManagerAssignedToClient(clientId, id)) {
+      valid.push(id);
+    }
+  }
+  if (valid.length > 0) {
+    return Array.from(new Set(valid));
+  }
+  const scopeId = resolveAccountManagerScopeId(session);
+  if (
+    scopeId &&
+    (await accountManagerAssignedToClient(clientId, scopeId))
+  ) {
+    return [scopeId];
+  }
+  return accountManagerIds;
 }
 
 function formValuesToInput(values: JobFormValues, createdById?: string) {
@@ -212,7 +231,12 @@ export async function createJobAction(
         }
         throw error;
       }
-      const selectedAmIds = resolveSelectedAccountManagerIds(values);
+      let selectedAmIds = resolveSelectedAccountManagerIds(values);
+      selectedAmIds = await sanitizeAccountManagerIdsForAmJobSave(
+        session,
+        values.clientId,
+        selectedAmIds,
+      );
       const denied = await assertAmJobAssignmentAllowed(
         values.clientId,
         selectedAmIds,
@@ -305,7 +329,12 @@ export async function updateJobAction(
         }
         throw error;
       }
-      const selectedAmIds = resolveSelectedAccountManagerIds(values);
+      let selectedAmIds = resolveSelectedAccountManagerIds(values);
+      selectedAmIds = await sanitizeAccountManagerIdsForAmJobSave(
+        session,
+        values.clientId,
+        selectedAmIds,
+      );
       const denied = await assertAmJobAssignmentAllowed(
         values.clientId,
         selectedAmIds,

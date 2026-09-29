@@ -27,7 +27,10 @@ export async function GET(request: Request) {
 
   try {
     const result = await sendDailyDigests();
-    console.info("[cron] daily-digests finished", result);
+    console.info("[cron] daily-digests finished", {
+      ...result,
+      adminDigest: result.adminDigest,
+    });
     return NextResponse.json({
       ok: true,
       startedAt,

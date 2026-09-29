@@ -10,6 +10,10 @@ import {
   DOMAIN_CLIENT_STATUS_TO_AIRTABLE,
 } from "@/lib/airtable/fields";
 import { isValidClientCode } from "@/lib/business-ids";
+import {
+  clientModeOfWorkToAirtable,
+  normalizeClientModeOfWorkFromAirtable,
+} from "@/features/clients/lib/mode-of-work";
 import type {
   Client,
   ClientStatus,
@@ -89,7 +93,9 @@ export function mapClientRecord(record: {
     primaryAddress: asString(fields[CLIENTS_TABLE_FIELDS.primaryAddress]),
     addresses: asString(fields[CLIENTS_TABLE_FIELDS.addresses]),
     employeeSize: asString(fields[CLIENTS_TABLE_FIELDS.employeeSize]),
-    modeOfWork: asString(fields[CLIENTS_TABLE_FIELDS.modeOfWork]),
+    modeOfWork: normalizeClientModeOfWorkFromAirtable(
+      asString(fields[CLIENTS_TABLE_FIELDS.modeOfWork]),
+    ),
     workDaysInWeek: asNumber(fields[CLIENTS_TABLE_FIELDS.workDaysInWeek]),
   };
 }
@@ -131,11 +137,12 @@ export function toAirtableCreateFields(
   if (input.primaryAddress) {
     fields[CLIENTS_TABLE_FIELDS.primaryAddress] = input.primaryAddress;
   }
-  if (input.addresses) {
+  if (!clientMode && input.addresses) {
     fields[CLIENTS_TABLE_FIELDS.addresses] = input.addresses;
   }
-  if (input.modeOfWork) {
-    fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork;
+  const modeOfWorkCreate = clientModeOfWorkToAirtable(input.modeOfWork);
+  if (modeOfWorkCreate) {
+    fields[CLIENTS_TABLE_FIELDS.modeOfWork] = modeOfWorkCreate;
   }
   if (input.workDaysInWeek != null) {
     fields[CLIENTS_TABLE_FIELDS.workDaysInWeek] = input.workDaysInWeek;
@@ -189,11 +196,16 @@ export function toAirtableUpdateFields(
   if (input.primaryAddress !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.primaryAddress] = input.primaryAddress || "";
   }
-  if (input.addresses !== undefined) {
+  if (!clientMode && input.addresses !== undefined) {
     fields[CLIENTS_TABLE_FIELDS.addresses] = input.addresses || "";
   }
   if (input.modeOfWork !== undefined) {
-    fields[CLIENTS_TABLE_FIELDS.modeOfWork] = input.modeOfWork || "";
+    const modeOfWorkUpdate = clientModeOfWorkToAirtable(input.modeOfWork);
+    if (modeOfWorkUpdate) {
+      fields[CLIENTS_TABLE_FIELDS.modeOfWork] = modeOfWorkUpdate;
+    } else if (!input.modeOfWork?.trim()) {
+      fields[CLIENTS_TABLE_FIELDS.modeOfWork] = "";
+    }
   }
   if (input.workDaysInWeek !== undefined) {
     // Airtable FieldSet types disallow null; runtime null clears the number field.

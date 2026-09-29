@@ -721,6 +721,8 @@ export interface DailyDigestResult {
   attempted: number;
   sent: number;
   errors: string[];
+  /** Super Admin morning report — sent first so cron timeouts do not skip it. */
+  adminDigest?: { attempted: number; sent: number };
 }
 
 const DIGEST_EMAIL_BATCH_SIZE = 8;
@@ -807,13 +809,63 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
   const result: DailyDigestResult = { attempted: 0, sent: 0, errors: [] };
   const baseUrl = appBaseUrl();
 
-  for (const am of amRecipients) {
+  const adminRecipients = await getSuperAdminNotificationEmails();
+  const fallbackAdmins = adminRecipients.length
+    ? adminRecipients
+    : await getAdminNotificationEmails();
+
+  if (fallbackAdmins.length === 0) {
+    result.errors.push(
+      "Super Admin digest skipped: configure AIRTABLE_SUPER_ADMIN_EMAILS or active super_admin users",
+    );
+    console.warn("[digest] no Super Admin digest recipients");
+  } else {
+    const adminDigestBody = buildSuperAdminDigest(
+      submissions,
+      jobs,
+      amRecipients,
+      activities,
+      windowStart,
+      now,
+      digestDate,
+      slaClockStarts,
+      activePartnerIds,
+      isActivitiesStorageAvailable(),
+    );
+
+    console.info("[digest] sending Super Admin digest first", {
+      recipients: fallbackAdmins.length,
+    });
+
+    const adminResult = await fanOutEmail(fallbackAdmins, (to) =>
+      sendEmailSafe({
+        to,
+        template: "daily_digest_admin",
+        data: {
+          name: "Chief",
+          digestBody: adminDigestBody,
+          digestDate,
+          dashboardUrl: `${baseUrl}/super-admin`,
+        },
+      }),
+    );
+    result.adminDigest = adminResult;
+    result.attempted += adminResult.attempted;
+    result.sent += adminResult.sent;
+    if (adminResult.sent < adminResult.attempted) {
+      result.errors.push(
+        `Super Admin digest: ${adminResult.sent}/${adminResult.attempted} delivered`,
+      );
+    }
+  }
+
+  const amOutcomes = await runDigestEmailBatch(amRecipients, async (am) => {
     const amId = am.accountManagerId;
     if (!am.email?.trim() || !amId) {
-      result.errors.push(
-        `AM digest skipped: missing email or id for ${am.fullName}`,
-      );
-      continue;
+      return {
+        sent: false as const,
+        error: `AM digest skipped: missing email or id for ${am.fullName}`,
+      };
     }
 
     const owned = submissions.filter((row) =>
@@ -880,7 +932,6 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
             .join("\n"),
     ].join("\n");
 
-    result.attempted += 1;
     const sendResult = await sendEmailSafe({
       to: am.email,
       template: "daily_digest_am",
@@ -891,10 +942,20 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
         dashboardUrl: `${baseUrl}/account-manager`,
       },
     });
-    if (sendResult) {
+    return sendResult
+      ? { sent: true as const }
+      : {
+          sent: false as const,
+          error: `AM digest failed for ${am.email}`,
+        };
+  });
+
+  for (const outcome of amOutcomes) {
+    result.attempted += 1;
+    if (outcome.sent) {
       result.sent += 1;
-    } else {
-      result.errors.push(`AM digest failed for ${am.email}`);
+    } else if (outcome.error) {
+      result.errors.push(outcome.error);
     }
   }
 
@@ -969,41 +1030,6 @@ export async function sendDailyDigests(now = new Date()): Promise<DailyDigestRes
     } else if (outcome.error) {
       result.errors.push(outcome.error);
     }
-  }
-
-  const adminRecipients = await getSuperAdminNotificationEmails();
-  const fallbackAdmins = adminRecipients.length
-    ? adminRecipients
-    : await getAdminNotificationEmails();
-
-  if (fallbackAdmins.length > 0) {
-    const digestBody = buildSuperAdminDigest(
-      submissions,
-      jobs,
-      amRecipients,
-      activities,
-      windowStart,
-      now,
-      digestDate,
-      slaClockStarts,
-      activePartnerIds,
-      isActivitiesStorageAvailable(),
-    );
-
-    const adminResult = await fanOutEmail(fallbackAdmins, (to) =>
-      sendEmailSafe({
-        to,
-        template: "daily_digest_admin",
-        data: {
-          name: "Chief",
-          digestBody,
-          digestDate,
-          dashboardUrl: `${baseUrl}/super-admin`,
-        },
-      }),
-    );
-    result.attempted += adminResult.attempted;
-    result.sent += adminResult.sent;
   }
 
   console.info("[digest] sendDailyDigests done", result);

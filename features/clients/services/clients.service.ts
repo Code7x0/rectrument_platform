@@ -60,6 +60,29 @@ async function listAccountManagerClientIds(
   }
 }
 
+/**
+ * Whether an Account Managers record is assigned to a client — same rules as
+ * listClients({ accountManagerId }) (Account Owner link + AM.Clients reverse link).
+ */
+export async function accountManagerAssignedToClient(
+  clientId: string,
+  accountManagerId: string,
+): Promise<boolean> {
+  const amId = accountManagerId.trim();
+  if (!amId || !clientId.trim()) {
+    return false;
+  }
+  const client = await findClientById(clientId);
+  if (!client) {
+    return false;
+  }
+  if (clientOwnedByAccountManager(client, amId)) {
+    return true;
+  }
+  const reverseLinkedIds = await listAccountManagerClientIds(amId);
+  return reverseLinkedIds.has(clientId);
+}
+
 /** True when AM id is linked on Clients.Account Owner (any position). */
 export function clientOwnedByAccountManager(
   client: Pick<Client, "accountManagerId" | "accountManagerIds">,
