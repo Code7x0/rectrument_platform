@@ -1109,7 +1109,9 @@ export async function notifyJobDetailsUpdated(input: {
   const label = input.jobCode?.trim() || input.jobTitle;
   const description =
     input.changedSummary?.trim() ||
-    `${label} was updated. Review the latest job details.`;
+    (input.changeTable?.trim()
+      ? `${label} was updated.`
+      : `${label} was updated. Review the latest job details.`);
 
   const { listAllocations } = await import("@/features/allocations/services");
   const allocations = await listAllocations({

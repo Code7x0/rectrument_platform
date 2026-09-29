@@ -30,5 +30,5 @@ test("toAirtableUpdateFields omits Mode Of Work when unset in form", async () =>
     workDaysInWeek: 0,
   });
   assert.equal(fields["Mode Of Work"], undefined);
-  assert.equal(fields["Account Owner"], ["recAm1"]);
+  assert.deepEqual(fields["Account Owner"], ["recAm1"]);
 });

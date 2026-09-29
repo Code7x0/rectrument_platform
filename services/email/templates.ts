@@ -366,14 +366,7 @@ export function renderBody(
       return formatOvatoEmailBody({
         sections: [
           `Job ${data.jobCode ?? data.jobTitle ?? "update"} has been updated. Do have a look.`,
-          data.changeTable?.trim()
-            ? data.changeTable
-            : data.changedSummary?.trim()
-              ? formatTable(
-                  ["Job ID", "Field Updated", "Present Value"],
-                  [[data.jobCode ?? data.jobTitle ?? "—", "Details", data.changedSummary]],
-                )
-              : "",
+          data.changeTable?.trim() ?? "",
         ],
         dashboardUrl: data.jobsUrl,
         closing: "Happy Hiring!!!",

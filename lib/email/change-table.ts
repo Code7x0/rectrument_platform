@@ -18,3 +18,16 @@ export function formatEntityChangeTable(
     changes.map((row) => [entityId, row.field, row.value]),
   );
 }
+
+export function formatJobChangeTable(
+  jobCode: string,
+  changes: FieldChangeRow[],
+): string {
+  if (changes.length === 0) {
+    return "";
+  }
+  return formatTable(
+    ["Job ID", "Field Updated", "Present Value"],
+    changes.map((row) => [jobCode, row.field, row.value]),
+  );
+}

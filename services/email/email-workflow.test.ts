@@ -165,7 +165,8 @@ const TEMPLATE_FIXTURES: Array<{
       name: "Partner",
       jobTitle: "AB_001",
       jobCode: "AB_001",
-      changedSummary: "Job description updated.",
+      changeTable:
+        "Job ID  Field Updated  Present Value\nAB_001  Details  Client has 3 interviews process",
       jobsUrl: `${base}/partner/jobs`,
     },
   },
