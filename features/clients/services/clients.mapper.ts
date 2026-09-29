@@ -201,10 +201,9 @@ export function toAirtableUpdateFields(
   }
   if (input.modeOfWork !== undefined) {
     const modeOfWorkUpdate = clientModeOfWorkToAirtable(input.modeOfWork);
+    // Never write "" — Airtable single-select rejects unknown/clear values via API.
     if (modeOfWorkUpdate) {
       fields[CLIENTS_TABLE_FIELDS.modeOfWork] = modeOfWorkUpdate;
-    } else if (!input.modeOfWork?.trim()) {
-      fields[CLIENTS_TABLE_FIELDS.modeOfWork] = "";
     }
   }
   if (input.workDaysInWeek !== undefined) {

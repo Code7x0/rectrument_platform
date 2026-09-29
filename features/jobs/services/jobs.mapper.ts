@@ -378,10 +378,9 @@ export function toAirtableUpdateFields(
   if (input.workMode !== undefined) {
     fields[JOBS_TABLE_FIELDS.workMode] = input.workMode?.trim() || "";
   }
-  if (!clientMode && input.employmentType !== undefined) {
-    fields[JOBS_TABLE_FIELDS.employmentType] = input.employmentType
-      ? maps.employmentType[input.employmentType]
-      : "";
+  if (!clientMode && input.employmentType !== undefined && input.employmentType) {
+    fields[JOBS_TABLE_FIELDS.employmentType] =
+      maps.employmentType[input.employmentType];
   }
   if (input.experience !== undefined) {
     fields[JOBS_TABLE_FIELDS.experience] = input.experience || "";
@@ -389,10 +388,8 @@ export function toAirtableUpdateFields(
   if (input.salary !== undefined) {
     fields[JOBS_TABLE_FIELDS.salary] = input.salary || "";
   }
-  if (input.priority !== undefined) {
-    fields[JOBS_TABLE_FIELDS.priority] = input.priority
-      ? maps.priority[input.priority]
-      : "";
+  if (input.priority !== undefined && input.priority) {
+    fields[JOBS_TABLE_FIELDS.priority] = maps.priority[input.priority];
   }
   if (!clientMode && input.openPositions !== undefined) {
     fields[JOBS_TABLE_FIELDS.openPositions] = input.openPositions;
