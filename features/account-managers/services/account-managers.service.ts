@@ -4,17 +4,14 @@ import { isClientCompatMode } from "@/lib/airtable/compat";
 import { ACCOUNT_MANAGERS_TABLE_FIELDS } from "@/lib/airtable/fields";
 import { isValidAmCode, parseAmCodeMarker } from "@/lib/business-ids";
 import { listClients } from "@/features/clients/services";
+import { resolveAccountManagersTableName } from "@/lib/airtable/resolve-table-names";
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function amTableName(): string {
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  if (!raw || raw === "Account") {
-    return "Account Managers";
-  }
-  return raw;
+  return resolveAccountManagersTableName();
 }
 
 export type AccountManagerDirectoryStatus = "active" | "inactive";

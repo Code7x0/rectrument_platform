@@ -1,5 +1,6 @@
 import { isClientCompatMode } from "@/lib/airtable/compat";
 import { DOMAIN_PARTNER_QUERY_TYPE_TO_AIRTABLE } from "@/lib/airtable/fields";
+import { resolvePartnerQueriesTableName as resolvePartnerQueriesTableNameCore } from "@/lib/airtable/resolve-table-names";
 import type { PartnerQueryType } from "@/features/feedback/types";
 
 /**
@@ -24,12 +25,7 @@ export function partnerQueryTypeToAirtableWrite(type: PartnerQueryType): string 
 
 /** Avoid truncated env values like `Partner` (from unquoted "Partner Queries"). */
 export function resolvePartnerQueriesTableName(
-  configured: string | null | undefined,
+  configured?: string | null,
 ): string {
-  const trimmed = configured?.trim() ?? "";
-  const lower = trimmed.toLowerCase();
-  if (trimmed && lower !== "partner" && lower !== "partners") {
-    return trimmed;
-  }
-  return "Partner Queries";
+  return resolvePartnerQueriesTableNameCore(configured);
 }

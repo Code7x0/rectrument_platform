@@ -37,6 +37,7 @@ import {
   CLIENTS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { getCachedAllClients } from "@/lib/cache/crm-cache";
+import { resolveAccountManagersTableName } from "@/lib/airtable/resolve-table-names";
 
 /** Prefer ID formula when the set is small; otherwise one full Clients scan. */
 const CLIENTS_BY_ID_THRESHOLD = 40;
@@ -44,8 +45,7 @@ const CLIENTS_BY_ID_THRESHOLD = 40;
 async function listAccountManagerClientIds(
   accountManagerId: string,
 ): Promise<Set<string>> {
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  const tableName = !raw || raw === "Account" ? "Account Managers" : raw;
+  const tableName = resolveAccountManagersTableName();
   try {
     const records = await getRecords(tableName, {
       filterByFormula: `RECORD_ID() = '${accountManagerId.replace(/'/g, "\\'")}'`,

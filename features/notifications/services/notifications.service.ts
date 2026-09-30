@@ -676,9 +676,10 @@ export async function findAccountManagerUserId(
     const { isClientIdentityMode } = await import(
       "@/lib/airtable/identity-mode"
     );
-    const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-    const table =
-      !raw || raw === "Account" ? "Account Managers" : raw;
+    const { resolveAccountManagersTableName } = await import(
+      "@/lib/airtable/resolve-table-names"
+    );
+    const table = resolveAccountManagersTableName();
     const records = await getRecords(table, {
       filterByFormula: `RECORD_ID() = '${accountManagerId.replace(/'/g, "\\'")}'`,
       maxRecords: 1,

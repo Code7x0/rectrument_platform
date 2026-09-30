@@ -31,6 +31,7 @@ import {
 import { patchClient } from "@/features/clients/repositories/clients.repository";
 import { getRecords, updateRecord } from "@/lib/airtable/client";
 import { getAirtableTableName } from "@/lib/airtable/tables";
+import { resolveAccountManagersTableName } from "@/lib/airtable/resolve-table-names";
 import { getOptionalEnv } from "@/lib/api/env";
 import { asString, isClientCompatMode } from "@/lib/airtable/compat";
 
@@ -196,11 +197,7 @@ export async function allocateNextJobCodeForClient(
 }
 
 function amTableName(): string {
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  if (!raw || raw === "Account") {
-    return "Account Managers";
-  }
-  return raw;
+  return resolveAccountManagersTableName();
 }
 
 export async function listExistingAmCodes(

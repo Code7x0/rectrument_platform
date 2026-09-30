@@ -5,6 +5,7 @@ import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   USERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { resolveAccountManagersTableName } from "@/lib/airtable/resolve-table-names";
 import { getAirtableTableName } from "@/lib/airtable/tables";
 import { isValidAmCode, parseAmCodeMarker } from "@/lib/business-ids";
 
@@ -15,11 +16,9 @@ import type { LookupOption } from "./types";
  * label = display name; code = short business AM ID (for partners / reference).
  */
 export async function listAccountManagerOptions(): Promise<LookupOption[]> {
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  const accountManagersTable =
-    !raw || raw === "Account" ? "Account Managers" : raw;
+  const accountManagersTable = resolveAccountManagersTableName();
 
-  if (raw || isClientCompatMode()) {
+  if (getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim() || isClientCompatMode()) {
     const records = await getRecords(accountManagersTable, {
       filterByFormula: `OR({${ACCOUNT_MANAGERS_TABLE_FIELDS.status}} = 'Active', {${ACCOUNT_MANAGERS_TABLE_FIELDS.status}} = '')`,
       sort: [{ field: ACCOUNT_MANAGERS_TABLE_FIELDS.name, direction: "asc" }],

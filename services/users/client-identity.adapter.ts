@@ -21,6 +21,7 @@ import {
   ACCOUNT_MANAGERS_TABLE_FIELDS,
   PARTNERS_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
+import { resolveAccountManagersTableName } from "@/lib/airtable/resolve-table-names";
 import {
   getAdminEmails,
   getSuperAdminEmails,
@@ -51,12 +52,7 @@ import type {
 } from "./users.types";
 
 function accountManagersTable(): string {
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  // Guard against unquoted .env truncation ("Account Managers" → "Account").
-  if (!raw || raw === "Account") {
-    return "Account Managers";
-  }
-  return raw;
+  return resolveAccountManagersTableName();
 }
 
 function partnersTable(): string {

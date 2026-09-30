@@ -3,6 +3,7 @@ import { getRecords } from "@/lib/airtable/client";
 import { asString } from "@/lib/airtable/compat";
 import { parseInviteMarker } from "@/lib/airtable/field-markers";
 import { ACCOUNT_MANAGERS_TABLE_FIELDS } from "@/lib/airtable/fields";
+import { resolveAccountManagersTableName } from "@/lib/airtable/resolve-table-names";
 import { getOptionalEnv } from "@/lib/api/env";
 import { listUsers } from "@/services/users";
 
@@ -99,8 +100,7 @@ export async function getAccountManagerEmail(
     return normalizeEmail(linked.email);
   }
 
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  const table = !raw || raw === "Account" ? "Account Managers" : raw;
+  const table = resolveAccountManagersTableName();
   try {
     const records = await getRecords(table, {
       filterByFormula: `RECORD_ID() = '${amId.replace(/'/g, "\\'")}'`,
@@ -122,8 +122,7 @@ export async function getActiveAccountManagerDigestRecipients(): Promise<
 > {
   const byEmail = new Map<string, AccountManagerDigestRecipient>();
 
-  const raw = getOptionalEnv("AIRTABLE_ACCOUNT_MANAGERS_TABLE")?.trim();
-  const table = !raw || raw === "Account" ? "Account Managers" : raw;
+  const table = resolveAccountManagersTableName();
 
   try {
     const records = await getRecords(table);
