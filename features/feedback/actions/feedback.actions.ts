@@ -16,6 +16,7 @@ import {
   resolveAccountManagerScopeId,
   resolvePartnerScopeId,
 } from "@/lib/auth";
+import { actionErrorMessage } from "@/lib/actions/errors";
 import { getOptionalEnv } from "@/lib/api/env";
 import { sendEmailSafe } from "@/services/email";
 import { getUserById } from "@/services/users";
@@ -132,19 +133,26 @@ export async function submitFeedbackAction(
         message,
       });
 
-      const { notifyPartnerQuerySubmitted } = await import(
-        "@/features/notifications/services/notification-events"
-      );
-      await notifyPartnerQuerySubmitted({
-        partnerId,
-        partnerCode,
-        message,
-        type: parsed.data.type,
-        typeLabel,
-        jobTitle,
-        jobId: parsed.data.jobId ?? null,
-        accountManagerId,
-      });
+      try {
+        const { notifyPartnerQuerySubmitted } = await import(
+          "@/features/notifications/services/notification-events"
+        );
+        await notifyPartnerQuerySubmitted({
+          partnerId,
+          partnerCode,
+          message,
+          type: parsed.data.type,
+          typeLabel,
+          jobTitle,
+          jobId: parsed.data.jobId ?? null,
+          accountManagerId,
+        });
+      } catch (notifyError) {
+        console.error(
+          "[feedback] partner query saved but notify failed",
+          notifyError,
+        );
+      }
 
       revalidateFeedbackPaths();
       return { success: true };
@@ -193,10 +201,14 @@ export async function submitFeedbackAction(
 
     revalidateFeedbackPaths();
     return { success: true };
-  } catch {
+  } catch (error) {
+    console.error("[feedback] submitFeedbackAction failed", error);
     return {
       success: false,
-      message: "Unable to submit feedback right now. Please try again later.",
+      message: actionErrorMessage(
+        error,
+        "Unable to submit feedback right now. Please try again later.",
+      ),
     };
   }
 }

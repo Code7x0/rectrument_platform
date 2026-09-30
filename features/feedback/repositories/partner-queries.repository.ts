@@ -15,6 +15,10 @@ import {
   PARTNER_QUERIES_TABLE_FIELDS,
 } from "@/lib/airtable/fields";
 import { getOptionalAirtableTableName } from "@/lib/airtable/tables";
+import {
+  partnerQueryTypeToAirtableWrite,
+  resolvePartnerQueriesTableName,
+} from "@/features/feedback/lib/partner-query-airtable";
 import type {
   PartnerQuery,
   PartnerQueryStatus,
@@ -23,8 +27,8 @@ import type {
 import { normalizePartnerQueryType } from "@/features/feedback/types";
 
 function getTableName(): string {
-  return (
-    getOptionalAirtableTableName("partnerQueriesTable") ?? "Partner Queries"
+  return resolvePartnerQueriesTableName(
+    getOptionalAirtableTableName("partnerQueriesTable"),
   );
 }
 
@@ -95,7 +99,7 @@ function toCreateFields(query: PartnerQuery): AirtableFields {
     [PARTNER_QUERIES_TABLE_FIELDS.partner]: query.partnerId,
     [PARTNER_QUERIES_TABLE_FIELDS.partnerCode]: query.partnerCode,
     [PARTNER_QUERIES_TABLE_FIELDS.queryType]:
-      DOMAIN_PARTNER_QUERY_TYPE_TO_AIRTABLE[query.type],
+      partnerQueryTypeToAirtableWrite(query.type),
     [PARTNER_QUERIES_TABLE_FIELDS.message]: query.message,
     [PARTNER_QUERIES_TABLE_FIELDS.status]:
       DOMAIN_PARTNER_QUERY_STATUS_TO_AIRTABLE[query.status],
